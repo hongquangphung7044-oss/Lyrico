@@ -17,14 +17,17 @@ import com.lonx.audiotag.model.AudioPicture
 import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ConversionMode
+import com.lonx.lyrico.data.model.ExtraMetadataWriteDefaults
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.LyricsSearchResult
+import com.lonx.lyrico.data.model.ScoredSearchResult
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.data.repository.SettingsDefaults
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
+import com.lonx.lyrico.utils.ExtraMetadataResolver
 import com.lonx.lyrico.utils.LyricDecoder
 import com.lonx.lyrico.utils.LyricEncoder
 import com.lonx.lyrico.utils.ReplayGainCalculateState
@@ -32,6 +35,7 @@ import com.lonx.lyrico.utils.ReplayGainError
 import com.lonx.lyrico.utils.ReplayGainScanner
 import com.lonx.lyrico.utils.UiMessage
 import com.lonx.lyrics.model.LyricsResult
+import com.lonx.lyrics.model.SongSearchResult
 import com.lonx.lyrics.model.isWordByWord
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -87,11 +91,17 @@ class EditMetadataViewModel(
 ) : ViewModel() {
 
     private val TAG = "EditMetadataVM"
+    private val extraMetadataResolver = ExtraMetadataResolver()
 
     val limitLyricsInputLines = settingsRepository.limitLyricsInputLines.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         SettingsDefaults.LIMIT_LYRICS_INPUT_LINES
+    )
+    private val extraMetadataWriteRules = settingsRepository.extraMetadataWriteRules.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        ExtraMetadataWriteDefaults.DEFAULT_RULES
     )
     private var currentSong: SongEntity? = null
 
@@ -209,40 +219,48 @@ class EditMetadataViewModel(
                 )
             }
             // 从 extras 解析 ReplayGain
-            val extras = result.extras
-
-            fun pick(vararg keys: String): String? {
-                return keys.firstNotNullOfOrNull { key ->
-                    extras[key]?.takeIf { it.isNotBlank() }
+            val standardTagData = current.copy(
+                title = result.title?.takeIf { it.isNotBlank() } ?: current.title,
+                artist = result.artist?.takeIf { it.isNotBlank() } ?: current.artist,
+                album = result.album?.takeIf { it.isNotBlank() } ?: current.album,
+                lyrics = result.lyrics?.takeIf { it.isNotBlank() } ?: current.lyrics,
+                date = result.date?.takeIf { it.isNotBlank() } ?: current.date,
+                trackNumber = result.trackerNumber?.takeIf { it.isNotBlank() }
+                    ?: current.trackNumber,
+                picUrl = result.picUrl?.takeIf { it.isNotBlank() } ?: current.picUrl
+            )
+            val extraTagData = currentSong?.let { song ->
+                val source = result.source
+                if (source == null) {
+                    AudioTagData()
+                } else {
+                    extraMetadataResolver.resolve(
+                        currentSong = song,
+                        scoredResults = listOf(
+                            ScoredSearchResult(
+                                result = SongSearchResult(
+                                    id = "",
+                                    title = result.title.orEmpty(),
+                                    artist = result.artist.orEmpty(),
+                                    album = result.album.orEmpty(),
+                                    duration = 0L,
+                                    source = source,
+                                    date = result.date.orEmpty(),
+                                    trackerNumber = result.trackerNumber.orEmpty(),
+                                    picUrl = result.picUrl.orEmpty(),
+                                    extras = result.extras
+                                ),
+                                score = 1.0
+                            )
+                        ),
+                        rules = extraMetadataWriteRules.value,
+                        currentTagData = current
+                    )
                 }
-            }
-
-            val trackGain = pick("replaygain_track_gain", "rg_track_gain")
-            val trackPeak = pick("replaygain_track_peak", "rg_track_peak")
-            val albumGain = pick("replaygain_album_gain", "rg_album_gain")
-            val albumPeak = pick("replaygain_album_peak", "rg_album_peak")
-            var refLoudness = pick("replaygain_reference_loudness", "r128_reference_loudness")
-
-            if (refLoudness == null && trackGain != null) {
-                refLoudness = "-18 LUFS"
-            }
+            } ?: AudioTagData()
             state.copy(
                 isEditing = true,
-                editingTagData = current.copy(
-                    title = result.title?.takeIf { it.isNotBlank() } ?: current.title,
-                    artist = result.artist?.takeIf { it.isNotBlank() } ?: current.artist,
-                    album = result.album?.takeIf { it.isNotBlank() } ?: current.album,
-                    lyrics = result.lyrics?.takeIf { it.isNotBlank() } ?: current.lyrics,
-                    date = result.date?.takeIf { it.isNotBlank() } ?: current.date,
-                    trackNumber = result.trackerNumber?.takeIf { it.isNotBlank() }
-                        ?: current.trackNumber,
-                    picUrl = result.picUrl?.takeIf { it.isNotBlank() } ?: current.picUrl,
-                    replayGainTrackGain = trackGain ?: current.replayGainTrackGain,
-                    replayGainTrackPeak = trackPeak ?: current.replayGainTrackPeak,
-                    replayGainAlbumGain = albumGain ?: current.replayGainAlbumGain,
-                    replayGainAlbumPeak = albumPeak ?: current.replayGainAlbumPeak,
-                    replayGainReferenceLoudness = refLoudness ?: current.replayGainReferenceLoudness,
-                ),
+                editingTagData = extraMetadataResolver.mergeNonNull(standardTagData, extraTagData),
                 coverUri = result.picUrl?.takeIf { it.isNotBlank() }
             )
         }

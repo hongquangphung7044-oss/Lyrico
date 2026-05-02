@@ -4,6 +4,7 @@ package com.lonx.lyrics.source.qm
 import android.util.Base64
 import com.lonx.lyrics.model.LyricsResult
 import com.lonx.lyrics.model.LyricsData
+import com.lonx.lyrics.model.SearchResultExtraKeys
 import com.lonx.lyrics.model.SearchSource
 import com.lonx.lyrics.model.SongSearchResult
 import com.lonx.lyrics.model.Source
@@ -20,6 +21,11 @@ class QmSource(
     private val api: QmApi
 ) : SearchSource {
     override val sourceType: Source = Source.QM
+    override val supportedExtras = setOf(
+        SearchResultExtraKeys.REPLAY_GAIN_TRACK_GAIN,
+        SearchResultExtraKeys.REPLAY_GAIN_TRACK_PEAK,
+        SearchResultExtraKeys.REPLAY_GAIN_REFERENCE_LOUDNESS
+    )
 
     private val comm = mapOf(
         "ct" to "11",
@@ -72,15 +78,15 @@ class QmSource(
                     val peak = v.peak.toDoubleOrNull()
 
                     gain?.let {
-                        extrasMap["replaygain_track_gain"] = "${"%.3f".format(it)} dB"
+                        extrasMap[SearchResultExtraKeys.REPLAY_GAIN_TRACK_GAIN] = "${"%.3f".format(it)} dB"
                     }
                     v.lra.toDoubleOrNull()?.let {
                         extrasMap["replaygain_loudness_range"] = "${"%.3f".format(it)} LU"
                     }
                     peak?.let {
-                        extrasMap["replaygain_track_peak"] = "%.6f".format(it)
+                        extrasMap[SearchResultExtraKeys.REPLAY_GAIN_TRACK_PEAK] = "%.6f".format(it)
                     }
-                    extrasMap["replaygain_reference_loudness"] = "-18 LUFS"
+                    extrasMap[SearchResultExtraKeys.REPLAY_GAIN_REFERENCE_LOUDNESS] = "-18 LUFS"
                 }
                 SongSearchResult(
                     id = item.id,

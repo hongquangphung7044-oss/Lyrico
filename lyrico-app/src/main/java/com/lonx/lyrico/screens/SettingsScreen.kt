@@ -50,6 +50,7 @@ import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.generated.destinations.AboutDestination
 import com.ramcosta.composedestinations.generated.destinations.BatchTaskListDestination
+import com.ramcosta.composedestinations.generated.destinations.ExtraMetadataWritesDestination
 import com.ramcosta.composedestinations.generated.destinations.FolderManagerDestination
 import com.ramcosta.composedestinations.generated.destinations.SearchSourcePriorityDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
@@ -511,6 +512,11 @@ fun SettingsScreen(
                         onSelectedIndexChange = { index ->
                             settingsViewModel.setSeparator(artistSeparators[index])
                         }
+                    )
+                    ArrowPreference(
+                        title = stringResource(R.string.extra_metadata_writes_title),
+                        summary = stringResource(R.string.extra_metadata_writes_entry_summary),
+                        onClick = { navigator.navigate(ExtraMetadataWritesDestination()) }
                     )
                 }
             }

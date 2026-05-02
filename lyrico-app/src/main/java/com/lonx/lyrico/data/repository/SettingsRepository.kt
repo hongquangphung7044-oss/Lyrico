@@ -3,6 +3,7 @@ package com.lonx.lyrico.data.repository
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.CharacterMappingConfig
 import com.lonx.lyrico.data.model.ConversionMode
+import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.SearchConfig
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     val batchMatchConfig: Flow<BatchMatchConfig>
+    val extraMetadataWriteRules: Flow<List<ExtraMetadataWriteRule>>
 
     val renameFormat: Flow<String>
 
@@ -73,10 +75,12 @@ interface SettingsRepository {
     suspend fun exportSettings(): String
     suspend fun importSettings(jsonString: String): Boolean
     suspend fun saveBatchMatchConfig(config: BatchMatchConfig)
+    suspend fun saveExtraMetadataWriteRules(rules: List<ExtraMetadataWriteRule>)
     suspend fun saveRenameFormat(format: String)
     suspend fun saveCharacterMappingConfig(config: CharacterMappingConfig)
     // 更新指定规则中的字符映射
     suspend fun updateCharacterMappingInRule(ruleId: String, charMappings: Map<String, String?>)
     suspend fun getCharacterMappingConfig(): CharacterMappingConfig
     suspend fun getBatchMatchConfig(): BatchMatchConfig
+    suspend fun getExtraMetadataWriteRules(): List<ExtraMetadataWriteRule>
 }

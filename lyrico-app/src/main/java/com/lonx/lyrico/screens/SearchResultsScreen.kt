@@ -288,6 +288,7 @@ fun SearchResultsScreen(
                                                         date = song.date,
                                                         trackerNumber = song.trackerNumber,
                                                         picUrl = song.picUrl,
+                                                        source = song.source,
                                                         lyricsOnly = false,
                                                         extras = song.extras
                                                     )
@@ -470,6 +471,7 @@ fun SearchResultsScreen(
                                     date = currentSong.date,
                                     trackerNumber = currentSong.trackerNumber,
                                     picUrl = currentSong.picUrl,
+                                    source = currentSong.source,
                                     lyricsOnly = false,
                                     extras = currentSong.extras
                                 )

@@ -4,7 +4,9 @@ import android.os.Parcelable
 import androidx.annotation.StringRes
 import com.lonx.lyrics.R
 import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class Source(
     val id: String,
     @field:StringRes val labelRes: Int

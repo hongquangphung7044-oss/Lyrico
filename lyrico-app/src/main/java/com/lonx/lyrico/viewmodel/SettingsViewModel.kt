@@ -9,6 +9,7 @@ import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.model.ArtistSeparator
 import com.lonx.lyrico.data.model.CacheCategory
 import com.lonx.lyrico.data.model.ConversionMode
+import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.ThemeMode
 import com.lonx.lyrico.data.repository.SettingsRepository
@@ -45,7 +46,8 @@ data class SettingsUiState(
     val removeEmptyLines: Boolean = true,
     val categorizedCacheSize: Map<CacheCategory, Long> = emptyMap(),
     val totalCacheSize: Long = 0L,
-    val conversionMode: ConversionMode = ConversionMode.NONE
+    val conversionMode: ConversionMode = ConversionMode.NONE,
+    val extraMetadataWriteRules: List<ExtraMetadataWriteRule> = emptyList()
 ) {
     /**
      * 返回按优先级排序且启用的搜索源列表
@@ -63,30 +65,46 @@ class SettingsViewModel(
     private val folder = database.folderDao()
     private val _categorizedCacheSize = MutableStateFlow<Map<CacheCategory, Long>>(emptyMap())
 
-    private val baseUiState = combine(
+    private data class SettingsBaseState(
+        val lyric: com.lonx.lyrico.data.model.LyricRenderConfig,
+        val search: com.lonx.lyrico.data.model.SearchConfig,
+        val theme: com.lonx.lyrico.data.model.ThemeConfig,
+        val ignoreShortAudio: Boolean,
+        val extraRules: List<ExtraMetadataWriteRule>
+    )
+
+    private val settingsBaseState = combine(
         settingsRepository.lyricRenderConfigFlow,
         settingsRepository.searchConfigFlow,
         settingsRepository.themeConfigFlow,
         settingsRepository.ignoreShortAudio,
+        settingsRepository.extraMetadataWriteRules
+    ) { lyric, search, theme, ignoreShort, extraRules ->
+        SettingsBaseState(lyric, search, theme, ignoreShort, extraRules)
+    }
+
+    private val baseUiState = combine(
+        settingsBaseState,
         _categorizedCacheSize
-    ) { lyric, search, theme, ignoreShort, cacheMap ->
+    ) { base, cacheMap ->
         SettingsUiState(
-            lyricFormat = lyric.format,
-            romaEnabled = lyric.showRomanization,
-            translationEnabled = lyric.showTranslation,
-            separator = search.separator.toArtistSeparator(),
-            searchSourceOrder = search.searchSourceOrder,
-            enabledSearchSources = search.enabledSearchSources,
-            searchPageSize = search.searchPageSize,
-            themeMode = theme.themeMode,
-            ignoreShortAudio = ignoreShort,
-            monetEnable = theme.monetEnable,
-            keyColor = theme.keyColor,
+            lyricFormat = base.lyric.format,
+            romaEnabled = base.lyric.showRomanization,
+            translationEnabled = base.lyric.showTranslation,
+            separator = base.search.separator.toArtistSeparator(),
+            searchSourceOrder = base.search.searchSourceOrder,
+            enabledSearchSources = base.search.enabledSearchSources,
+            searchPageSize = base.search.searchPageSize,
+            themeMode = base.theme.themeMode,
+            ignoreShortAudio = base.ignoreShortAudio,
+            monetEnable = base.theme.monetEnable,
+            keyColor = base.theme.keyColor,
             categorizedCacheSize = cacheMap,
-            onlyTranslationIfAvailable = lyric.onlyTranslationIfAvailable,
+            onlyTranslationIfAvailable = base.lyric.onlyTranslationIfAvailable,
             totalCacheSize = cacheMap.values.sum(),
-            removeEmptyLines = lyric.removeEmptyLines,
-            conversionMode = lyric.conversionMode
+            removeEmptyLines = base.lyric.removeEmptyLines,
+            conversionMode = base.lyric.conversionMode,
+            extraMetadataWriteRules = base.extraRules
         )
     }
 
@@ -181,6 +199,12 @@ class SettingsViewModel(
     fun setSearchPageSize(size: Int) {
         viewModelScope.launch {
             settingsRepository.saveSearchPageSize(size)
+        }
+    }
+
+    fun setExtraMetadataWriteRules(rules: List<ExtraMetadataWriteRule>) {
+        viewModelScope.launch {
+            settingsRepository.saveExtraMetadataWriteRules(rules)
         }
     }
 

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.data.SharedSelectionManager
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.BatchMatchConfigDefaults
+import com.lonx.lyrico.data.model.ExtraMetadataWriteDefaults
+import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.BatchTaskStatus
 import com.lonx.lyrico.data.model.BatchTaskType
 import com.lonx.lyrico.data.model.entity.SongEntity
@@ -45,6 +47,10 @@ class BatchMatchViewModel(
 
     val batchMatchConfig: StateFlow<BatchMatchConfig> = settingsRepository.batchMatchConfig
         .stateIn(viewModelScope, SharingStarted.Eagerly, BatchMatchConfigDefaults.DEFAULT_CONFIG)
+
+    private val extraMetadataWriteRules: StateFlow<List<ExtraMetadataWriteRule>> =
+        settingsRepository.extraMetadataWriteRules
+            .stateIn(viewModelScope, SharingStarted.Eagerly, ExtraMetadataWriteDefaults.DEFAULT_RULES)
 
     private val searchSourceOrder: StateFlow<List<Source>> = settingsRepository.searchSourceOrder
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -160,6 +166,7 @@ class BatchMatchViewModel(
                     matchConfig = matchConfig,
                     separator = separator.value,
                     enabledSourceOrderIds = currentOrder.map { it.id },
+                    extraWriteRules = extraMetadataWriteRules.value,
                     concurrency = 3
                 )
             )

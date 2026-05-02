@@ -35,8 +35,7 @@ enum class BatchMatchField(
     DATE(R.string.label_date),
     TRACK_NUMBER(R.string.label_track_number),
     LYRICS(R.string.label_lyrics),
-    COVER(R.string.label_cover),
-    REPLAY_GAIN(R.string.label_replay_gain, R.string.label_replay_gain_summary)
+    COVER(R.string.label_cover)
 }
 object BatchMatchConfigDefaults {
     val DEFAULT_CONFIG = BatchMatchConfig(
@@ -48,8 +47,7 @@ object BatchMatchConfigDefaults {
             BatchMatchField.DATE to BatchMatchMode.SUPPLEMENT,
             BatchMatchField.TRACK_NUMBER to BatchMatchMode.SUPPLEMENT,
             BatchMatchField.LYRICS to BatchMatchMode.SUPPLEMENT,
-            BatchMatchField.COVER to BatchMatchMode.SUPPLEMENT,
-            BatchMatchField.REPLAY_GAIN to BatchMatchMode.SUPPLEMENT
+            BatchMatchField.COVER to BatchMatchMode.SUPPLEMENT
         ),
         concurrency = 3,
         preferFileName = false

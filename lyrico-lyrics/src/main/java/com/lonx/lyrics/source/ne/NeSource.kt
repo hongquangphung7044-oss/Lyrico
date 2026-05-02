@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.lonx.lyrics.model.LyricsResult
+import com.lonx.lyrics.model.SearchResultExtraKeys
 import com.lonx.lyrics.model.SearchSource
 import com.lonx.lyrics.model.SongSearchResult
 import com.lonx.lyrics.model.Source
@@ -14,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -30,6 +32,8 @@ import androidx.core.content.edit
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import okhttp3.RequestBody
+import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
 
 class NeSource(
     private val api: NeApi,
@@ -37,6 +41,7 @@ class NeSource(
     private val context: Context
 ): SearchSource {
     override val sourceType = Source.NE
+    override val supportedExtras = setOf(SearchResultExtraKeys.NETEASE_163_KEY)
 
 
     // Cookie 管理
@@ -338,7 +343,8 @@ class NeSource(
                     source = Source.NE,
                     date = song.publishTime?.let { formatMillisToDate(it) } ?: "",
                     trackerNumber = song.trackerNumber,
-                    picUrl = song.album.picUrl
+                    picUrl = song.album.picUrl,
+                    extras = buildNeteaseExtras(song)
                 )
             } ?: emptyList()
 
@@ -385,7 +391,8 @@ class NeSource(
                     source = Source.NE,
                     date = song.publishTime?.let { formatMillisToDate(it) } ?: "",
                     trackerNumber = song.trackerNumber,
-                    picUrl = picUrl
+                    picUrl = picUrl,
+                    extras = buildNeteaseExtras(song)
                 )
             } ?: emptyList()
 
@@ -449,5 +456,55 @@ class NeSource(
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
             .format(formatter)
+    }
+
+    private fun buildNeteaseExtras(song: NeSongData): Map<String, String> {
+        val key = buildNetease163Key(song) ?: return emptyMap()
+        return mapOf(SearchResultExtraKeys.NETEASE_163_KEY to key)
+    }
+
+    private fun buildNetease163Key(song: NeSongData): String? {
+        return try {
+            val bitrate = listOfNotNull(
+                song.losslessQuality?.bitrate,
+                song.highQuality?.bitrate,
+                song.mediumQuality?.bitrate,
+                song.lowQuality?.bitrate
+            ).firstOrNull { it > 0 } ?: 0
+            val albumPicDocId = song.album.picStr?.toLongOrNull() ?: song.album.pic ?: 0L
+            val metadata = buildJsonObject {
+                put("musicName", song.name)
+                put("musicId", song.id)
+                put(
+                    "artist",
+                    JsonArray(song.artists.map { artist ->
+                        JsonArray(listOf(JsonPrimitive(artist.name), JsonPrimitive(artist.id)))
+                    })
+                )
+                put("album", song.album.name)
+                put("albumId", song.album.id)
+                put("albumPic", song.album.picUrl)
+                put("albumPicDocId", albumPicDocId)
+                put("bitrate", bitrate)
+                put("duration", song.duration)
+                put("mvId", song.mvId)
+                put("alias", JsonArray(song.alia.orEmpty().map { JsonPrimitive(it) }))
+                put("transNames", JsonArray(emptyList()))
+                put("format", if (bitrate > 320000) "flac" else "mp3")
+                put("flag", 0)
+                put("gain", 0.0)
+            }
+
+            val metadataJson = json.encodeToString(JsonObject.serializer(), metadata)
+                .replace("/", "\\/")
+            val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
+            val keySpec = SecretKeySpec("#14ljk_!\\]&0U<'(".toByteArray(Charsets.UTF_8), "AES")
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec)
+            val encrypted = cipher.doFinal("music:$metadataJson".toByteArray(Charsets.UTF_8))
+            "163 key(Don't modify):" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            Log.e("NeSource", "Build 163 key failed", e)
+            null
+        }
     }
 }

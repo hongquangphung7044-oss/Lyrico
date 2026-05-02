@@ -4,14 +4,17 @@ import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.BatchMatchField
 import com.lonx.lyrico.data.model.BatchMatchMode
+import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
+import com.lonx.lyrico.data.model.ExtraWriteMode
+import com.lonx.lyrico.data.model.ScoredSearchResult
 import com.lonx.lyrico.data.model.entity.BatchTaskEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskItemEntity
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
+import com.lonx.lyrico.utils.ExtraMetadataResolver
 import com.lonx.lyrico.utils.LyricEncoder
 import com.lonx.lyrico.utils.MusicMatchUtils
 import com.lonx.lyrics.model.SearchSource
-import com.lonx.lyrics.model.SongSearchResult
 import com.lonx.lyrics.model.Source
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,6 +28,7 @@ class MatchMetadataProcessor(
     private val settingsRepository: SettingsRepository,
     private val sources: List<SearchSource>
 ) : BatchTaskProcessor {
+    private val extraMetadataResolver = ExtraMetadataResolver()
 
     override suspend fun process(
         task: BatchTaskEntity,
@@ -50,11 +54,11 @@ class MatchMetadataProcessor(
                 BatchMatchField.TRACK_NUMBER -> song.trackerNumber.isNullOrBlank()
                 BatchMatchField.LYRICS -> song.lyrics.isNullOrBlank()
                 BatchMatchField.COVER -> true
-                BatchMatchField.REPLAY_GAIN -> song.rawProperties?.contains("REPLAYGAIN_TRACK_GAIN") != true
             }
         }
 
-        if (!needsProcessing) {
+        val needsExtraProcessing = config.extraWriteRules.any { it.mode != ExtraWriteMode.DISABLED }
+        if (!needsProcessing && !needsExtraProcessing) {
             throw BatchTaskSkippedException("No fields need processing")
         }
 
@@ -91,11 +95,16 @@ class MatchMetadataProcessor(
             queries = MusicMatchUtils.buildSearchQueries(song)
         }
 
-        val orderedSources = sources.sortedBy { s ->
-            enabledSourceOrder.indexOf(s.sourceType).let { if (it == -1) Int.MAX_VALUE else it }
-        }
+        val orderedSources = sources
+            .filter { source ->
+                enabledSourceOrder.isEmpty() || source.sourceType in enabledSourceOrder
+            }
+            .sortedBy { source ->
+                enabledSourceOrder.indexOf(source.sourceType).let { if (it == -1) Int.MAX_VALUE else it }
+            }
 
         var bestMatch: ScoredSearchResult? = null
+        val allScoredResults = mutableListOf<ScoredSearchResult>()
 
         for (query in queries) {
             val searchTasks = orderedSources.map { source ->
@@ -112,6 +121,7 @@ class MatchMetadataProcessor(
                 }
             }
             val allResults = searchTasks.awaitAll().flatten()
+            allScoredResults += allResults
             val currentBest = allResults.maxByOrNull { it.score }
             if (currentBest != null) {
                 if (bestMatch == null || currentBest.score > bestMatch.score) {
@@ -127,7 +137,7 @@ class MatchMetadataProcessor(
         val newLyrics = try {
             coroutineScope {
                 val deferred = async(Dispatchers.Default) {
-                    finalMatch.source.getLyrics(finalMatch.result)?.let { result ->
+                    finalMatch.source?.getLyrics(finalMatch.result)?.let { result ->
                         LyricEncoder.encode(result = result, config = lyricConfig)
                     }
                 }
@@ -146,26 +156,7 @@ class MatchMetadataProcessor(
         val shouldUpdateCover = shouldUpdate(matchConfig, BatchMatchField.COVER, null)
         val picUrl = if (shouldUpdateCover) finalMatch.result.picUrl else null
 
-        val shouldUpdateReplayGain = shouldUpdate(matchConfig, BatchMatchField.REPLAY_GAIN, null)
-        val replayGainData = if (shouldUpdateReplayGain) {
-            val extras = finalMatch.result.extras
-            fun pick(vararg keys: String): String? {
-                return keys.firstNotNullOfOrNull { key ->
-                    extras[key]?.takeIf { it.isNotBlank() }
-                }
-            }
-            val trackGain = pick("replaygain_track_gain", "rg_track_gain")
-            val trackPeak = pick("replaygain_track_peak", "rg_track_peak")
-            val albumGain = pick("replaygain_album_gain", "rg_album_gain")
-            val albumPeak = pick("replaygain_album_peak", "rg_album_peak")
-            var refLoudness = pick("replaygain_reference_loudness", "r128_reference_loudness")
-            if (refLoudness == null && trackGain != null) {
-                refLoudness = "-18 LUFS"
-            }
-            ReplayGainData(trackGain, trackPeak, albumGain, albumPeak, refLoudness)
-        } else null
-
-        val tagDataToWrite = AudioTagData(
+        val standardTagData = AudioTagData(
             title = newTitle,
             artist = newArtist,
             album = newAlbum,
@@ -173,17 +164,18 @@ class MatchMetadataProcessor(
             date = newDate,
             trackNumber = newTrack,
             lyrics = newLyricsResolved,
-            picUrl = picUrl,
-            replayGainTrackGain = replayGainData?.trackGain,
-            replayGainTrackPeak = replayGainData?.trackPeak,
-            replayGainAlbumGain = replayGainData?.albumGain,
-            replayGainAlbumPeak = replayGainData?.albumPeak,
-            replayGainReferenceLoudness = replayGainData?.refLoudness
+            picUrl = picUrl
         )
+        val extraTagData = extraMetadataResolver.resolve(
+            currentSong = song,
+            scoredResults = allScoredResults,
+            rules = config.extraWriteRules
+        )
+        val tagDataToWrite = extraMetadataResolver.mergeNonNull(standardTagData, extraTagData)
 
         val isEffectivelyEmpty = newTitle == null && newArtist == null && newAlbum == null &&
                 newGenre == null && newDate == null && newTrack == null &&
-                newLyricsResolved == null && picUrl == null && replayGainData == null
+                newLyricsResolved == null && picUrl == null && extraTagData.isEmpty()
 
         if (isEffectivelyEmpty) {
             throw BatchTaskSkippedException("No fields to update")
@@ -223,19 +215,13 @@ class MatchMetadataProcessor(
         return currentValue.isNullOrBlank()
     }
 
-    private data class ReplayGainData(
-        val trackGain: String?,
-        val trackPeak: String?,
-        val albumGain: String?,
-        val albumPeak: String?,
-        val refLoudness: String?
-    )
-
-    private data class ScoredSearchResult(
-        val result: SongSearchResult,
-        val score: Double,
-        val source: SearchSource
-    )
+    private fun AudioTagData.isEmpty(): Boolean {
+        return title == null && artist == null && album == null && genre == null &&
+                date == null && trackNumber == null && lyrics == null && picUrl == null &&
+                comment == null && replayGainTrackGain == null && replayGainTrackPeak == null &&
+                replayGainAlbumGain == null && replayGainAlbumPeak == null &&
+                replayGainReferenceLoudness == null
+    }
 }
 
 @Serializable
@@ -243,5 +229,6 @@ data class MatchMetadataTaskConfig(
     val matchConfig: BatchMatchConfig,
     val separator: String,
     val enabledSourceOrderIds: List<String>,
+    val extraWriteRules: List<ExtraMetadataWriteRule> = emptyList(),
     val concurrency: Int = 3
 )

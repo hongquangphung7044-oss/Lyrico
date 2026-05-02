@@ -11,9 +11,16 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.BatchMatchConfigDefaults
+import com.lonx.lyrico.data.model.BatchMatchField
+import com.lonx.lyrico.data.model.BatchMatchMode
 import com.lonx.lyrico.data.model.CharacterMappingConfig
 import com.lonx.lyrico.data.model.CharacterMappingDefaults
 import com.lonx.lyrico.data.model.ConversionMode
+import com.lonx.lyrico.data.model.ExtraMetadataKey
+import com.lonx.lyrico.data.model.ExtraMetadataTarget
+import com.lonx.lyrico.data.model.ExtraMetadataWriteDefaults
+import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
+import com.lonx.lyrico.data.model.ExtraWriteMode
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.SearchConfig
@@ -33,6 +40,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.collections.first
 
 
@@ -95,6 +107,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val ONLY_TRANSLATION_IF_AVAILABLE = booleanPreferencesKey("only_translation_if_available")
         val CHARACTER_MAPPING_CONFIG = stringPreferencesKey("character_mapping_config")
         val BATCH_MATCH_CONFIG = stringPreferencesKey("batch_match_config")
+        val EXTRA_METADATA_WRITE_RULES = stringPreferencesKey("extra_metadata_write_rules")
         val CONVERSION_MODE = stringPreferencesKey("conversion_mode")
     }
 
@@ -502,6 +515,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             limitLyricsInputLines = prefs[PreferencesKeys.LIMIT_LYRICS_INPUT_LINES]
                 ?: SettingsDefaults.LIMIT_LYRICS_INPUT_LINES,
             characterMappingConfig = charMapping,
+            extraMetadataWriteRules = getExtraMetadataWriteRules(),
             renameFormat = prefs[PreferencesKeys.RENAME_FORMAT]
                 ?: SettingsDefaults.RENAME_FORMAT,
             batchMatchConfig = batchMatchConfig,
@@ -559,6 +573,9 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 backup.characterMappingConfig?.let { config ->
                     prefs[PreferencesKeys.CHARACTER_MAPPING_CONFIG] = jsonFormatter.encodeToString(config)
                 }
+                backup.extraMetadataWriteRules?.let { rules ->
+                    prefs[PreferencesKeys.EXTRA_METADATA_WRITE_RULES] = jsonFormatter.encodeToString(rules)
+                }
                 backup.renameFormat?.let { prefs[PreferencesKeys.RENAME_FORMAT]  = it }
                 backup.batchMatchConfig?.let { config ->
                     prefs[PreferencesKeys.BATCH_MATCH_CONFIG] = jsonFormatter.encodeToString(config)
@@ -596,10 +613,23 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             if (configJson.isNullOrBlank()) {
                 BatchMatchConfigDefaults.DEFAULT_CONFIG
             } else {
+                decodeBatchMatchConfig(configJson)
+            }
+        }
+
+    override val extraMetadataWriteRules: Flow<List<ExtraMetadataWriteRule>>
+        get() = context.settingsDataStore.data.map { preferences ->
+            val rulesJson = preferences[PreferencesKeys.EXTRA_METADATA_WRITE_RULES]
+            val legacyBatchJson = preferences[PreferencesKeys.BATCH_MATCH_CONFIG]
+            if (rulesJson.isNullOrBlank()) {
+                defaultExtraRulesWithLegacyReplayGain(legacyBatchJson)
+            } else {
                 try {
-                    jsonFormatter.decodeFromString<BatchMatchConfig>(configJson)
+                    mergeExtraRulesWithDefaults(
+                        jsonFormatter.decodeFromString<List<ExtraMetadataWriteRule>>(rulesJson)
+                    )
                 } catch (e: Exception) {
-                    BatchMatchConfigDefaults.DEFAULT_CONFIG
+                    defaultExtraRulesWithLegacyReplayGain(legacyBatchJson)
                 }
             }
         }
@@ -623,6 +653,13 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         }
     }
 
+    override suspend fun saveExtraMetadataWriteRules(rules: List<ExtraMetadataWriteRule>) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXTRA_METADATA_WRITE_RULES] =
+                jsonFormatter.encodeToString(mergeExtraRulesWithDefaults(rules))
+        }
+    }
+
     override suspend fun updateCharacterMappingInRule(ruleId: String, charMappings: Map<String, String?>) {
         val currentConfig = characterMappingConfig.first()
         val updatedRules = currentConfig.rules.map { rule ->
@@ -638,6 +675,75 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
     }
     override suspend fun getBatchMatchConfig(): BatchMatchConfig {
         return batchMatchConfig.first()
+    }
+
+    override suspend fun getExtraMetadataWriteRules(): List<ExtraMetadataWriteRule> {
+        return extraMetadataWriteRules.first()
+    }
+
+    private fun decodeBatchMatchConfig(configJson: String): BatchMatchConfig {
+        return try {
+            val root = jsonFormatter.parseToJsonElement(configJson).jsonObject
+            val fieldsObject = root["fields"]?.jsonObject
+            val fields = fieldsObject?.mapNotNull { (fieldName, modeElement) ->
+                val field = BatchMatchField.entries.firstOrNull { it.name == fieldName }
+                    ?: return@mapNotNull null
+                val mode = modeElement.jsonPrimitive.contentOrNull
+                    ?.let { runCatching { BatchMatchMode.valueOf(it) }.getOrNull() }
+                    ?: return@mapNotNull null
+                field to mode
+            }?.toMap()
+
+            BatchMatchConfig(
+                fields = fields ?: BatchMatchConfigDefaults.DEFAULT_CONFIG.fields,
+                concurrency = root["concurrency"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+                    ?: BatchMatchConfigDefaults.DEFAULT_CONFIG.concurrency,
+                preferFileName = root["preferFileName"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+                    ?: BatchMatchConfigDefaults.DEFAULT_CONFIG.preferFileName
+            )
+        } catch (e: Exception) {
+            BatchMatchConfigDefaults.DEFAULT_CONFIG
+        }
+    }
+
+    private fun defaultExtraRulesWithLegacyReplayGain(configJson: String?): List<ExtraMetadataWriteRule> {
+        val legacyMode = findLegacyBatchFieldMode(configJson, "REPLAY_GAIN")?.toExtraWriteMode()
+            ?: ExtraWriteMode.DISABLED
+        return ExtraMetadataWriteDefaults.DEFAULT_RULES.map { rule ->
+            if (rule.source == Source.QM && rule.target != ExtraMetadataTarget.COMMENT) {
+                rule.copy(mode = legacyMode)
+            } else {
+                rule
+            }
+        }
+    }
+
+    private fun findLegacyBatchFieldMode(configJson: String?, fieldName: String): BatchMatchMode? {
+        if (configJson.isNullOrBlank()) return null
+        return try {
+            val root = jsonFormatter.parseToJsonElement(configJson).jsonObject
+            val modeName = root["fields"]?.jsonObject?.get(fieldName)?.jsonPrimitive?.contentOrNull
+            modeName?.let { BatchMatchMode.valueOf(it) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun BatchMatchMode.toExtraWriteMode(): ExtraWriteMode {
+        return when (this) {
+            BatchMatchMode.SUPPLEMENT -> ExtraWriteMode.SUPPLEMENT
+            BatchMatchMode.OVERWRITE -> ExtraWriteMode.OVERWRITE
+        }
+    }
+
+    private fun mergeExtraRulesWithDefaults(
+        rules: List<ExtraMetadataWriteRule>
+    ): List<ExtraMetadataWriteRule> {
+        return ExtraMetadataWriteDefaults.DEFAULT_RULES.map { defaultRule ->
+            rules.firstOrNull {
+                it.key == defaultRule.key && it.source == defaultRule.source
+            } ?: defaultRule
+        }
     }
 }
 
