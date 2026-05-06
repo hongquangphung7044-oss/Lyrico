@@ -25,6 +25,7 @@ retrofit = "3.0.0"
 retrofit2KotlinxSerializationConverter = "1.0.0"
 shapes = "1.2.0"
 datastorePreferences = "1.2.1"
+deviceCompat = "2.6"
 room = "2.8.4"
 work = "2.10.1"
 tinypinyin = "2.0.3"
@@ -70,6 +71,7 @@ retrofit2-kotlinx-serialization-converter = { module = "com.jakewharton.retrofit
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koinAndroid" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koinAndroidxCompose" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
+devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "deviceCompat" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

@@ -110,6 +110,7 @@ dependencies {
     implementation(libs.koin.androidx.compose)
 
     // Utilities
+    implementation(libs.devicecompat)
     implementation(libs.xxpermissions)
     implementation(libs.tinypinyin)
     implementation(libs.opencc4j)
