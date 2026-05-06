@@ -5,8 +5,11 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import com.lonx.lyrico.BuildConfig
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.SharedSelectionManager
+import com.lonx.lyrico.data.network.NetworkLoggingInterceptor
 import com.lonx.lyrico.data.repository.BatchTaskRepository
 import com.lonx.lyrico.data.repository.BatchTaskRepositoryImpl
+import com.lonx.lyrico.data.repository.AppLogRepository
+import com.lonx.lyrico.data.repository.AppLogRepositoryImpl
 import com.lonx.lyrico.data.repository.GhContributorRepository
 import com.lonx.lyrico.data.repository.GhContributorRepositoryImpl
 import com.lonx.lyrico.data.repository.PlaybackRepository
@@ -29,6 +32,7 @@ import com.lonx.lyrico.worker.processor.LyricsFormatProcessor
 import com.lonx.lyrico.worker.processor.MatchMetadataProcessor
 import com.lonx.lyrico.worker.processor.ReplayGainProcessor
 import com.lonx.lyrico.viewmodel.AboutViewModel
+import com.lonx.lyrico.viewmodel.AppLogViewModel
 import com.lonx.lyrico.viewmodel.BatchEditViewModel
 import com.lonx.lyrico.viewmodel.BatchLyricsFormatViewModel
 import com.lonx.lyrico.viewmodel.BatchTaskDetailViewModel
@@ -91,6 +95,7 @@ val appModule = module {
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(8, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .addInterceptor(get<NetworkLoggingInterceptor>())
             .cache(cache)
             .build()
     }
@@ -204,6 +209,7 @@ val appModule = module {
     single { getAll<SearchSource>() }
 
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+    single { NetworkLoggingInterceptor(get(), get()) }
     // 工具类
 
     single<UpdateManager> { UpdateManagerImpl(get(), get()) }
@@ -218,11 +224,13 @@ val appModule = module {
         ).build()
     }
     single { get<LyricoDatabase>().batchTaskDao() }
+    single { get<LyricoDatabase>().appLogDao() }
     single<SettingsRepository> { SettingsRepositoryImpl(androidContext()) }
     single<UpdateRepository> { UpdateRepositoryImpl(get(), get()) }
     single<PlaybackRepository> { PlaybackRepositoryImpl() }
-    single<SongRepository> { SongRepositoryImpl(get(), androidContext(), get(), get(), get()) }
+    single<SongRepository> { SongRepositoryImpl(get(), androidContext(), get(), get(), get(), get()) }
     single<BatchTaskRepository> { BatchTaskRepositoryImpl(get()) }
+    single<AppLogRepository> { AppLogRepositoryImpl(get(), get()) }
     single<GhContributorRepository> { GhContributorRepositoryImpl(get(), get()) }
     single { BatchTaskScheduler(androidContext(), get()) }
     single { LyricsFormatProcessor(get()) }
@@ -240,11 +248,12 @@ val appModule = module {
     // ViewModels
     viewModel { AboutViewModel(get(),get(), get()) }
     viewModel { SongListViewModel(get(), get(), get(), get(),get(),get()) }
-    viewModel { SettingsViewModel(get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { SearchViewModel(get(), get()) }
     viewModel { CoverSearchViewModel(get(), get()) }
-    viewModel { EditMetadataViewModel(get(), get(), get(),get()) }
+    viewModel { EditMetadataViewModel(get(), get(), get(),get(), get()) }
     viewModel { BatchMatchViewModel(get(), get(), get(), get()) }
+    viewModel { AppLogViewModel(get()) }
 
     viewModel { FolderManagerViewModel(get()) }
     viewModel { (folderId: Long) ->

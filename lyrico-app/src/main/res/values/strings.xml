@@ -342,6 +342,7 @@
     <string name="choose_player">Choose Player</string>
     <string name="no_player_found">No available player found</string>
     <string name="unknown_error">An unknown error occurred: %1$s</string>
+    <string name="unknown_error_simple">Unknown error</string>
     <string name="clear_songs">Clear All Songs</string>
 
 
@@ -513,4 +514,40 @@
     <string name="batch_task_detail_title">Task Detail</string>
     <string name="batch_task_detail_progress">Progress: %1$d / %2$d</string>
     <string name="batch_task_detail_no_records">No records</string>
+    <string name="msg_save_failed_with_reason">Save failed: %1$s</string>
+    <string name="app_log_title">App Logs</string>
+    <string name="app_log_summary">View crash, metadata, and batch operation logs</string>
+    <string name="app_log_empty">No logs yet</string>
+    <string name="action_copy_log">Copy log</string>
+    <string name="action_copy_all">Copy all</string>
+    <string name="action_export_logs">Export</string>
+    <string name="clear_logs">Clear</string>
+    <string name="app_log_filter_all">All</string>
+    <string name="app_log_filter_level">Level</string>
+    <string name="app_log_filter_type">Type</string>
+    <string name="app_log_detail_title">Log Detail</string>
+    <string name="app_log_field_time">Time</string>
+    <string name="app_log_field_level">Level</string>
+    <string name="app_log_field_type">Type</string>
+    <string name="app_log_field_tag">Tag</string>
+    <string name="app_log_field_related">Related</string>
+    <string name="app_log_field_message">Message</string>
+    <string name="app_log_field_detail">Detail</string>
+    <string name="app_log_level_debug">Debug</string>
+    <string name="app_log_level_info">Info</string>
+    <string name="app_log_level_warning">Warning</string>
+    <string name="app_log_level_error">Error</string>
+    <string name="app_log_type_app">App</string>
+    <string name="app_log_type_crash">Crash</string>
+    <string name="app_log_type_metadata">Metadata</string>
+    <string name="app_log_type_batch">Batch</string>
+    <string name="app_log_type_database">Database</string>
+    <string name="app_log_type_network">Network</string>
+    <string name="log_retention_title">Log retention</string>
+    <string name="log_retention_summary">Controls how long app logs are kept</string>
+    <string name="log_retention_none">Do not record</string>
+    <string name="log_retention_7_days">7 days</string>
+    <string name="log_retention_30_days">30 days</string>
+    <string name="log_retention_90_days">90 days</string>
+    <string name="log_retention_forever">Always keep</string>
 </resources>

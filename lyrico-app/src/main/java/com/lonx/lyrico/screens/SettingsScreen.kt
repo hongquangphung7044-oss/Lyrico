@@ -39,6 +39,7 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ArtistSeparator
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.LyricFormat
+import com.lonx.lyrico.data.model.LogRetentionOption
 import com.lonx.lyrico.data.model.ThemeMode
 import com.lonx.lyrico.ui.components.RoundedRectanglePainter
 import com.lonx.lyrico.ui.components.getSystemWallpaperColor
@@ -49,6 +50,7 @@ import com.lonx.lyrico.viewmodel.SettingsViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.generated.destinations.AboutDestination
+import com.ramcosta.composedestinations.generated.destinations.AppLogsDestination
 import com.ramcosta.composedestinations.generated.destinations.BatchTaskListDestination
 import com.ramcosta.composedestinations.generated.destinations.ExtraMetadataWritesDestination
 import com.ramcosta.composedestinations.generated.destinations.FolderManagerDestination
@@ -106,6 +108,7 @@ fun SettingsScreen(
     val folders = folderUiState.folders
     val totalFolders = folders.size
     val conversionMode = settingsUiState.conversionMode
+    val logRetentionOption = settingsUiState.logRetentionOption
     val ignoredFolders = folders.count { it.isIgnored }
     val searchSourceOrder = settingsUiState.searchSourceOrder
     val searchPageSize = settingsUiState.searchPageSize
@@ -129,6 +132,9 @@ fun SettingsScreen(
     val conversionModeItems = ConversionMode.entries.map { stringResource(it.labelRes) }
     val selectedConversionModeIndex =
         ConversionMode.entries.indexOf(conversionMode).coerceAtLeast(0)
+    val logRetentionItems = LogRetentionOption.entries.map { stringResource(it.labelRes) }
+    val selectedLogRetentionIndex =
+        LogRetentionOption.entries.indexOf(logRetentionOption).coerceAtLeast(0)
     val artistSeparators = remember {
         listOf(
             ArtistSeparator.ENUMERATION_COMMA,
@@ -548,6 +554,20 @@ fun SettingsScreen(
                     ArrowPreference(
                         title = stringResource(R.string.batch_task_list_title),
                         onClick = { navigator.navigate(BatchTaskListDestination()) }
+                    )
+                    ArrowPreference(
+                        title = stringResource(R.string.app_log_title),
+                        summary = stringResource(R.string.app_log_summary),
+                        onClick = { navigator.navigate(AppLogsDestination()) }
+                    )
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.log_retention_title),
+                        summary = stringResource(R.string.log_retention_summary),
+                        items = logRetentionItems,
+                        selectedIndex = selectedLogRetentionIndex,
+                        onSelectedIndexChange = { index ->
+                            settingsViewModel.setLogRetentionOption(LogRetentionOption.entries[index])
+                        }
                     )
                     val cacheSummary = stringResource(
                         R.string.cache_size_label,

@@ -6,17 +6,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.LyricoDatabase
+import com.lonx.lyrico.data.model.AppLogLevel
+import com.lonx.lyrico.data.model.AppLogType
 import com.lonx.lyrico.data.model.ArtistSeparator
 import com.lonx.lyrico.data.model.CacheCategory
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.LyricFormat
+import com.lonx.lyrico.data.model.LogRetentionOption
 import com.lonx.lyrico.data.model.ThemeMode
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrics.model.Source
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import com.lonx.lyrico.data.model.toArtistSeparator
+import com.lonx.lyrico.data.repository.AppLogRepository
 import com.lonx.lyrico.ui.theme.KeyColor
 import com.lonx.lyrico.ui.theme.KeyColors
 import com.lonx.lyrico.utils.CacheManager
@@ -47,6 +51,7 @@ data class SettingsUiState(
     val categorizedCacheSize: Map<CacheCategory, Long> = emptyMap(),
     val totalCacheSize: Long = 0L,
     val conversionMode: ConversionMode = ConversionMode.NONE,
+    val logRetentionOption: LogRetentionOption = LogRetentionOption.THIRTY_DAYS,
     val extraMetadataWriteRules: List<ExtraMetadataWriteRule> = emptyList()
 ) {
     /**
@@ -60,7 +65,8 @@ sealed class SettingsEvent {
 }
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
-    private val database: LyricoDatabase
+    private val database: LyricoDatabase,
+    private val appLogRepository: AppLogRepository
 ) : ViewModel() {
     private val folder = database.folderDao()
     private val _categorizedCacheSize = MutableStateFlow<Map<CacheCategory, Long>>(emptyMap())
@@ -85,8 +91,9 @@ class SettingsViewModel(
 
     private val baseUiState = combine(
         settingsBaseState,
-        _categorizedCacheSize
-    ) { base, cacheMap ->
+        _categorizedCacheSize,
+        settingsRepository.logRetentionOption
+    ) { base, cacheMap, logRetentionOption ->
         SettingsUiState(
             lyricFormat = base.lyric.format,
             romaEnabled = base.lyric.showRomanization,
@@ -104,6 +111,7 @@ class SettingsViewModel(
             totalCacheSize = cacheMap.values.sum(),
             removeEmptyLines = base.lyric.removeEmptyLines,
             conversionMode = base.lyric.conversionMode,
+            logRetentionOption = logRetentionOption,
             extraMetadataWriteRules = base.extraRules
         )
     }
@@ -214,6 +222,13 @@ class SettingsViewModel(
         }
     }
 
+    fun setLogRetentionOption(option: LogRetentionOption) {
+        viewModelScope.launch {
+            settingsRepository.saveLogRetentionOption(option)
+            appLogRepository.applyRetentionPolicy()
+        }
+    }
+
     fun exportSettings(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -221,9 +236,22 @@ class SettingsViewModel(
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(jsonString.toByteArray())
                 }
+                appLogRepository.log(
+                    level = AppLogLevel.INFO,
+                    type = AppLogType.APP,
+                    tag = TAG,
+                    message = "Settings exported",
+                    detail = "uri=$uri"
+                )
                 _events.emit(SettingsEvent.ShowToast(UiMessage.StringResource(R.string.export_success)))
             } catch (e: Exception) {
                 e.printStackTrace()
+                appLogRepository.logException(
+                    type = AppLogType.APP,
+                    tag = TAG,
+                    message = "Failed to export settings",
+                    throwable = e
+                )
                 _events.emit(SettingsEvent.ShowToast(UiMessage.StringResource(R.string.export_failed, e.message ?: "Unknown error")))
             }
         }
@@ -239,10 +267,24 @@ class SettingsViewModel(
                 if (jsonString != null) {
                     val success = settingsRepository.importSettings(jsonString)
                     if (success) {
+                        appLogRepository.log(
+                            level = AppLogLevel.INFO,
+                            type = AppLogType.APP,
+                            tag = TAG,
+                            message = "Settings imported",
+                            detail = "uri=$uri"
+                        )
                         _events.emit(SettingsEvent.ShowToast(
                             UiMessage.StringResource(R.string.import_success)
                         ))
                     } else {
+                        appLogRepository.log(
+                            level = AppLogLevel.WARNING,
+                            type = AppLogType.APP,
+                            tag = TAG,
+                            message = "Settings import rejected: invalid format",
+                            detail = "uri=$uri"
+                        )
                         _events.emit(SettingsEvent.ShowToast(
                             UiMessage.StringResource(R.string.import_failed_format)
                         ))
@@ -250,11 +292,21 @@ class SettingsViewModel(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                appLogRepository.logException(
+                    type = AppLogType.APP,
+                    tag = TAG,
+                    message = "Failed to import settings",
+                    throwable = e
+                )
                 _events.emit(SettingsEvent.ShowToast(
                     UiMessage.StringResource(R.string.import_failed, e.message ?: "Unknown error")
                 ))
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "SettingsViewModel"
     }
 }
 

@@ -6,6 +6,7 @@ import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
+import com.lonx.lyrico.data.model.LogRetentionOption
 import com.lonx.lyrico.data.model.SearchConfig
 import com.lonx.lyrico.data.model.ThemeConfig
 import com.lonx.lyrico.data.model.ThemeMode
@@ -41,6 +42,7 @@ interface SettingsRepository {
     val onlyTranslationIfAvailable: Flow<Boolean>
     val removeEmptyLines: Flow<Boolean>
     val limitLyricsInputLines: Flow<Boolean>
+    val logRetentionOption: Flow<LogRetentionOption>
 
     val lyricRenderConfigFlow: Flow<LyricRenderConfig>
     val searchConfigFlow: Flow<SearchConfig>
@@ -70,6 +72,7 @@ interface SettingsRepository {
     suspend fun saveOnlyTranslationIfAvailable(enabled: Boolean)
     suspend fun saveRemoveEmptyLines(enabled: Boolean)
     suspend fun saveLimitLyricsInputLines(enabled: Boolean)
+    suspend fun saveLogRetentionOption(option: LogRetentionOption)
     suspend fun saveShowScrollTopButton(enabled: Boolean)
     suspend fun getLyricRenderConfig(): LyricRenderConfig
     suspend fun exportSettings(): String

@@ -109,6 +109,7 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarDuration
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
@@ -211,8 +212,21 @@ fun EditMetadataScreen(
 
     LaunchedEffect(uiState.saveSuccess) {
         uiState.saveSuccess?.let { success ->
-            val msg = if (success) R.string.msg_save_success else R.string.msg_save_failed
-            scope.launch { snackbarHostState.showSnackbar(context.getString(msg)) }
+            val message = if (success) {
+                context.getString(R.string.msg_save_success)
+            } else {
+                context.getString(
+                    R.string.msg_save_failed_with_reason,
+                    uiState.saveFailureMessage ?: context.getString(R.string.unknown_error_simple)
+                )
+            }
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    withDismissAction = !success,
+                    duration = if (success) SnackbarDuration.Short else SnackbarDuration.Indefinite
+                )
+            }
             viewModel.clearSaveStatus()
             if (success) {
                 if (!navigator.popBackStack()) {

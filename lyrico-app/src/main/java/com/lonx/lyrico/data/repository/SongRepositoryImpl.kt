@@ -15,6 +15,8 @@ import com.lonx.audiotag.rw.AudioTagReader
 import com.lonx.audiotag.rw.AudioTagWriter
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.exception.RequiresUserPermissionException
+import com.lonx.lyrico.data.model.AppLogLevel
+import com.lonx.lyrico.data.model.AppLogType
 import com.lonx.lyrico.data.model.LocalSearchType
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.SongFile
@@ -43,6 +45,7 @@ class SongRepositoryImpl(
     private val mediaScanner: MediaScanner,
     private val settingsRepository: SettingsRepository,
     private val okHttpClient: OkHttpClient,
+    private val appLogRepository: AppLogRepository
 ) : SongRepository {
 
     private val songDao = database.songDao()
@@ -53,6 +56,7 @@ class SongRepositoryImpl(
     private companion object {
         const val TAG = "SongRepository"
         const val BATCH_SIZE = 50
+        const val MAX_LOG_ITEMS = 20
     }
 
     override suspend fun deleteSong(song: SongEntity) {
@@ -76,6 +80,11 @@ class SongRepositoryImpl(
                         throw e
                     } catch (e: SecurityException) {
                         Log.e(TAG, "权限不足，无法删除: $uri", e)
+                        logException(
+                            message = "Failed to delete song: permission denied",
+                            throwable = e,
+                            relatedId = song.uri
+                        )
                         return@withContext
                     }
                 } else {
@@ -84,10 +93,21 @@ class SongRepositoryImpl(
                 }
 
                 songDao.deleteByUris(listOf(song.uri))
+                logApp(
+                    level = AppLogLevel.INFO,
+                    message = "Song deleted",
+                    detail = "title=${song.title}, uri=${song.uri}",
+                    relatedId = song.uri
+                )
                 Log.d(TAG, "已删除歌曲: ${song.title}")
 
             } catch (e: Exception) {
                 Log.e(TAG, "删除歌曲失败: ${song.title}", e)
+                logException(
+                    message = "Failed to delete song: ${song.title}",
+                    throwable = e,
+                    relatedId = song.uri
+                )
             }
         }
     }
@@ -100,94 +120,118 @@ class SongRepositoryImpl(
     override suspend fun synchronize(fullRescan: Boolean) {
         syncMutex.withLock {
             withContext(Dispatchers.IO) {
-                Log.d(TAG, "开始同步数据库与设备文件 (Uri模式)... (全量扫描: $fullRescan)")
+                try {
+                    Log.d(TAG, "开始同步数据库与设备文件 (Uri模式)... (全量扫描: $fullRescan)")
 
-                val ignoreShortAudio = settingsRepository.ignoreShortAudio.first()
-                val minDuration = 60_000L
+                    val ignoreShortAudio = settingsRepository.ignoreShortAudio.first()
+                    val minDuration = 60_000L
 
-                val dbSyncInfos = songDao.getAllSyncInfo()
-                val dbSongMap = dbSyncInfos.associateBy { it.uri }
+                    val dbSyncInfos = songDao.getAllSyncInfo()
+                    val dbSongMap = dbSyncInfos.associateBy { it.uri }
 
-                val deviceUris = mutableSetOf<String>()
-                val folderIdCache = mutableMapOf<String, Long>()
-                val impactedFolderIds = mutableSetOf<Long>()
+                    val deviceUris = mutableSetOf<String>()
+                    val folderIdCache = mutableMapOf<String, Long>()
+                    val impactedFolderIds = mutableSetOf<Long>()
+                    val itemFailures = mutableListOf<String>()
 
-                // 在内存中收集所有需要变更的数据（涉及文件 I/O，不在事务中执行）
-                val songsToUpsert = mutableListOf<SongEntity>()
+                    // 在内存中收集所有需要变更的数据（涉及文件 I/O，不在事务中执行）
+                    val songsToUpsert = mutableListOf<SongEntity>()
 
-                suspend fun resolveFolderId(path: String): Long {
-                    val folderPath = path.substringBeforeLast("/").trimEnd('/')
-                    return folderIdCache.getOrPut(folderPath) {
-                        folderDao.upsertAndGetId(folderPath)
-                    }.also { impactedFolderIds.add(it) }
-                }
-
-                val deviceSongs = mediaScanner.querySongs()
-                Log.d(TAG, "MediaStore 查询完成，共 ${deviceSongs.size} 首")
-
-                for (deviceSong in deviceSongs) {
-                    if (ignoreShortAudio && deviceSong.duration <= minDuration) {
-                        continue
+                    suspend fun resolveFolderId(path: String): Long {
+                        val folderPath = path.substringBeforeLast("/").trimEnd('/')
+                        return folderIdCache.getOrPut(folderPath) {
+                            folderDao.upsertAndGetId(folderPath)
+                        }.also { impactedFolderIds.add(it) }
                     }
 
-                    val deviceUriString = deviceSong.uri.toString()
-                    deviceUris.add(deviceUriString)
+                    val deviceSongs = mediaScanner.querySongs()
+                    Log.d(TAG, "MediaStore 查询完成，共 ${deviceSongs.size} 首")
 
-                    val dbInfo = dbSongMap[deviceUriString]
-                    val needsUpdate = fullRescan || dbInfo == null
-                            || dbInfo.fileLastModified != deviceSong.lastModified
-                            || dbInfo.filePath != deviceSong.filePath
+                    for (deviceSong in deviceSongs) {
+                        if (ignoreShortAudio && deviceSong.duration <= minDuration) {
+                            continue
+                        }
 
-                    if (needsUpdate) {
-                        try {
-                            val folderId = resolveFolderId(deviceSong.filePath)
-                            val entity = extractSongMetadata(
-                                deviceSong,
-                                folderId,
-                                existingId = dbInfo?.id ?: 0L
-                            )
-                            if (entity != null) {
-                                songsToUpsert.add(entity)
+                        val deviceUriString = deviceSong.uri.toString()
+                        deviceUris.add(deviceUriString)
+
+                        val dbInfo = dbSongMap[deviceUriString]
+                        val needsUpdate = fullRescan || dbInfo == null
+                                || dbInfo.fileLastModified != deviceSong.lastModified
+                                || dbInfo.filePath != deviceSong.filePath
+
+                        if (needsUpdate) {
+                            try {
+                                val folderId = resolveFolderId(deviceSong.filePath)
+                                val entity = extractSongMetadata(
+                                    deviceSong,
+                                    folderId,
+                                    existingId = dbInfo?.id ?: 0L
+                                )
+                                if (entity != null) {
+                                    songsToUpsert.add(entity)
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "处理歌曲失败: ${deviceSong.fileName}", e)
+                                itemFailures.add("${deviceSong.fileName}: ${e.message ?: e::class.java.simpleName}")
                             }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "处理歌曲失败: ${deviceSong.fileName}", e)
-                        }
-                    }
-                }
-
-                // 计算需要删除的 URI
-                val deletedUris = dbSongMap.keys - deviceUris
-                if (deletedUris.isNotEmpty()) {
-                    val folderIdsOfDeletedSongs = dbSyncInfos
-                        .filter { it.uri in deletedUris }
-                        .map { it.folderId }
-                    impactedFolderIds.addAll(folderIdsOfDeletedSongs)
-                }
-
-                // 单一事务中执行所有数据库写入操作
-                // Room 仅在事务提交时触发一次表失效重查询，避免 CursorWindow 的并发重查询溢出
-                Log.d(TAG, "准备提交: ${songsToUpsert.size} 条更新, ${deletedUris.size} 条删除")
-                database.withTransaction {
-                    if (songsToUpsert.isNotEmpty()) {
-                        songsToUpsert.chunked(BATCH_SIZE).forEach { chunk ->
-                            songDao.upsertAll(chunk)
                         }
                     }
 
+                    // 计算需要删除的 URI
+                    val deletedUris = dbSongMap.keys - deviceUris
                     if (deletedUris.isNotEmpty()) {
-                        deletedUris.chunked(BATCH_SIZE).forEach { chunk ->
-                            songDao.deleteByUris(chunk.toList())
+                        val folderIdsOfDeletedSongs = dbSyncInfos
+                            .filter { it.uri in deletedUris }
+                            .map { it.folderId }
+                        impactedFolderIds.addAll(folderIdsOfDeletedSongs)
+                    }
+
+                    // 单一事务中执行所有数据库写入操作
+                    // Room 仅在事务提交时触发一次表失效重查询，避免 CursorWindow 的并发重查询溢出
+                    Log.d(TAG, "准备提交: ${songsToUpsert.size} 条更新, ${deletedUris.size} 条删除")
+                    database.withTransaction {
+                        if (songsToUpsert.isNotEmpty()) {
+                            songsToUpsert.chunked(BATCH_SIZE).forEach { chunk ->
+                                songDao.upsertAll(chunk)
+                            }
                         }
+
+                        if (deletedUris.isNotEmpty()) {
+                            deletedUris.chunked(BATCH_SIZE).forEach { chunk ->
+                                songDao.deleteByUris(chunk.toList())
+                            }
+                        }
+
+                        impactedFolderIds.forEach { folderId ->
+                            folderDao.refreshSongCount(folderId)
+                        }
+                        folderDao.performPostScanCleanup()
                     }
 
-                    impactedFolderIds.forEach { folderId ->
-                        folderDao.refreshSongCount(folderId)
-                    }
-                    folderDao.performPostScanCleanup()
+                    settingsRepository.saveLastScanTime(System.currentTimeMillis())
+                    logApp(
+                        level = if (itemFailures.isEmpty()) AppLogLevel.INFO else AppLogLevel.WARNING,
+                        message = "Library synchronization finished",
+                        detail = buildString {
+                            appendLine("fullRescan=$fullRescan")
+                            appendLine("deviceSongs=${deviceSongs.size}")
+                            appendLine("upserted=${songsToUpsert.size}")
+                            appendLine("deleted=${deletedUris.size}")
+                            appendLine("foldersUpdated=${impactedFolderIds.size}")
+                            appendLine("itemFailures=${itemFailures.size}")
+                            appendLine("ignoreShortAudio=$ignoreShortAudio")
+                            appendLimitedItems("failures", itemFailures)
+                        }
+                    )
+                    Log.d(TAG, "同步全部完成。")
+                } catch (e: Exception) {
+                    logException(
+                        message = "Library synchronization failed",
+                        throwable = e
+                    )
+                    throw e
                 }
-
-                settingsRepository.saveLastScanTime(System.currentTimeMillis())
-                Log.d(TAG, "同步全部完成。")
             }
         }
     }
@@ -651,6 +695,60 @@ class SongRepositoryImpl(
                 Log.e(TAG, "重命名异常: ${song.fileName}", e)
                 false
             }
+        }
+    }
+
+    private suspend fun logApp(
+        level: AppLogLevel,
+        message: String,
+        detail: String? = null,
+        relatedId: String? = null
+    ) {
+        try {
+            appLogRepository.log(
+                level = level,
+                type = AppLogType.APP,
+                tag = TAG,
+                message = message,
+                detail = detail,
+                relatedId = relatedId
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write app log", e)
+        }
+    }
+
+    private fun StringBuilder.appendLimitedItems(
+        title: String,
+        items: List<String>
+    ) {
+        if (items.isEmpty()) return
+        appendLine()
+        appendLine("$title:")
+        items.take(MAX_LOG_ITEMS).forEach { item ->
+            appendLine(item)
+        }
+        val omitted = items.size - MAX_LOG_ITEMS
+        if (omitted > 0) {
+            appendLine("... $omitted more")
+        }
+    }
+
+    private suspend fun logException(
+        message: String,
+        throwable: Throwable,
+        relatedId: String? = null
+    ) {
+        try {
+            appLogRepository.logException(
+                type = AppLogType.APP,
+                tag = TAG,
+                message = message,
+                throwable = throwable,
+                relatedId = relatedId
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write exception log", e)
         }
     }
 }

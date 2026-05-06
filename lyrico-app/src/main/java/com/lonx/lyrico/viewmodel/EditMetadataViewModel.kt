@@ -16,6 +16,8 @@ import androidx.lifecycle.viewModelScope
 import com.lonx.audiotag.model.AudioPicture
 import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.R
+import com.lonx.lyrico.data.model.AppLogLevel
+import com.lonx.lyrico.data.model.AppLogType
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.ExtraMetadataWriteDefaults
 import com.lonx.lyrico.data.model.LyricFormat
@@ -23,6 +25,7 @@ import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.LyricsSearchResult
 import com.lonx.lyrico.data.model.ScoredSearchResult
 import com.lonx.lyrico.data.model.entity.SongEntity
+import com.lonx.lyrico.data.repository.AppLogRepository
 import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.data.repository.SettingsDefaults
 import com.lonx.lyrico.data.repository.SettingsRepository
@@ -70,6 +73,8 @@ data class EditMetadataUiState(
     val permissionIntentSender: IntentSender? = null,
     val isReplayGainCalculating: Boolean = false,
     val replayGainScanMessage: UiMessage? = null,
+    val saveFailureMessage: String? = null,
+    val saveFailureLogText: String? = null,
 
     /**
      * 歌词导出导入状态
@@ -87,7 +92,8 @@ class EditMetadataViewModel(
     private val songRepository: SongRepository,
     private val settingsRepository: SettingsRepository,
     private val playbackRepository: PlaybackRepository,
-    private val replayGainScanner: ReplayGainScanner
+    private val replayGainScanner: ReplayGainScanner,
+    private val appLogRepository: AppLogRepository
 ) : ViewModel() {
 
     private val TAG = "EditMetadataVM"
@@ -402,7 +408,15 @@ class EditMetadataViewModel(
         if (_uiState.value.isSaving) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true, saveSuccess = null, permissionIntentSender = null) }
+            _uiState.update {
+                it.copy(
+                    isSaving = true,
+                    saveSuccess = null,
+                    permissionIntentSender = null,
+                    saveFailureMessage = null,
+                    saveFailureLogText = null
+                )
+            }
 
             try {
                 val success = songRepository.overwriteAudioTags(uriString, audioTagData)
@@ -425,7 +439,16 @@ class EditMetadataViewModel(
                     }
                 } else {
                     // 逻辑上的写入失败（非权限问题）
-                    _uiState.update { it.copy(isSaving = false, saveSuccess = false) }
+                    val reason = "Audio tag writer returned false"
+                    recordSaveFailure(uriString, reason)
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            saveSuccess = false,
+                            saveFailureMessage = reason,
+                            saveFailureLogText = buildSaveFailureLog(uriString, reason)
+                        )
+                    }
                 }
 
             } catch (e: Exception) {
@@ -439,9 +462,62 @@ class EditMetadataViewModel(
                     }
                 } else {
                     Log.e(TAG, "保存元数据发生未知错误", e)
-                    _uiState.update { it.copy(isSaving = false, saveSuccess = false) }
+                    val reason = e.localizedMessage ?: e::class.java.simpleName
+                    recordSaveFailure(uriString, reason, e)
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            saveSuccess = false,
+                            saveFailureMessage = reason,
+                            saveFailureLogText = buildSaveFailureLog(uriString, reason, e)
+                        )
+                    }
                 }
             }
+        }
+    }
+
+    private suspend fun recordSaveFailure(
+        uriString: String,
+        reason: String,
+        throwable: Throwable? = null
+    ) {
+        try {
+            if (throwable == null) {
+                appLogRepository.log(
+                    level = AppLogLevel.ERROR,
+                    type = AppLogType.METADATA,
+                    tag = TAG,
+                    message = "Failed to save metadata: $reason",
+                    detail = buildSaveFailureLog(uriString, reason),
+                    relatedId = uriString
+                )
+            } else {
+                appLogRepository.log(
+                    level = AppLogLevel.ERROR,
+                    type = AppLogType.METADATA,
+                    tag = TAG,
+                    message = "Failed to save metadata: $reason",
+                    detail = buildSaveFailureLog(uriString, reason, throwable),
+                    relatedId = uriString
+                )
+            }
+        } catch (logError: Exception) {
+            Log.w(TAG, "Failed to write metadata save log", logError)
+        }
+    }
+
+    private fun buildSaveFailureLog(
+        uriString: String,
+        reason: String,
+        throwable: Throwable? = null
+    ): String = buildString {
+        appendLine("Save metadata failed")
+        appendLine("Uri: $uriString")
+        appendLine("Reason: $reason")
+        throwable?.let {
+            appendLine("Exception: ${it::class.java.name}")
+            appendLine(it.stackTraceToString())
         }
     }
 
@@ -574,7 +650,13 @@ class EditMetadataViewModel(
     }
 
     fun clearSaveStatus() {
-        _uiState.update { it.copy(saveSuccess = null) }
+        _uiState.update {
+            it.copy(
+                saveSuccess = null,
+                saveFailureMessage = null,
+                saveFailureLogText = null
+            )
+        }
     }
 
     /**

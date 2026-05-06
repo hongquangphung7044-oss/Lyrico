@@ -23,6 +23,7 @@ import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.ExtraWriteMode
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
+import com.lonx.lyrico.data.model.LogRetentionOption
 import com.lonx.lyrico.data.model.SearchConfig
 import com.lonx.lyrico.data.model.SettingsBackup
 import com.lonx.lyrico.data.model.ThemeConfig
@@ -67,6 +68,7 @@ object SettingsDefaults {
     const val ONLY_TRANSLATION_IF_AVAILABLE = false
     const val REMOVE_EMPTY_LINES = true
     const val LIMIT_LYRICS_INPUT_LINES = false
+    val LOG_RETENTION_OPTION = LogRetentionOption.THIRTY_DAYS
 
     // 搜索源顺序默认值
     val SEARCH_SOURCE_ORDER = Source.entries.toList()
@@ -109,6 +111,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val BATCH_MATCH_CONFIG = stringPreferencesKey("batch_match_config")
         val EXTRA_METADATA_WRITE_RULES = stringPreferencesKey("extra_metadata_write_rules")
         val CONVERSION_MODE = stringPreferencesKey("conversion_mode")
+        val LOG_RETENTION_OPTION = stringPreferencesKey("log_retention_option")
     }
 
     override val lyricFormat: Flow<LyricFormat>
@@ -247,6 +250,16 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         get() = context.settingsDataStore.data.map { preferences ->
             preferences[PreferencesKeys.LIMIT_LYRICS_INPUT_LINES]
                 ?: SettingsDefaults.LIMIT_LYRICS_INPUT_LINES
+        }
+    override val logRetentionOption: Flow<LogRetentionOption>
+        get() = context.settingsDataStore.data.map { preferences ->
+            val optionName = preferences[PreferencesKeys.LOG_RETENTION_OPTION]
+            if (optionName.isNullOrBlank()) {
+                SettingsDefaults.LOG_RETENTION_OPTION
+            } else {
+                runCatching { LogRetentionOption.valueOf(optionName) }
+                    .getOrDefault(SettingsDefaults.LOG_RETENTION_OPTION)
+            }
         }
     override val showScrollTopButton: Flow<Boolean>
         get() = context.settingsDataStore.data.map { preferences ->
@@ -428,6 +441,12 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         }
     }
 
+    override suspend fun saveLogRetentionOption(option: LogRetentionOption) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.LOG_RETENTION_OPTION] = option.name
+        }
+    }
+
     override suspend fun saveShowScrollTopButton(enabled: Boolean) {
         context.settingsDataStore.edit { preferences ->
             preferences[PreferencesKeys.SHOW_SCROLL_TOP_BUTTON] = enabled
@@ -520,7 +539,9 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 ?: SettingsDefaults.RENAME_FORMAT,
             batchMatchConfig = batchMatchConfig,
             conversionMode = prefs[PreferencesKeys.CONVERSION_MODE]
-                ?: SettingsDefaults.CONVERSION_MODE.name
+                ?: SettingsDefaults.CONVERSION_MODE.name,
+            logRetentionOption = prefs[PreferencesKeys.LOG_RETENTION_OPTION]
+                ?: SettingsDefaults.LOG_RETENTION_OPTION.name
         )
 
         return jsonFormatter.encodeToString(backup)
@@ -581,6 +602,11 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                     prefs[PreferencesKeys.BATCH_MATCH_CONFIG] = jsonFormatter.encodeToString(config)
                 }
                 backup.conversionMode?.let { prefs[PreferencesKeys.CONVERSION_MODE] = it }
+                backup.logRetentionOption?.let { optionName ->
+                    runCatching { LogRetentionOption.valueOf(optionName) }
+                        .getOrNull()
+                        ?.let { prefs[PreferencesKeys.LOG_RETENTION_OPTION] = it.name }
+                }
             }
             true
         } catch (e: Exception) {

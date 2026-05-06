@@ -10,6 +10,9 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.request.crossfade
 import com.lonx.lyrico.data.repository.BatchTaskRepository
+import com.lonx.lyrico.data.model.AppLogLevel
+import com.lonx.lyrico.data.model.AppLogType
+import com.lonx.lyrico.data.repository.AppLogRepository
 import com.lonx.lyrico.di.appModule
 import com.lonx.lyrico.utils.coil.AudioCoverFetcher
 import com.lonx.lyrico.utils.coil.AudioCoverKeyer
@@ -20,6 +23,8 @@ import org.koin.core.logger.Level
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlin.system.exitProcess
 
 class App : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
@@ -32,9 +37,45 @@ class App : Application(), SingletonImageLoader.Factory {
             modules(appModule)
         }
 
+        installCrashLogger()
+
         CoroutineScope(Dispatchers.IO).launch {
+            val logRepository = org.koin.core.context.GlobalContext.get().get<AppLogRepository>()
+            logRepository.trim()
+//            logRepository.log(
+//                level = AppLogLevel.INFO,
+//                type = AppLogType.APP,
+//                tag = TAG,
+//                message = "Application started"
+//            )
             val repo = org.koin.core.context.GlobalContext.get().get<BatchTaskRepository>()
             repo.markOrphanedTasksFailed()
+        }
+    }
+
+    private fun installCrashLogger() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                runBlocking(Dispatchers.IO) {
+                    val logRepository = org.koin.core.context.GlobalContext.get().get<AppLogRepository>()
+                    logRepository.logException(
+                        type = AppLogType.CRASH,
+                        tag = TAG,
+                        message = "Uncaught exception on ${thread.name}",
+                        throwable = throwable
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to persist crash log", e)
+            } finally {
+                if (defaultHandler != null) {
+                    defaultHandler.uncaughtException(thread, throwable)
+                } else {
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                    exitProcess(10)
+                }
+            }
         }
     }
 

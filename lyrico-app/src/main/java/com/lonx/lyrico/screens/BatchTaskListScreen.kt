@@ -79,81 +79,80 @@ fun BatchTaskListScreen(
     var showClearDialog by remember { mutableStateOf(false) }
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
 
-    if (showDeleteDialog && selectedTaskId != null) {
-        WindowDialog(
-            title = stringResource(R.string.batch_task_delete_title),
-            show = showDeleteDialog,
-            onDismissRequest = {
-                showDeleteDialog = false
-                selectedTaskId = null
-            }
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.batch_task_delete_message),
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MiuixTheme.colorScheme.onBackground
+    WindowDialog(
+        title = stringResource(R.string.batch_task_delete_title),
+        show = showDeleteDialog,
+        onDismissRequest = {
+            showDeleteDialog = false
+        },
+        onDismissFinished = {
+            showDeleteDialog = false
+            selectedTaskId = null
+        }
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.batch_task_delete_message),
+                modifier = Modifier.fillMaxWidth(),
+                color = MiuixTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                TextButton(
+                    text = stringResource(R.string.cancel),
+                    onClick = {
+                        showDeleteDialog = false
+                        selectedTaskId = null
+                    },
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    TextButton(
-                        text = stringResource(R.string.cancel),
-                        onClick = {
-                            showDeleteDialog = false
-                            selectedTaskId = null
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(
-                        text = stringResource(R.string.confirm),
-                        onClick = {
-                            selectedTaskId?.let(viewModel::deleteTask)
-                            showDeleteDialog = false
-                            selectedTaskId = null
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = top.yukonga.miuix.kmp.basic.ButtonDefaults.textButtonColorsPrimary()
-                    )
-                }
+                TextButton(
+                    text = stringResource(R.string.confirm),
+                    onClick = {
+                        selectedTaskId?.let(viewModel::deleteTask)
+                        showDeleteDialog = false
+                        selectedTaskId = null
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = top.yukonga.miuix.kmp.basic.ButtonDefaults.textButtonColorsPrimary()
+                )
             }
         }
     }
 
-    if (showClearDialog) {
-        WindowDialog(
-            title = stringResource(R.string.batch_task_clear_title),
-            show = showClearDialog,
-            onDismissRequest = { showClearDialog = false }
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.batch_task_clear_message),
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MiuixTheme.colorScheme.onBackground
+    WindowDialog(
+        title = stringResource(R.string.batch_task_clear_title),
+        show = showClearDialog,
+        onDismissRequest = { showClearDialog = false }
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.batch_task_clear_message),
+                modifier = Modifier.fillMaxWidth(),
+                color = MiuixTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                TextButton(
+                    text = stringResource(R.string.cancel),
+                    onClick = { showClearDialog = false },
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    TextButton(
-                        text = stringResource(R.string.cancel),
-                        onClick = { showClearDialog = false },
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(
-                        text = stringResource(R.string.confirm),
-                        onClick = {
-                            viewModel.clearFinishedTasks()
-                            showClearDialog = false
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = top.yukonga.miuix.kmp.basic.ButtonDefaults.textButtonColorsPrimary()
-                    )
-                }
+                TextButton(
+                    text = stringResource(R.string.confirm),
+                    onClick = {
+                        viewModel.clearFinishedTasks()
+                        showClearDialog = false
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = top.yukonga.miuix.kmp.basic.ButtonDefaults.textButtonColorsPrimary()
+                )
             }
         }
     }
@@ -213,7 +212,11 @@ fun BatchTaskListScreen(
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                     WindowDropdownPreference(
                         title = stringResource(R.string.batch_task_filter_type),
-                        items = listOf(stringResource(R.string.batch_task_filter_all)) + typeItems.map { stringResource(it) },
+                        items = listOf(stringResource(R.string.batch_task_filter_all)) + typeItems.map {
+                            stringResource(
+                                it
+                            )
+                        },
                         selectedIndex = selectedTypeIndex,
                         onSelectedIndexChange = { index ->
                             viewModel.setFilterType(
@@ -223,7 +226,11 @@ fun BatchTaskListScreen(
                     )
                     WindowDropdownPreference(
                         title = stringResource(R.string.batch_task_filter_status),
-                        items = listOf(stringResource(R.string.batch_task_filter_all)) + statusItems.map { stringResource(it) },
+                        items = listOf(stringResource(R.string.batch_task_filter_all)) + statusItems.map {
+                            stringResource(
+                                it
+                            )
+                        },
                         selectedIndex = selectedStatusIndex,
                         onSelectedIndexChange = { index ->
                             viewModel.setFilterStatus(
@@ -282,17 +289,17 @@ private fun BatchTaskCard(
         val durationSecs = if (task.startedAt != null && task.finishedAt != null) {
             (task.finishedAt - task.startedAt) / 1000.0
         } else null
-        
+
         val summary = buildString {
             // 第一行：任务类型
             append(stringResource(R.string.batch_task_type_label))
             append(typeLabel)
-            
+
             // 第二行：运行状态
             append("\n")
             append(stringResource(R.string.batch_task_status_label))
             append(statusLabel)
-            
+
             // 第三行：统计信息或进度
             append("\n")
             if (task.status == BatchTaskStatus.SUCCEEDED || task.status == BatchTaskStatus.FAILED || task.status == BatchTaskStatus.CANCELLED) {
@@ -307,7 +314,7 @@ private fun BatchTaskCard(
             } else if (task.status == BatchTaskStatus.RUNNING || task.status == BatchTaskStatus.QUEUED) {
                 append("${task.current}/${task.total}")
             }
-            
+
             // 第四行：耗时（如果有）
             if (durationSecs != null) {
                 append("\n")
@@ -319,9 +326,10 @@ private fun BatchTaskCard(
                 )
             }
         }
-        
-        val isRunning = task.status == BatchTaskStatus.RUNNING || task.status == BatchTaskStatus.QUEUED
-        
+
+        val isRunning =
+            task.status == BatchTaskStatus.RUNNING || task.status == BatchTaskStatus.QUEUED
+
         BasicComponent(
             title = formattedDate,
             summary = summary,

@@ -9,6 +9,8 @@ import com.lonx.lyrico.data.model.entity.FolderEntity
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.dao.SongDao
 import com.lonx.lyrico.data.model.dao.BatchTaskDao
+import com.lonx.lyrico.data.model.dao.AppLogDao
+import com.lonx.lyrico.data.model.entity.AppLogEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskItemEntity
 import com.lonx.lyrico.data.migration.DeleteBatchMatchHistorySpec
@@ -18,9 +20,10 @@ import com.lonx.lyrico.data.migration.DeleteBatchMatchHistorySpec
         SongEntity::class, 
         FolderEntity::class,
         BatchTaskEntity::class,
-        BatchTaskItemEntity::class
+        BatchTaskItemEntity::class,
+        AppLogEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -31,11 +34,13 @@ import com.lonx.lyrico.data.migration.DeleteBatchMatchHistorySpec
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11, spec = DeleteBatchMatchHistorySpec::class),
-        AutoMigration(from = 11, to = 12)
+        AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13)
     ]
 )
 abstract class LyricoDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun folderDao(): FolderDao
     abstract fun batchTaskDao(): BatchTaskDao
+    abstract fun appLogDao(): AppLogDao
 }
