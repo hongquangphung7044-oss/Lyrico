@@ -62,7 +62,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,15 +84,15 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -102,7 +101,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.lonx.lyrico.BuildConfig
 import com.lonx.lyrico.R
-import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LocalSearchType
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.entity.getUri
@@ -134,6 +132,7 @@ import my.nanihadesuka.compose.LazyColumnScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.viewmodel.koinActivityViewModel
 import top.yukonga.miuix.kmp.basic.BasicComponentColors
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -175,6 +174,7 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 
 private val SECTIONS_ASC = listOf(
     "0"
@@ -193,7 +193,7 @@ enum class TopBarState {
 fun SongListScreen(
     navigator: DestinationsNavigator
 ) {
-    val songListViewModel: SongListViewModel = koinViewModel()
+    val songListViewModel: SongListViewModel = koinActivityViewModel()
     val batchMatchViewModel: BatchMatchViewModel = koinViewModel()
     val batchReplayGainViewModel: BatchReplayGainViewModel = koinViewModel()
     val batchLyricsFormatViewModel: BatchLyricsFormatViewModel = koinViewModel()

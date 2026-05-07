@@ -20,12 +20,12 @@ import com.ramcosta.composedestinations.animations.NavHostAnimatedDestinationSty
 import com.ramcosta.composedestinations.generated.NavGraphs
 import com.ramcosta.composedestinations.generated.destinations.EditMetadataDestination
 import com.ramcosta.composedestinations.spec.Direction
-import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.viewmodel.koinActivityViewModel
 import top.yukonga.miuix.kmp.basic.Surface
 
 @Composable
 fun LyricoApp(externalUri: Uri?) {
-    val songListViewModel: SongListViewModel = koinViewModel()
+    val songListViewModel: SongListViewModel = koinActivityViewModel()
     val navController = rememberNavController()
 
     LaunchedEffect(Unit) {

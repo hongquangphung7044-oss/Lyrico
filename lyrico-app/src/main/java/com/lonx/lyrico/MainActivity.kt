@@ -38,6 +38,7 @@ import com.lonx.lyrico.viewmodel.SongListViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -48,7 +49,7 @@ open class MainActivity : ComponentActivity() {
 
     @JvmField
     protected var hasPermission = false
-    private val songListViewModel: SongListViewModel by inject()
+    private val songListViewModel: SongListViewModel by viewModel()
     private val settingsRepository: SettingsRepository by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
