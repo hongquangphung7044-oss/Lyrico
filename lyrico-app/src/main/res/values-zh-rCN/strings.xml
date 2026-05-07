@@ -45,7 +45,7 @@
 
     <!-- 扫描 -->
     <string name="folder_manager">文件夹管理</string>
-    <string name="folder_manage_hint">管理扫描路径</string>
+    <string name="folder_manage_hint">管理 Lyrico 扫描的音乐文件夹</string>
     <string name="folder_found">已发现 %1$d 个文件夹</string>
     <string name="folder_ignored">，已忽略 %1$d 个</string>
     <string name="ignore_short_audio">不扫描 60 秒以下音频</string>
@@ -162,6 +162,14 @@
 
     <!-- Top Bar -->
     <string name="song_list_title">歌曲(%d首)</string>
+    <string name="song_list_empty_title">尚未添加文件夹</string>
+    <string name="song_list_empty_desc">添加一个音乐文件夹后，Lyrico 会扫描选择的文件夹中的音频文件</string>
+    <string name="action_add_folder">添加文件夹</string>
+    <string name="action_refresh_folder">刷新文件夹</string>
+    <string name="scan_progress_listing">正在扫描文件夹…</string>
+    <string name="scan_progress_reading">正在读取标签 %1$d / %2$d</string>
+    <string name="scan_progress_writing">正在更新音乐库…</string>
+    <string name="scan_progress_finished">扫描完成</string>
     <string name="cd_settings">设置</string>
     <string name="cd_search">搜索</string>
     <string name="cd_sort">排序方式</string>
@@ -226,25 +234,22 @@
 
     <!-- 对话框 -->
     <string name="dialog_remove_folder_title">是否移除此文件夹？</string>
-    <string name="dialog_remove_folder_content_tip">该操作不会删除本地文件\n文件夹下的歌曲将从音乐库中隐藏，重新扫描后会再次显示</string>
+    <string name="dialog_remove_folder_content_tip">这会从 Lyrico 中移除此文件夹，并清除音乐库里的对应歌曲\n本地文件不会被删除，之后仍可重新添加此文件夹</string>
 
     <!-- 文件夹列表状态 -->
-    <string name="folder_tip_disabled_logic">未启用的文件夹及其子目录中的歌曲将不会显示在库中</string>
-    <string name="section_folder_discovered">已发现的文件夹</string>
-    <string name="folder_empty_state_tip">暂无文件夹数据，完成首次扫描后即可管理</string>
+    <string name="folder_tip_disabled_logic">Lyrico 只会扫描这里添加的文件夹。文件变化后，可单独刷新对应文件夹</string>
+    <string name="folder_scanning">正在扫描文件夹歌曲…</string>
+    <string name="folder_scan_failed">扫描失败：%s</string>
 
     <!-- 文件夹项信息 -->
     <string name="folder_song_count_format">歌曲 %d 首</string>
-    <string name="folder_status_ignored">(已忽略)</string>
     <string name="folder_source_manual">手动添加</string>
     <string name="folder_source_auto">自动发现</string>
 
     <!-- 文件夹操作菜单 -->
     <string name="folder_sheet_path_prefix">路径: %s</string>
-    <string name="folder_action_enable">启用此文件夹</string>
-    <string name="folder_action_enable_sub">关闭后，该文件夹下的歌曲将从库中隐藏</string>
-    <string name="folder_action_remove">移除记录</string>
-    <string name="folder_action_remove_sub">从数据库中移除此文件夹记录，不会删除物理文件</string>
+    <string name="folder_action_remove">移除文件夹</string>
+    <string name="folder_action_remove_sub">从 Lyrico 中移除此文件夹，并清除音乐库里的对应歌曲。本地文件不会被删除。</string>
 
     <!-- 通用操作 -->
     <string name="action_save">保存</string>

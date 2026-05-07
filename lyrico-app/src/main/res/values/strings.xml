@@ -47,7 +47,7 @@
 
     <!-- Scan -->
     <string name="folder_manager">Folder Manager</string>
-    <string name="folder_manage_hint">Manage scan paths</string>
+    <string name="folder_manage_hint">Manage folders scanned by Lyrico</string>
     <string name="folder_found">%1$d folders found</string>
     <string name="folder_ignored">, %1$d ignored</string>
     <string name="ignore_short_audio">Ignore audio shorter than 60 seconds</string>
@@ -158,6 +158,14 @@
 
     <!-- Top Bar -->
     <string name="song_list_title">Songs (%d)</string>
+    <string name="song_list_empty_title">No folders added</string>
+    <string name="song_list_empty_desc">Add a music folder so Lyrico can scan audio files from the folder you choose.</string>
+    <string name="action_add_folder">Add folder</string>
+    <string name="action_refresh_folder">Refresh folder</string>
+    <string name="scan_progress_listing">Scanning folders…</string>
+    <string name="scan_progress_reading">Reading metadata %1$d / %2$d</string>
+    <string name="scan_progress_writing">Updating library…</string>
+    <string name="scan_progress_finished">Scan complete</string>
     <string name="cd_settings">Settings</string>
     <string name="cd_search">Search</string>
     <string name="cd_sort">Sort</string>
@@ -222,24 +230,21 @@
 
     <!-- Dialogs -->
     <string name="dialog_remove_folder_title">Remove this folder?</string>
-    <string name="dialog_remove_folder_content_tip">This operation will not delete local files.\nSongs in this folder will be hidden from the music library and will reappear after re-scanning.</string>
+    <string name="dialog_remove_folder_content_tip">This will remove the folder from Lyrico and clear its songs from the library.\nLocal files will not be deleted. You can add this folder again later.</string>
     <!-- Folder List Status -->
-    <string name="folder_tip_disabled_logic">Songs in disabled folders and their subdirectories will not be shown in the library.</string>
-    <string name="section_folder_discovered">Discovered Folders</string>
-    <string name="folder_empty_state_tip">No folder data yet. Complete the first scan to manage them.</string>
+    <string name="folder_tip_disabled_logic">Only folders added here are scanned. Refresh a folder after changing its files.</string>
+    <string name="folder_scanning">Scanning folder songs…</string>
+    <string name="folder_scan_failed">Scan failed: %s</string>
 
     <!-- Folder Item Info -->
     <string name="folder_song_count_format">Songs: %d</string>
-    <string name="folder_status_ignored">(Ignored)</string>
     <string name="folder_source_manual">Manually Added</string>
     <string name="folder_source_auto">Auto Discovered</string>
 
     <!-- Folder Action Sheet -->
     <string name="folder_sheet_path_prefix">Path: %s</string>
-    <string name="folder_action_enable">Enable this folder</string>
-    <string name="folder_action_enable_sub">When disabled, songs in this folder will be hidden from the library.</string>
-    <string name="folder_action_remove">Remove Record</string>
-    <string name="folder_action_remove_sub">Remove this folder record from the database; physical files will not be deleted.</string>
+    <string name="folder_action_remove">Remove Folder</string>
+    <string name="folder_action_remove_sub">Remove this folder from Lyrico and clear its songs from the library. Local files will not be deleted.</string>
 
     <!-- General Actions -->
     <string name="action_save">Save</string>

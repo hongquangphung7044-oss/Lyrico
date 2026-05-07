@@ -222,7 +222,10 @@ val appModule = module {
             LyricoDatabase::class.java,
             "lyrico_database"
         )
-            .addMigrations(LyricoDatabase.MIGRATION_14_15)
+            .addMigrations(
+                LyricoDatabase.MIGRATION_14_15,
+                LyricoDatabase.MIGRATION_15_16
+            )
             .build()
     }
     single { get<LyricoDatabase>().batchTaskDao() }
@@ -257,7 +260,7 @@ val appModule = module {
     viewModel { BatchMatchViewModel(get(), get(), get(), get()) }
     viewModel { AppLogViewModel(get()) }
 
-    viewModel { FolderManagerViewModel(get()) }
+    viewModel { FolderManagerViewModel(get(), get()) }
     viewModel { (folderId: Long) ->
         FolderSongsViewModel(
             folderId = folderId,

@@ -3,7 +3,7 @@ package com.lonx.lyrico.data.repository
 import android.app.RecoverableSecurityException
 import android.content.Context
 import android.os.Build
-import android.provider.MediaStore
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.net.toUri
@@ -19,9 +19,9 @@ import com.lonx.lyrico.data.exception.RequiresUserPermissionException
 import com.lonx.lyrico.data.model.AppLogLevel
 import com.lonx.lyrico.data.model.AppLogType
 import com.lonx.lyrico.data.model.LocalSearchType
+import com.lonx.lyrico.data.model.SongFile
 import com.lonx.lyrico.data.model.dao.SongFieldValue
 import com.lonx.lyrico.data.model.entity.SongEntity
-import com.lonx.lyrico.data.model.SongFile
 import com.lonx.lyrico.data.utils.SongQueryBuilder
 import com.lonx.lyrico.data.utils.SortKeyUtils
 import com.lonx.lyrico.utils.MediaScanner
@@ -38,9 +38,6 @@ import java.io.File
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-/**
- * 歌曲数据存储库实现类 (基于 Uri 版本)
- */
 class SongRepositoryImpl(
     private val database: LyricoDatabase,
     private val context: Context,
@@ -73,54 +70,22 @@ class SongRepositoryImpl(
 
     override suspend fun deleteSong(song: SongEntity) {
         withContext(Dispatchers.IO) {
-            try {
-                val contentResolver = context.contentResolver
-                // 解析存储在实体中的 URI 字符串
-                val uri = song.uri.toUri()
+            val success = deleteSingleSongFile(song)
+            if (!success) return@withContext
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    try {
-                        val rowsDeleted = contentResolver.delete(uri, null, null)
-                        if (rowsDeleted == 0) {
-                            // 删除失败可能意味着文件不存在，但我们仍需清理数据库
-                            Log.w(TAG, "系统未返回删除行数或文件已不存在: $uri")
-                        }
-                    } catch (e: RecoverableSecurityException) {
-                        // Android 10/11+ 需要用户权限确认
-                        val pendingIntent = MediaStore.createDeleteRequest(contentResolver, listOf(uri))
-                        Log.w(TAG, "RecoverableSecurityException, 需要用户确认: $uri")
-                        throw e
-                    } catch (e: SecurityException) {
-                        Log.e(TAG, "权限不足，无法删除: $uri", e)
-                        logException(
-                            message = "Failed to delete song: permission denied",
-                            throwable = e,
-                            relatedId = song.uri
-                        )
-                        return@withContext
-                    }
-                } else {
-                    // Android 9 及以下
-                    contentResolver.delete(uri, null, null)
-                }
-
-                songDao.deleteByUris(listOf(song.uri))
-                logApp(
-                    level = AppLogLevel.INFO,
-                    message = "Song deleted",
-                    detail = "title=${song.title}, uri=${song.uri}",
-                    relatedId = song.uri
-                )
-                Log.d(TAG, "已删除歌曲: ${song.title}")
-
-            } catch (e: Exception) {
-                Log.e(TAG, "删除歌曲失败: ${song.title}", e)
-                logException(
-                    message = "Failed to delete song: ${song.title}",
-                    throwable = e,
-                    relatedId = song.uri
-                )
+            database.withTransaction {
+                songDao.deleteByUri(song.uri)
+                folderDao.refreshSongCount(song.folderId)
+                folderDao.performPostScanCleanup()
             }
+
+            logApp(
+                level = AppLogLevel.INFO,
+                message = "Song deleted",
+                detail = "title=${song.title}, uri=${song.uri}",
+                relatedId = song.uri
+            )
+            Log.d(TAG, "已删除歌曲: ${song.title}")
         }
     }
 
@@ -128,46 +93,14 @@ class SongRepositoryImpl(
         withContext(Dispatchers.IO) {
             if (songs.isEmpty()) return@withContext
 
-            val contentResolver = context.contentResolver
             val deletedSongs = mutableListOf<SongEntity>()
             val impactedFolderIds = mutableSetOf<Long>()
 
             songs.forEach { song ->
-                try {
-                    val uri = song.uri.toUri()
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        try {
-                            val rowsDeleted = contentResolver.delete(uri, null, null)
-                            if (rowsDeleted == 0) {
-                                Log.w(TAG, "系统未返回删除行数或文件已不存在: $uri")
-                            }
-                        } catch (e: RecoverableSecurityException) {
-                            MediaStore.createDeleteRequest(contentResolver, listOf(uri))
-                            Log.w(TAG, "RecoverableSecurityException, 需要用户确认: $uri")
-                            throw e
-                        } catch (e: SecurityException) {
-                            Log.e(TAG, "权限不足，无法删除: $uri", e)
-                            logException(
-                                message = "Failed to delete song: permission denied",
-                                throwable = e,
-                                relatedId = song.uri
-                            )
-                            return@forEach
-                        }
-                    } else {
-                        contentResolver.delete(uri, null, null)
-                    }
-
+                val success = deleteSingleSongFile(song)
+                if (success) {
                     deletedSongs.add(song)
                     impactedFolderIds.add(song.folderId)
-                } catch (e: Exception) {
-                    Log.e(TAG, "删除歌曲失败: ${song.title}", e)
-                    logException(
-                        message = "Failed to delete song: ${song.title}",
-                        throwable = e,
-                        relatedId = song.uri
-                    )
                 }
             }
 
@@ -199,6 +132,65 @@ class SongRepositoryImpl(
         }
     }
 
+    private suspend fun deleteSingleSongFile(song: SongEntity): Boolean {
+        return if (song.source == "SAF") {
+            deleteSafSongFile(song)
+        } else {
+            deleteMediaStoreSongFile(song)
+        }
+    }
+
+    private suspend fun deleteSafSongFile(song: SongEntity): Boolean {
+        return try {
+            DocumentsContract.deleteDocument(context.contentResolver, song.uri.toUri())
+        } catch (e: Exception) {
+            Log.e(TAG, "SAF 删除失败: ${song.uri}", e)
+            logException(
+                message = "Failed to delete SAF song",
+                throwable = e,
+                relatedId = song.uri
+            )
+            false
+        }
+    }
+
+    private suspend fun deleteMediaStoreSongFile(song: SongEntity): Boolean {
+        return try {
+            val contentResolver = context.contentResolver
+            val uri = song.uri.toUri()
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    val rowsDeleted = contentResolver.delete(uri, null, null)
+                    if (rowsDeleted == 0) {
+                        Log.w(TAG, "系统未返回删除行数或文件已不存在: $uri")
+                    }
+                } catch (e: RecoverableSecurityException) {
+                    Log.w(TAG, "RecoverableSecurityException, 需要用户确认: $uri")
+                    throw e
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "权限不足，无法删除: $uri", e)
+                    logException(
+                        message = "Failed to delete song: permission denied",
+                        throwable = e,
+                        relatedId = song.uri
+                    )
+                    return false
+                }
+            } else {
+                contentResolver.delete(uri, null, null)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "删除歌曲失败: ${song.title}", e)
+            logException(
+                message = "Failed to delete song: ${song.title}",
+                throwable = e,
+                relatedId = song.uri
+            )
+            false
+        }
+    }
 
     override suspend fun getSongByUri(uri: String): SongEntity? {
         return songDao.getSongByUri(uri)
@@ -253,11 +245,17 @@ class SongRepositoryImpl(
         )
     }
 
-    override suspend fun synchronize(fullRescan: Boolean) {
+    override suspend fun synchronize(
+        fullRescan: Boolean,
+        folderIds: Set<Long>?,
+        onProgress: (suspend (LibraryScanProgress) -> Unit)?
+    ) {
         syncMutex.withLock {
             withContext(Dispatchers.IO) {
                 try {
                     Log.d(TAG, "开始同步数据库与设备文件 (Uri模式)... (全量扫描: $fullRescan)")
+
+                    onProgress?.invoke(LibraryScanProgress(stage = LibraryScanStage.LISTING_FILES))
 
                     val ignoreShortAudio = settingsRepository.ignoreShortAudio.first()
                     val minDuration = 60_000L
@@ -266,56 +264,86 @@ class SongRepositoryImpl(
                     val dbSongMap = dbSyncInfos.associateBy { it.uri }
 
                     val deviceUris = mutableSetOf<String>()
-                    val folderIdCache = mutableMapOf<String, Long>()
                     val impactedFolderIds = mutableSetOf<Long>()
                     val itemFailures = mutableListOf<String>()
 
-                    // 在内存中收集所有需要变更的数据（涉及文件 I/O，不在事务中执行）
                     val songsToUpsert = mutableListOf<SongEntity>()
 
-                    suspend fun resolveFolderId(path: String): Long {
-                        val folderPath = path.substringBeforeLast("/").trimEnd('/')
-                        return folderIdCache.getOrPut(folderPath) {
-                            folderDao.upsertAndGetId(folderPath)
-                        }.also { impactedFolderIds.add(it) }
+                    val safFolders = folderDao.getSafFolders()
+                        .filter { folder -> folderIds == null || folder.id in folderIds }
+                    val safScanResult = mediaScanner.querySongsFromSafFolders(safFolders)
+                    Log.d(TAG, "SAF 扫描完成，共 ${safScanResult.songs.size} 首, 成功文件夹=${safScanResult.successfulFolderIds.size}, 失败=${safScanResult.failedFolderIds.size}")
+
+                    val deviceSongs = safScanResult.songs
+                    Log.d(TAG, "SAF 文件夹歌曲共 ${deviceSongs.size} 首")
+
+                    onProgress?.invoke(
+                        LibraryScanProgress(
+                            stage = LibraryScanStage.READING_METADATA,
+                            current = 0,
+                            total = deviceSongs.size
+                        )
+                    )
+
+                    for ((index, scannedSong) in deviceSongs.withIndex()) {
+                        val deviceSong = scannedSong.songFile
+
+                        try {
+                            if (ignoreShortAudio && deviceSong.duration > 0L && deviceSong.duration <= minDuration) {
+                                continue
+                            }
+
+                            val deviceUriString = deviceSong.uri.toString()
+                            deviceUris.add(deviceUriString)
+
+                            val dbInfo = dbSongMap[deviceUriString]
+                            val needsUpdate = fullRescan || dbInfo == null
+                                    || dbInfo.fileLastModified != deviceSong.lastModified
+                                    || dbInfo.filePath != deviceSong.filePath
+
+                            if (needsUpdate) {
+                                try {
+                                    val folderId = scannedSong.rootFolderId
+                                    impactedFolderIds.add(folderId)
+
+                                    val entity = extractSongMetadata(
+                                        songFile = deviceSong,
+                                        folderId = folderId,
+                                        existingId = dbInfo?.id ?: 0L,
+                                        source = "SAF"
+                                    )
+                                    if (entity != null) {
+                                        songsToUpsert.add(entity)
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "处理歌曲失败: ${deviceSong.fileName}", e)
+                                    itemFailures.add("${deviceSong.fileName}: ${e.message ?: e::class.java.simpleName}")
+                                }
+                            }
+                        } finally {
+                            onProgress?.invoke(
+                                LibraryScanProgress(
+                                    stage = LibraryScanStage.READING_METADATA,
+                                    current = index + 1,
+                                    total = deviceSongs.size,
+                                    currentFile = deviceSong.fileName
+                                )
+                            )
+                        }
                     }
 
-                    val deviceSongs = mediaScanner.querySongs()
-                    Log.d(TAG, "MediaStore 查询完成，共 ${deviceSongs.size} 首")
+                    val successfulSafFolderIds = safScanResult.successfulFolderIds
 
-                    for (deviceSong in deviceSongs) {
-                        if (ignoreShortAudio && deviceSong.duration <= minDuration) {
-                            continue
-                        }
-
-                        val deviceUriString = deviceSong.uri.toString()
-                        deviceUris.add(deviceUriString)
-
-                        val dbInfo = dbSongMap[deviceUriString]
-                        val needsUpdate = fullRescan || dbInfo == null
-                                || dbInfo.fileLastModified != deviceSong.lastModified
-                                || dbInfo.filePath != deviceSong.filePath
-
-                        if (needsUpdate) {
-                            try {
-                                val folderId = resolveFolderId(deviceSong.filePath)
-                                val entity = extractSongMetadata(
-                                    deviceSong,
-                                    folderId,
-                                    existingId = dbInfo?.id ?: 0L
-                                )
-                                if (entity != null) {
-                                    songsToUpsert.add(entity)
-                                }
-                            } catch (e: Exception) {
-                                Log.e(TAG, "处理歌曲失败: ${deviceSong.fileName}", e)
-                                itemFailures.add("${deviceSong.fileName}: ${e.message ?: e::class.java.simpleName}")
+                    val deletedUris = dbSyncInfos
+                        .filter { info ->
+                            when (info.source) {
+                                "SAF" -> info.folderId in successfulSafFolderIds && info.uri !in deviceUris
+                                else -> true
                             }
                         }
-                    }
+                        .map { it.uri }
+                        .toSet()
 
-                    // 计算需要删除的 URI
-                    val deletedUris = dbSongMap.keys - deviceUris
                     if (deletedUris.isNotEmpty()) {
                         val folderIdsOfDeletedSongs = dbSyncInfos
                             .filter { it.uri in deletedUris }
@@ -323,9 +351,15 @@ class SongRepositoryImpl(
                         impactedFolderIds.addAll(folderIdsOfDeletedSongs)
                     }
 
-                    // 单一事务中执行所有数据库写入操作
-                    // Room 仅在事务提交时触发一次表失效重查询，避免 CursorWindow 的并发重查询溢出
                     Log.d(TAG, "准备提交: ${songsToUpsert.size} 条更新, ${deletedUris.size} 条删除")
+                    val databaseChanges = songsToUpsert.size + deletedUris.size
+                    onProgress?.invoke(
+                        LibraryScanProgress(
+                            stage = LibraryScanStage.WRITING_DATABASE,
+                            current = 0,
+                            total = databaseChanges
+                        )
+                    )
                     database.withTransaction {
                         if (songsToUpsert.isNotEmpty()) {
                             songsToUpsert.chunked(BATCH_SIZE).forEach { chunk ->
@@ -344,6 +378,13 @@ class SongRepositoryImpl(
                         }
                         folderDao.performPostScanCleanup()
                     }
+                    onProgress?.invoke(
+                        LibraryScanProgress(
+                            stage = LibraryScanStage.WRITING_DATABASE,
+                            current = databaseChanges,
+                            total = databaseChanges
+                        )
+                    )
 
                     settingsRepository.saveLastScanTime(System.currentTimeMillis())
                     logApp(
@@ -351,7 +392,7 @@ class SongRepositoryImpl(
                         message = "Library synchronization finished",
                         detail = buildString {
                             appendLine("fullRescan=$fullRescan")
-                            appendLine("deviceSongs=${deviceSongs.size}")
+                            appendLine("safSongs=${safScanResult.songs.size}")
                             appendLine("upserted=${songsToUpsert.size}")
                             appendLine("deleted=${deletedUris.size}")
                             appendLine("foldersUpdated=${impactedFolderIds.size}")
@@ -361,6 +402,7 @@ class SongRepositoryImpl(
                         }
                     )
                     Log.d(TAG, "同步全部完成。")
+                    onProgress?.invoke(LibraryScanProgress(stage = LibraryScanStage.FINISHED))
                 } catch (e: Exception) {
                     logException(
                         message = "Library synchronization failed",
@@ -387,7 +429,7 @@ class SongRepositoryImpl(
                     trackerNumber = tag.trackNumber ?: song.trackerNumber,
                     album = tag.album ?: song.album,
                     genre = tag.genre ?: song.genre,
-                    fileLastModified = newModifiedTime // 更新为当前时间
+                    fileLastModified = newModifiedTime
                 ).withSortKeysUpdated()
             }
 
@@ -406,7 +448,8 @@ class SongRepositoryImpl(
     private suspend fun extractSongMetadata(
         songFile: SongFile,
         folderId: Long,
-        existingId: Long = 0L
+        existingId: Long = 0L,
+        source: String = "MEDIA_STORE"
     ): SongEntity? = withContext(Dispatchers.IO) {
         try {
 
@@ -419,6 +462,7 @@ class SongRepositoryImpl(
             return@withContext SongEntity(
                 id = existingId,
                 mediaId = songFile.mediaId,
+                source = source,
                 uri = songFile.uri.toString(),
                 filePath = songFile.filePath,
                 fileName = songFile.fileName,
@@ -467,7 +511,6 @@ class SongRepositoryImpl(
         lastModified: Long
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            // 使用 URI 查询
             val existingSong = songDao.getSongByUri(contentUri)
                 ?: return@withContext false
 
@@ -637,7 +680,6 @@ class SongRepositoryImpl(
 
             AudioTagWriter.writeTags(pfdDescriptor, updates)
 
-            // 图片写入：优先使用 picUrl，其次使用 pictures
             val picUrl = audioTagData.picUrl
             if (picUrl != null) {
                 if (picUrl.isEmpty()) {
@@ -650,7 +692,6 @@ class SongRepositoryImpl(
                     }
                 }
             } else if (audioTagData.pictures.isNotEmpty()) {
-                // 如果 picUrl 为 null，但 pictures 有数据，使用 pictures
                 AudioTagWriter.writePictures(pfdDescriptor, audioTagData.pictures)
             }
 
@@ -659,9 +700,6 @@ class SongRepositoryImpl(
         return false
     }
 
-    /**
-     * 增量写入：只更新非 null 字段，忽略 null 字段
-     */
     private suspend fun writeIncremental(uriString: String, audioTagData: AudioTagData): Boolean {
         val contentUri = uriString.toUri()
 
@@ -669,7 +707,6 @@ class SongRepositoryImpl(
 
             val updates = mutableMapOf<String, String>()
 
-            // 增量更新：只有非 null 值才写入
             fun updateTagIfPresent(standardKey: String, value: String?, aliases: List<String>) {
                 if (value != null) {
                     updates[standardKey] = value
@@ -677,7 +714,6 @@ class SongRepositoryImpl(
                         updates[aliasKey] = ""
                     }
                 }
-                // 如果 value 为 null，不做任何操作，保留原有值
             }
 
             updateTagIfPresent("TITLE", audioTagData.title, listOf("TIT2", "TIT1"))
@@ -700,7 +736,6 @@ class SongRepositoryImpl(
             updateTagIfPresent("REPLAYGAIN_ALBUM_PEAK", audioTagData.replayGainAlbumPeak, emptyList())
             updateTagIfPresent("REPLAYGAIN_REFERENCE_LOUDNESS", audioTagData.replayGainReferenceLoudness, emptyList())
 
-            // 评分处理：只有明确设置了 rating 才更新
             val star = audioTagData.rating
             if (star != null) {
                 val ext = uriString.substringAfterLast(".").uppercase()
@@ -714,18 +749,14 @@ class SongRepositoryImpl(
                         updateTagIfPresent("RATE", (star * 20).toString(), listOf("RATING", "POPM"))
                     }
                 } else if (star == 0) {
-                    // 明确设置为 0，清空评分
                     updateTagIfPresent("POPM", "", listOf("RATING", "RATE"))
                 }
             }
-            // 如果 rating 为 null，不执行任何操作，保留原有评分
 
-            // 只有在有实际更新时才写入
             if (updates.isNotEmpty()) {
                 AudioTagWriter.writeTags(pfdDescriptor, updates)
             }
 
-            // 图片写入：只有 picUrl 非 null 才处理
             val picUrl = audioTagData.picUrl
             if (picUrl != null) {
                 if (picUrl.isEmpty()) {
@@ -841,7 +872,6 @@ class SongRepositoryImpl(
         } catch (e: Exception) {
             Log.e(TAG, "从 URI 获取文件名失败: $contentUri", e)
         }
-        // 最后的 fallback
         return contentUri.substringAfterLast("/")
     }
 
@@ -852,30 +882,95 @@ class SongRepositoryImpl(
     }
 
     override suspend fun renameSong(song: SongEntity, newFileName: String): Boolean {
+        return renameSongAndGetResult(song, newFileName) != null
+    }
+
+    override suspend fun renameSongAndGetResult(song: SongEntity, newFileName: String): RenameSongResult? {
         return withContext(Dispatchers.IO) {
-            try {
-                val oldFile = File(song.filePath)
-                if (!oldFile.exists()) {
-                    Log.e(TAG, "重命名失败: 文件不存在 ${song.filePath}")
-                    return@withContext false
-                }
-                val newFile = File(oldFile.parent, newFileName)
-                if (newFile.exists()) {
-                    Log.e(TAG, "重命名失败: 目标文件已存在 ${newFile.absolutePath}")
-                    return@withContext false
-                }
-                if (oldFile.renameTo(newFile)) {
-                    songDao.deleteByUri(song.uri)
-                    Log.d(TAG, "文件重命名成功: ${song.fileName} -> $newFileName")
-                    true
-                } else {
-                    Log.e(TAG, "重命名失败: ${song.fileName}")
-                    false
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "重命名异常: ${song.fileName}", e)
-                false
+            if (song.source == "SAF") {
+                renameSafSong(song, newFileName)
+            } else {
+                renameFilePathSong(song, newFileName)
             }
+        }
+    }
+
+    private suspend fun renameSafSong(song: SongEntity, newFileName: String): RenameSongResult? {
+        val oldUri = song.uri.toUri()
+
+        val renamedUri = try {
+            DocumentsContract.renameDocument(
+                context.contentResolver,
+                oldUri,
+                newFileName
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "SAF 重命名失败: ${song.uri}", e)
+            logException(
+                message = "Failed to rename SAF song",
+                throwable = e,
+                relatedId = song.uri
+            )
+            return null
+        } ?: return null
+
+        val parentPath = song.filePath.substringBeforeLast("/", missingDelimiterValue = "")
+        val newPath = if (parentPath.isBlank()) newFileName else "$parentPath/$newFileName"
+
+        val updatedSong = song.copy(
+            uri = renamedUri.toString(),
+            fileName = newFileName,
+            filePath = newPath,
+            fileLastModified = System.currentTimeMillis()
+        ).withSortKeysUpdated()
+
+        songDao.update(updatedSong)
+        folderDao.refreshSongCount(updatedSong.folderId)
+
+        return RenameSongResult(
+            oldUri = song.uri,
+            newUri = renamedUri.toString(),
+            newFilePath = newPath,
+            newFileName = newFileName
+        )
+    }
+
+    private suspend fun renameFilePathSong(song: SongEntity, newFileName: String): RenameSongResult? {
+        return try {
+            val oldFile = File(song.filePath)
+            if (!oldFile.exists()) {
+                Log.e(TAG, "重命名失败: 文件不存在 ${song.filePath}")
+                return null
+            }
+            val newFile = File(oldFile.parent, newFileName)
+            if (newFile.exists()) {
+                Log.e(TAG, "重命名失败: 目标文件已存在 ${newFile.absolutePath}")
+                return null
+            }
+            if (oldFile.renameTo(newFile)) {
+                val updatedSong = song.copy(
+                    uri = newFile.toURI().toString(),
+                    fileName = newFileName,
+                    filePath = newFile.absolutePath,
+                    fileLastModified = System.currentTimeMillis()
+                ).withSortKeysUpdated()
+
+                songDao.update(updatedSong)
+                folderDao.refreshSongCount(updatedSong.folderId)
+
+                RenameSongResult(
+                    oldUri = song.uri,
+                    newUri = updatedSong.uri,
+                    newFilePath = newFile.absolutePath,
+                    newFileName = newFileName
+                )
+            } else {
+                Log.e(TAG, "重命名失败: ${song.fileName}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "重命名异常: ${song.fileName}", e)
+            null
         }
     }
 

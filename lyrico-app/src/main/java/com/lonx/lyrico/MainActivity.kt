@@ -21,22 +21,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
-import com.hjq.permissions.OnPermissionCallback
-import com.hjq.permissions.XXPermissions
-import com.hjq.permissions.permission.PermissionLists
-import com.hjq.permissions.permission.base.IPermission
 import com.lonx.lyrico.App.Companion.ACTION_EDIT_TAG
 import com.lonx.lyrico.data.model.ThemeMode
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.ui.dialog.UpdateDialog
 import com.lonx.lyrico.ui.theme.KeyColors
 import com.lonx.lyrico.ui.theme.LyricoTheme
-import com.lonx.lyrico.utils.PermissionUtil
 import com.lonx.lyrico.utils.UpdateManager
 import com.lonx.lyrico.viewmodel.SongListViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
@@ -61,30 +54,6 @@ open class MainActivity : ComponentActivity() {
             songListViewModel.checkForUpdate()
         }
 
-        hasPermission = PermissionUtil.hasNecessaryPermission(this)
-        if (!hasPermission) {
-            XXPermissions.with(this)
-                .permission(PermissionLists.getWriteExternalStoragePermission())
-                .request(object : OnPermissionCallback {
-                    override fun onResult(
-                        grantedList: MutableList<IPermission>,
-                        deniedList: MutableList<IPermission>
-                    ) {
-                        val allGranted = deniedList.isEmpty()
-                        if (!allGranted) {
-                            Toast.makeText(this@MainActivity, "已拒绝权限", Toast.LENGTH_SHORT)
-                                .show()
-                            return
-                        }
-
-                        hasPermission = true
-                        lifecycleScope.launch {
-                            delay(500)
-                            songListViewModel.refreshSongs()
-                        }
-                    }
-                })
-        }
 
         setContent {
             val themeMode by settingsRepository.themeMode.collectAsStateWithLifecycle(

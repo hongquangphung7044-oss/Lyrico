@@ -18,8 +18,7 @@ android {
     defaultConfig {
         applicationId = "com.lonx.lyrico"
         minSdk = 28
-        //noinspection ExpiredTargetSdkVersion
-        targetSdk = 28
+        targetSdk = 36
         versionCode = 16
         versionName = "1.3.1"
 
@@ -101,6 +100,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.work.runtime.ktx)

@@ -24,7 +24,7 @@ import com.lonx.lyrico.data.model.entity.SongEntity
         BatchTaskItemEntity::class,
         AppLogEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -86,6 +86,16 @@ abstract class LyricoDatabase : RoomDatabase() {
                         OR uri IS NULL
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE folders ADD COLUMN treeUri TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_folders_addedBySaf ON folders(addedBySaf)")
+
+                db.execSQL("ALTER TABLE songs ADD COLUMN source TEXT NOT NULL DEFAULT 'MEDIA_STORE'")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_songs_source ON songs(source)")
             }
         }
     }

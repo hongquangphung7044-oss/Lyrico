@@ -1,8 +1,6 @@
 package com.lonx.lyrico.data.model.entity
 
-import android.content.ContentUris
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.core.net.toUri
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -96,6 +94,9 @@ data class SongEntity(
     val folderId: Long,
     val mediaId: Long,
 
+    @ColumnInfo(defaultValue = "'MEDIA_STORE'")
+    val source: String = "MEDIA_STORE",
+
     val filePath: String,
     val fileName: String,
     @ColumnInfo(defaultValue = "0")
@@ -159,6 +160,8 @@ data class SongEntity(
 
         if (filePath != other.filePath) return false
         if (fileName != other.fileName) return false
+        if (uri != other.uri) return false
+        if (source != other.source) return false
         if (title != other.title) return false
         if (artist != other.artist) return false
         if (album != other.album) return false
@@ -190,6 +193,8 @@ data class SongEntity(
     override fun hashCode(): Int {
         var result = filePath.hashCode()
         result = 31 * result + fileName.hashCode()
+        result = 31 * result + uri.hashCode()
+        result = 31 * result + source.hashCode()
         result = 31 * result + (title?.hashCode() ?: 0)
         result = 31 * result + (artist?.hashCode() ?: 0)
         result = 31 * result + (album?.hashCode() ?: 0)
@@ -218,7 +223,4 @@ data class SongEntity(
     }
 }
 val SongEntity.getUri: Uri
-    get() = ContentUris.withAppendedId(
-        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-        this.mediaId
-    )
+    get() = uri.toUri()

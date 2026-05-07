@@ -83,7 +83,7 @@ fun FolderSongsScreen(
             } else {
                 items(
                     items = songs,
-                    key = { song -> song.mediaId }
+                    key = { song -> song.uri }
                 ) { song ->
                     SongListItem(
                         song = song,

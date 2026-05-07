@@ -1,11 +1,24 @@
 package com.lonx.lyrico.utils
 
-import android.content.ContentUris
 import android.content.Context
-import android.os.Build
-import android.provider.MediaStore
+import android.net.Uri
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import com.lonx.lyrico.data.model.SongFile
+import com.lonx.lyrico.data.model.entity.FolderEntity
+import java.util.Locale
+import kotlin.math.abs
+
+data class SafScanResult(
+    val songs: List<SafScannedSongFile>,
+    val successfulFolderIds: Set<Long>,
+    val failedFolderIds: Set<Long>
+)
+
+data class SafScannedSongFile(
+    val songFile: SongFile,
+    val rootFolderId: Long
+)
 
 class MediaScanner(
     private val context: Context,
@@ -13,91 +26,147 @@ class MediaScanner(
 
     private val TAG = "MediaScanner"
 
-    /**
-     * 从 MediaStore 同步读取所有音乐文件信息到内存列表。
-     *
-     * 关键设计：不再使用 Flow+emit 模式。
-     * 原因：emit() 是挂起函数，在下游处理每首歌（读取音频标签）期间 Cursor 一直保持打开，
-     * 若此时 MediaStore 因文件移动/删除而更新，CursorWindow 内存缓冲会被系统回收或行偏移，
-     * 导致 "Couldn't read row X from CursorWindow" 崩溃。
-     *
-     * 现在改为：在 use {} 块内同步读完所有行到 List，Cursor 立即关闭，
-     * 下游处理完全在纯内存数据上操作，与 Cursor 无关。
-     */
-    fun querySongs(): List<SongFile> {
-        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        } else {
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+    fun querySongsFromSafFolders(folders: List<FolderEntity>): SafScanResult {
+        val results = mutableListOf<SafScannedSongFile>()
+        val successfulFolderIds = mutableSetOf<Long>()
+        val failedFolderIds = mutableSetOf<Long>()
+        val visitedUris = mutableSetOf<String>()
+
+        for (folder in folders) {
+            val treeUriString = folder.treeUri
+
+            if (treeUriString.isNullOrBlank()) {
+                failedFolderIds.add(folder.id)
+                continue
+            }
+
+            try {
+                val treeUri = Uri.parse(treeUriString)
+                val root = DocumentFile.fromTreeUri(context, treeUri)
+
+                if (root == null || !root.exists() || !root.isDirectory) {
+                    failedFolderIds.add(folder.id)
+                    continue
+                }
+
+                scanDocumentDirectory(
+                    root = root,
+                    displayRootPath = folder.path,
+                    currentRelativePath = "",
+                    rootFolderId = folder.id,
+                    output = results,
+                    visitedUris = visitedUris
+                )
+
+                successfulFolderIds.add(folder.id)
+            } catch (e: Exception) {
+                Log.e(TAG, "扫描 SAF 文件夹失败: ${folder.path}", e)
+                failedFolderIds.add(folder.id)
+            }
         }
 
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.SIZE
-        )
+        return SafScanResult(results, successfulFolderIds, failedFolderIds)
+    }
 
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+    private fun scanDocumentDirectory(
+        root: DocumentFile,
+        displayRootPath: String,
+        currentRelativePath: String,
+        rootFolderId: Long,
+        output: MutableList<SafScannedSongFile>,
+        visitedUris: MutableSet<String>
+    ) {
+        val children = try {
+            root.listFiles()
+        } catch (e: Exception) {
+            Log.w(TAG, "读取 SAF 子文件失败: ${root.uri}", e)
+            return
+        }
 
-        val results = mutableListOf<SongFile>()
+        for (child in children) {
+            try {
+                val name = child.name ?: continue
 
-        try {
-            context.contentResolver.query(
-                collection,
-                projection,
-                selection,
-                null,
-                "${MediaStore.Audio.Media.DATE_ADDED} DESC"
-            )?.use { cursor ->
+                if (child.isDirectory) {
+                    if (shouldSkipDirectory(name)) continue
 
-                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-                val modifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-                val addedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-                val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-                val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-                val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                    val nextRelativePath =
+                        if (currentRelativePath.isBlank()) name else "$currentRelativePath/$name"
 
-                while (cursor.moveToNext()) {
-                    try {
-                        val filePath = cursor.getString(dataCol)
-                        if (filePath.isNullOrBlank()) continue
+                    scanDocumentDirectory(
+                        root = child,
+                        displayRootPath = displayRootPath,
+                        currentRelativePath = nextRelativePath,
+                        rootFolderId = rootFolderId,
+                        output = output,
+                        visitedUris = visitedUris
+                    )
+                } else if (child.isFile) {
+                    if (!isSupportedAudioFile(name, child.type)) continue
 
-                        val fileName = cursor.getString(nameCol)
-                        if (fileName.isNullOrBlank()) continue
+                    val uriString = child.uri.toString()
+                    if (!visitedUris.add(uriString)) continue
 
-                        val id = cursor.getLong(idCol)
+                    val filePath = buildDisplayPath(displayRootPath, currentRelativePath, name)
 
-                        results.add(
-                            SongFile(
-                                mediaId = id,
-                                uri = ContentUris.withAppendedId(collection, id),
+                    output.add(
+                        SafScannedSongFile(
+                            rootFolderId = rootFolderId,
+                            songFile = SongFile(
+                                mediaId = createVirtualMediaId(uriString),
+                                uri = child.uri,
                                 filePath = filePath,
-                                fileName = fileName,
-                                lastModified = cursor.getLong(modifiedCol) * 1000L,
-                                dateAdded = cursor.getLong(addedCol) * 1000L,
-                                duration = cursor.getLong(durationCol),
-                                fileSize = cursor.getLong(sizeCol)
+                                fileName = name,
+                                lastModified = child.lastModified(),
+                                dateAdded = child.lastModified(),
+                                duration = 0L,
+                                fileSize = child.length()
                             )
                         )
-                    } catch (e: IllegalStateException) {
-                        // CursorWindow 被系统回收或行偏移，后续行也可能失效，安全退出
-                        Log.w(TAG, "CursorWindow 异常: ${e.message}，已读取 ${results.size} 条，停止读取")
-                        break
-                    } catch (e: Exception) {
-                        Log.w(TAG, "读取行异常: ${e.message}，跳过")
-                    }
+                    )
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "处理 SAF 文件失败: ${child.uri}", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "查询 MediaStore 异常", e)
         }
+    }
 
-        Log.d(TAG, "从 MediaStore 读取到 ${results.size} 首音乐文件")
-        return results
+    private val supportedAudioExtensions = setOf(
+        "mp3", "flac", "m4a", "mp4", "ogg", "opus", "wav", "aac", "wma", "ape"
+    )
+
+    private fun shouldSkipDirectory(name: String): Boolean {
+        val normalized = name.lowercase(Locale.ROOT)
+        return normalized.startsWith(".") ||
+                normalized == "android" ||
+                normalized == "data" ||
+                normalized == "obb" ||
+                normalized == "cache" ||
+                normalized == "tmp"
+    }
+
+    private fun isSupportedAudioFile(fileName: String, mimeType: String?): Boolean {
+        val extension = fileName.substringAfterLast('.', missingDelimiterValue = "")
+            .lowercase(Locale.ROOT)
+
+        return extension in supportedAudioExtensions ||
+                mimeType?.startsWith("audio/") == true
+    }
+
+    private fun buildDisplayPath(
+        rootPath: String,
+        relativePath: String,
+        fileName: String
+    ): String {
+        return if (relativePath.isBlank()) {
+            "${rootPath.trimEnd('/')}/$fileName"
+        } else {
+            "${rootPath.trimEnd('/')}/$relativePath/$fileName"
+        }
+    }
+
+    private fun createVirtualMediaId(uriString: String): Long {
+        val hash = uriString.hashCode().toLong()
+        return -abs(hash).coerceAtLeast(1L)
     }
 }

@@ -4,12 +4,12 @@ import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.data.model.CharacterMappingRule
 import com.lonx.lyrico.data.model.entity.BatchTaskEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskItemEntity
+import com.lonx.lyrico.data.repository.RenameSongResult
 import com.lonx.lyrico.data.repository.SongRepository
 import com.lonx.lyrico.utils.ConflictResolver
 import com.lonx.lyrico.utils.FileNameSanitizer
 import com.lonx.lyrico.utils.FormatParser
 import kotlinx.serialization.Serializable
-import java.io.File
 
 @Serializable
 data class RenameFilesTaskConfig(
@@ -19,6 +19,8 @@ data class RenameFilesTaskConfig(
 
 @Serializable
 data class RenameFilesTaskResult(
+    val originalUri: String? = null,
+    val newUri: String? = null,
     val originalPath: String? = null,
     val newPath: String
 )
@@ -39,12 +41,6 @@ class RenameFilesProcessor(
         val song = songRepository.getSongByUri(item.songUri)
             ?: throw BatchTaskSkippedException("Song not found")
 
-        val originalPath = song.filePath
-        val file = File(originalPath)
-        if (!file.exists()) {
-            throw BatchTaskSkippedException("File not found")
-        }
-
         val tagData = convertToAudioTagData(song)
 
         val tokens = FormatParser.parseFormat(config.renameFormat)
@@ -52,63 +48,34 @@ class RenameFilesProcessor(
         newFileName = FileNameSanitizer.sanitize(newFileName, config.characterMappingRules)
 
         if (newFileName.isEmpty()) {
-            newFileName = file.nameWithoutExtension
+            newFileName = song.fileName.substringBeforeLast(".")
         }
 
-        val extension = file.extension
+        val extension = song.fileName.substringAfterLast(".", missingDelimiterValue = "")
         if (extension.isNotEmpty()) {
             newFileName = "$newFileName.$extension"
         }
 
-        val parentDir = file.parent ?: ""
-        val newPath = if (parentDir.isNotEmpty()) {
-            File(parentDir, newFileName).absolutePath
-        } else {
-            newFileName
-        }
-
-        if (newPath == originalPath) {
+        if (newFileName == song.fileName) {
             throw BatchTaskSkippedException("Same file name")
         }
 
-        val newFile = File(newPath)
-        newFile.parentFile?.mkdirs()
+        val result = songRepository.renameSongAndGetResult(song, newFileName)
+            ?: throw Exception("Failed to rename file")
 
-        if (newFile.exists() && newPath != originalPath) {
-            val resolvedPath = ConflictResolver.resolveConflict(newPath, setOf())
-            val resolvedFile = File(resolvedPath)
-            if (file.renameTo(resolvedFile)) {
-                return BatchTaskProcessResult(
-                    resultJson = kotlinx.serialization.json.Json.encodeToString(
-                        RenameFilesTaskResult.serializer(),
-                        RenameFilesTaskResult(
-                            originalPath = originalPath,
-                            newPath = resolvedPath
-                        )
-                    ),
-                    updatedFilePath = resolvedPath,
-                    updatedFileName = resolvedFile.name
+        return BatchTaskProcessResult(
+            resultJson = kotlinx.serialization.json.Json.encodeToString(
+                RenameFilesTaskResult.serializer(),
+                RenameFilesTaskResult(
+                    originalUri = result.oldUri,
+                    newUri = result.newUri,
+                    originalPath = song.filePath,
+                    newPath = result.newFilePath
                 )
-            } else {
-                throw Exception("Failed to rename (conflict)")
-            }
-        }
-
-        if (file.renameTo(newFile)) {
-            return BatchTaskProcessResult(
-                resultJson = kotlinx.serialization.json.Json.encodeToString(
-                    RenameFilesTaskResult.serializer(),
-                    RenameFilesTaskResult(
-                        originalPath = originalPath,
-                        newPath = newPath
-                    )
-                ),
-                updatedFilePath = newPath,
-                updatedFileName = newFile.name
-            )
-        } else {
-            throw Exception("Failed to rename file")
-        }
+            ),
+            updatedFilePath = result.newFilePath,
+            updatedFileName = result.newFileName
+        )
     }
 
     private fun convertToAudioTagData(song: com.lonx.lyrico.data.model.entity.SongEntity): AudioTagData {

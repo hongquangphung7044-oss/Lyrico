@@ -54,6 +54,12 @@ class LyricsFormatProcessor(
             throw Exception("Write failed")
         }
 
+        songRepository.updateSongMetadata(
+            AudioTagData(lyrics = convertedLyrics),
+            item.songUri,
+            System.currentTimeMillis()
+        )
+
         return BatchTaskProcessResult()
     }
 

@@ -1,13 +1,13 @@
 package com.lonx.lyrico.screens
 
 import android.annotation.SuppressLint
-import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
-import android.provider.MediaStore
 import android.text.format.Formatter
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -97,6 +97,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.lonx.lyrico.BuildConfig
@@ -104,6 +105,8 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.LocalSearchType
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.entity.getUri
+import com.lonx.lyrico.data.repository.LibraryScanProgress
+import com.lonx.lyrico.data.repository.LibraryScanStage
 import com.lonx.lyrico.ui.components.DropdownItem
 import com.lonx.lyrico.ui.components.FabMenuItem
 import com.lonx.lyrico.ui.components.SongListItem
@@ -112,6 +115,7 @@ import com.lonx.lyrico.ui.dialog.BatchLyricsFormatConfigBottomSheet
 import com.lonx.lyrico.ui.dialog.BatchMatchConfigBottomSheet
 import com.lonx.lyrico.ui.dialog.ReplayGainConfigBottomSheet
 import com.lonx.lyrico.utils.coil.CoverRequest
+import com.lonx.lyrico.utils.UriUtils
 import com.lonx.lyrico.viewmodel.BatchLyricsFormatViewModel
 import com.lonx.lyrico.viewmodel.BatchMatchViewModel
 import com.lonx.lyrico.viewmodel.BatchReplayGainViewModel
@@ -154,6 +158,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.AddFolder
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Edit
@@ -205,8 +210,9 @@ fun SongListScreen(
     val songs by songListViewModel.songs.collectAsState()
     val searchType by songListViewModel.searchType.collectAsState()
     val isSelectionMode by songListViewModel.isSelectionMode.collectAsState(initial = false)
-    val selectedSongIds by songListViewModel.selectedSongIds.collectAsState()
-    val allSelected = selectedSongIds.size == songs.size
+    val selectedSongUris by songListViewModel.selectedSongUris.collectAsState()
+    val hasFolders by songListViewModel.hasFolders.collectAsStateWithLifecycle()
+    val allSelected = selectedSongUris.size == songs.size
     val showScrollTopButton by songListViewModel.showScrollTopButton.collectAsStateWithLifecycle()
     val batchMatchConfig by batchMatchViewModel.batchMatchConfig.collectAsState()
     var sortOrderDropdownExpanded by remember { mutableStateOf(false) }
@@ -219,10 +225,30 @@ fun SongListScreen(
         }
     }
     var isFabMenuExpanded by remember { mutableStateOf(false) }
-    val hasSelection = selectedSongIds.isNotEmpty()
+    val hasSelection = selectedSongUris.isNotEmpty()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+            try {
+                context.contentResolver.takePersistableUriPermission(it, flags)
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+            }
+
+            val path = UriUtils.getFileAbsolutePath(context, it) ?: it.toString()
+            songListViewModel.addSafFolderAndRefresh(
+                path = path,
+                treeUri = it.toString()
+            )
+        }
+    }
     val sectionIndexMap = remember(songs, sortInfo) {
         val map = mutableMapOf<String, Int>()
         if (sortInfo.sortBy.supportsIndex) {
@@ -329,7 +355,7 @@ fun SongListScreen(
                                         Text(
                                             text = stringResource(
                                                 R.string.selection_mode_selected_count,
-                                                selectedSongIds.size
+                                                selectedSongUris.size
                                             )
                                         )
                                     },
@@ -543,7 +569,7 @@ fun SongListScreen(
                 LazyColumnScrollbar(
                     state = listState,
                     settings = ScrollbarSettings.Default.copy(
-                        enabled = !enableIndex,
+                        enabled = !enableIndex && songs.isNotEmpty(),
                         alwaysShowScrollbar = !enableIndex,
                         selectionMode = ScrollbarSelectionMode.Full,
                         thumbUnselectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions,
@@ -564,15 +590,15 @@ fun SongListScreen(
                         if (songs.isNotEmpty()) {
                             items(
                                 items = songs,
-                                key = { song -> song.mediaId }
+                                key = { song -> song.uri }
                             ) { song ->
                                 SongListItem(
                                     song = song,
                                     navigator = navigator,
                                     modifier = Modifier.animateItem(),
                                     isSelectionMode = isSelectionMode,
-                                    isSelected = selectedSongIds.contains(song.mediaId),
-                                    onToggleSelection = { songListViewModel.toggleSelection(song.mediaId) },
+                                    isSelected = selectedSongUris.contains(song.uri),
+                                    onToggleSelection = { songListViewModel.toggleSelection(song.uri) },
                                     trailingContent = {
                                         Box(modifier = Modifier.padding(end = 8.dp)) {
                                             if (!isSelectionMode) {
@@ -588,10 +614,10 @@ fun SongListScreen(
                                                 }
                                             } else {
                                                 Checkbox(
-                                                    state = if (selectedSongIds.contains(song.mediaId)) ToggleableState.On else ToggleableState.Off,
+                                                    state = if (selectedSongUris.contains(song.uri)) ToggleableState.On else ToggleableState.Off,
                                                     onClick = {
                                                         songListViewModel.toggleSelection(
-                                                            song.mediaId
+                                                            song.uri
                                                         )
                                                     }
                                                 )
@@ -602,18 +628,41 @@ fun SongListScreen(
                             }
                         } else {
                             item {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                val scanProgress = songListUiState.scanProgress
+                                when {
+                                    scanProgress != null -> {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(420.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            LibraryScanProgressText(
+                                                progress = scanProgress
+                                            )
+                                        }
+                                    }
 
+                                    !hasFolders && songListUiState.searchQuery.isBlank() -> {
+                                        SongListEmptyState(
+                                            onAddFolder = { folderPickerLauncher.launch(null) }
+                                        )
+                                    }
+
+                                    else -> {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(240.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            if (enableIndex) {
+            if (enableIndex && songs.isNotEmpty()) {
                 AlphabetSideBar(
                     sections = sections,
                     onSectionSelected = { section ->
@@ -646,13 +695,9 @@ fun SongListScreen(
                         showInfo = { songListViewModel.showDetail(it) },
                         onDelete = { songListViewModel.showDeleteDialog() },
                         onShare = {
-                            val uri = ContentUris.withAppendedId(
-                                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                                it.mediaId
-                            )
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "audio/*"
-                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_STREAM, it.uri.toUri())
                                 putExtra(Intent.EXTRA_TITLE, it.title ?: it.fileName)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
@@ -771,7 +816,7 @@ fun SongListScreen(
                 onDismissRequest = { songListViewModel.dismissBatchDeleteDialog() },
                 summary = stringResource(
                     R.string.dialog_batch_delete_content,
-                    selectedSongIds.size
+                    selectedSongUris.size
                 )
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -1313,9 +1358,7 @@ fun SongListScreen(
                             icon = MiuixIcons.Edit,
                             onClick = {
                                 isFabMenuExpanded = false
-                                batchReplayGainViewModel.setSelectionUris(songListViewModel.selectedSongIds.value.map { mediaId ->
-                                    songs.find { it.mediaId == mediaId }?.uri ?: ""
-                                }.filter { it.isNotEmpty() })
+                                batchReplayGainViewModel.setSelectionUris(songListViewModel.selectedSongUris.value.toList())
                                 batchReplayGainViewModel.openReplayGainConfig()
                             }
                         )
@@ -1325,9 +1368,7 @@ fun SongListScreen(
                             onClick = {
                                 isFabMenuExpanded = false
                                 batchLyricsFormatViewModel.setSelectionUris(
-                                    songListViewModel.selectedSongIds.value.map { mediaId ->
-                                        songs.find { it.mediaId == mediaId }?.uri ?: ""
-                                    }.filter { it.isNotEmpty() }
+                                    songListViewModel.selectedSongUris.value.toList()
                                 )
                                 batchLyricsFormatViewModel.openConfig(batchReplayGainUiState.concurrency)
                             }
@@ -1398,6 +1439,74 @@ fun SongListScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryScanProgressText(
+    progress: LibraryScanProgress,
+    modifier: Modifier = Modifier
+) {
+    val title = when (progress.stage) {
+        LibraryScanStage.LISTING_FILES -> stringResource(R.string.scan_progress_listing)
+        LibraryScanStage.READING_METADATA -> stringResource(
+            R.string.scan_progress_reading,
+            progress.current,
+            progress.total
+        )
+        LibraryScanStage.WRITING_DATABASE -> stringResource(R.string.scan_progress_writing)
+        LibraryScanStage.FINISHED -> stringResource(R.string.scan_progress_finished)
+    }
+
+    Text(
+        text = title,
+        modifier = modifier
+            .padding(horizontal = 24.dp),
+        style = MiuixTheme.textStyles.title4,
+        color = MiuixTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center
+    )
+}
+
+@Composable
+private fun SongListEmptyState(
+    onAddFolder: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(420.dp)
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = MiuixIcons.AddFolder,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                modifier = Modifier.size(42.dp)
+            )
+            Text(
+                text = stringResource(R.string.song_list_empty_title),
+                style = MiuixTheme.textStyles.title3,
+                color = MiuixTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = stringResource(R.string.song_list_empty_desc),
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                textAlign = TextAlign.Center
+            )
+            top.yukonga.miuix.kmp.basic.TextButton(
+                text = stringResource(R.string.action_add_folder),
+                onClick = onAddFolder,
+                colors = MiuixButtonDefaults.textButtonColorsPrimary()
+            )
         }
     }
 }

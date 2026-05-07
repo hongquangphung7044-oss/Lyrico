@@ -3,9 +3,8 @@ package com.lonx.lyrico.screens
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,12 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
@@ -28,16 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.entity.FolderEntity
 import com.lonx.lyrico.utils.UriUtils
@@ -48,12 +39,11 @@ import com.ramcosta.composedestinations.generated.destinations.FolderSongsDestin
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import org.koin.androidx.compose.koinViewModel
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
@@ -63,14 +53,10 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddFolder
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Hide
-import top.yukonga.miuix.kmp.icon.extended.More
-import top.yukonga.miuix.kmp.icon.extended.Show
-import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,21 +74,27 @@ fun FolderManagerScreen(
     val currentFolder = remember(selectedFolderId, folders) {
         folders.find { it.id == selectedFolderId }
     }
-    val coroutineScope = rememberCoroutineScope()
-    var showSheet by remember { mutableStateOf(false) }
     val showConfirmDialog = remember { mutableStateOf(false) }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         uri?.let {
-            val path = UriUtils.getFileAbsolutePath(context, it)
-            if (path != null) {
-                viewModel.addFolderByPath(path)
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+            try {
+                context.contentResolver.takePersistableUriPermission(it, flags)
+            } catch (e: SecurityException) {
+                e.printStackTrace()
             }
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
+
+            val path = UriUtils.getFileAbsolutePath(context, it)
+                ?: it.toString()
+
+            viewModel.addFolder(
+                path = path,
+                treeUri = it.toString()
             )
         }
     }
@@ -169,7 +161,6 @@ fun FolderManagerScreen(
                             onClick = {
                                 showConfirmDialog.value = false
                                 viewModel.deleteFolder(folder)
-                                showSheet = false
                                 selectedFolderId = -1L
                             },
                             modifier = Modifier.weight(1f),
@@ -177,27 +168,6 @@ fun FolderManagerScreen(
                         )
                     }
                 }
-            }
-        }
-
-        currentFolder?.let { folder ->
-            WindowBottomSheet(
-                show = showSheet,
-                onDismissRequest = {
-                    showSheet = false
-                    selectedFolderId = -1L
-                }
-            ) {
-                FolderActionSheetContent(
-                    folder = folder,
-                    onIgnoreChange = { viewModel.toggleFolderIgnore(folder) },
-                    onDelete = {
-                        coroutineScope.launch {
-                            showSheet = false
-                            showConfirmDialog.value = true
-                        }
-                    }
-                )
             }
         }
 
@@ -212,12 +182,12 @@ fun FolderManagerScreen(
                 color = MiuixTheme.colorScheme.onSurfaceVariantActions,
                 modifier = Modifier.padding(12.dp)
             )
-            if (folders.isEmpty()) {
+            uiState.error?.let { error ->
                 Text(
-                    text = stringResource(R.string.folder_empty_state_tip),
+                    text = stringResource(R.string.folder_scan_failed, error),
                     fontSize = MiuixTheme.textStyles.footnote1.fontSize,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    modifier = Modifier.padding(12.dp)
+                    color = MiuixTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
             LazyColumn(
@@ -237,6 +207,7 @@ fun FolderManagerScreen(
                         folders.forEachIndexed { index, folder ->
                             FolderListItem(
                                 folder = folder,
+                                isScanning = folder.id in uiState.scanningFolderIds,
                                 onClick = {
                                     navigator.navigate(
                                         FolderSongsDestination(
@@ -245,15 +216,18 @@ fun FolderManagerScreen(
                                         )
                                     )
                                 },
-                                onShowActions = {
+                                onDelete = {
                                     selectedFolderId = folder.id
-                                    showSheet = true
+                                    showConfirmDialog.value = true
+                                },
+                                onRefresh = {
+                                    viewModel.refreshFolder(folder)
                                 }
                             )
 
                             if (index != folders.lastIndex) {
                                 HorizontalDivider(
-                                    modifier = Modifier.padding(start = 68.dp, end = 16.dp),
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
                                     color = MiuixTheme.colorScheme.dividerLine,
                                     thickness = 0.5.dp
                                 )
@@ -271,46 +245,48 @@ fun FolderManagerScreen(
 @Composable
 private fun FolderListItem(
     folder: FolderEntity,
+    isScanning: Boolean,
     onClick: () -> Unit,
-    onShowActions: () -> Unit
+    onDelete: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     val folderName = folder.path.substringAfterLast("/").ifBlank { folder.path }
-    val statusText = buildList {
-        add(stringResource(R.string.folder_song_count_format, folder.songCount))
-        add(
-            if (folder.addedBySaf) {
-                stringResource(R.string.folder_source_manual)
-            } else {
-                stringResource(R.string.folder_source_auto)
-            }
-        )
-        if (folder.isIgnored) {
-            add(stringResource(R.string.folder_status_ignored))
-        }
-    }.joinToString(" · ")
+    val statusText = if (!isScanning) {
+        stringResource(R.string.folder_song_count_format, folder.songCount)
+    } else {
+        stringResource(R.string.folder_scanning)
+    }
 
     BasicComponent(
-        startAction = {
-            if (folder.isIgnored) {
-                Icon(
-                    imageVector = MiuixIcons.Hide,
-                    contentDescription = null
-                )
-            } else {
-                Icon(
-                    imageVector = MiuixIcons.Show,
-                    contentDescription = null
-                )
-            }
-        },
         endActions = {
-            IconButton(onClick = onShowActions) {
+            IconButton(
+                enabled = !isScanning,
+                onClick = onRefresh
+            ) {
                 Icon(
-                    imageVector = MiuixIcons.More,
-                    contentDescription = stringResource(R.string.cd_info)
+                    imageVector = MiuixIcons.Refresh,
+                    contentDescription = stringResource(R.string.action_refresh_folder)
+                )
+            }
+            IconButton(
+                enabled = !isScanning,
+                onClick = onDelete
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Delete,
+                    contentDescription = stringResource(R.string.common_delete),
+                    tint = MiuixTheme.colorScheme.error
                 )
             }
         },
+        bottomAction = {
+            AnimatedVisibility(
+                visible = isScanning
+            ) {
+                LinearProgressIndicator()
+            }
+        },
+        enabled = !isScanning,
         onClick = onClick
     ) {
         Text(
@@ -331,144 +307,4 @@ private fun FolderListItem(
             fontSize = MiuixTheme.textStyles.body2.fontSize
         )
     }
-}
-
-@Composable
-private fun FolderLeadingIcon(folder: FolderEntity) {
-    val iconPainter = if (folder.isIgnored) {
-        painterResource(id = R.drawable.ic_invisible_24dp)
-    } else {
-        painterResource(id = R.drawable.ic_visible_24dp)
-    }
-    val iconContainerColor = if (folder.isIgnored) {
-        MiuixTheme.colorScheme.surfaceContainerHighest
-    } else {
-        MiuixTheme.colorScheme.secondaryContainerVariant
-    }
-    val iconTint = if (folder.isIgnored) {
-        MiuixTheme.colorScheme.onSurfaceVariantActions
-    } else {
-        MiuixTheme.colorScheme.onBackground
-    }
-
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .background(
-                color = iconContainerColor,
-                shape = RoundedCornerShape(14.dp)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = iconPainter,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = iconTint
-        )
-    }
-}
-
-@Composable
-fun FolderActionSheetContent(
-    folder: FolderEntity,
-    onIgnoreChange: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val folderName = folder.path.substringAfterLast("/").ifBlank { folder.path }
-    val statusText = buildList {
-        add(stringResource(R.string.folder_song_count_format, folder.songCount))
-        add(
-            if (folder.addedBySaf) {
-                stringResource(R.string.folder_source_manual)
-            } else {
-                stringResource(R.string.folder_source_auto)
-            }
-        )
-        if (folder.isIgnored) {
-            add(stringResource(R.string.folder_status_ignored))
-        }
-    }.joinToString(" · ")
-
-    Column(
-        modifier = Modifier
-            .padding(bottom = 32.dp)
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-    ) {
-        Card(
-            modifier = Modifier.padding(bottom = 12.dp),
-            colors = CardDefaults.defaultColors(
-                color = MiuixTheme.colorScheme.secondaryContainer,
-            )
-        ) {
-            BasicComponent(
-                title = folderName,
-                summary = folder.path,
-                startAction = {
-                    if (folder.isIgnored) {
-                        Icon(
-                            imageVector = MiuixIcons.Hide,
-                            contentDescription = null
-                        )
-                    } else {
-                        Icon(
-                            imageVector = MiuixIcons.Show,
-                            contentDescription = null
-                        )
-                    }
-                },
-                bottomAction = {
-                    Text(
-                        text = statusText,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                        fontSize = MiuixTheme.textStyles.body2.fontSize
-                    )
-                }
-            )
-        }
-
-
-        Card(
-            modifier = Modifier.padding(bottom = 12.dp),
-            colors = CardDefaults.defaultColors(
-                color = MiuixTheme.colorScheme.secondaryContainer,
-            )
-        ) {
-            SwitchPreference(
-                title = stringResource(R.string.folder_action_enable),
-                summary = stringResource(R.string.folder_action_enable_sub),
-                checked = !folder.isIgnored,
-                onCheckedChange = { onIgnoreChange() }
-            )
-
-
-            FolderSheetActionRow(
-                title = stringResource(R.string.folder_action_remove),
-                summary = stringResource(R.string.folder_action_remove_sub),
-                onClick = onDelete
-            )
-        }
-    }
-}
-
-@Composable
-private fun FolderSheetActionRow(
-    title: String,
-    summary: String,
-    onClick: () -> Unit
-) {
-    BasicComponent(
-        title = title,
-        titleColor = BasicComponentDefaults.titleColor(MiuixTheme.colorScheme.error),
-        summary = summary,
-        endActions = {
-            Icon(
-                imageVector = MiuixIcons.Delete,
-                contentDescription = stringResource(R.string.common_delete),
-                tint = MiuixTheme.colorScheme.error
-            )
-        },
-        onClick = onClick
-    )
 }

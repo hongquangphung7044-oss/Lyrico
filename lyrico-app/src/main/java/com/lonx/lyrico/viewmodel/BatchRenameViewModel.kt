@@ -51,6 +51,7 @@ data class BatchRenameUiState(
 )
 
 data class SongForBatchRename(
+    val uri: String,
     val filePath: String,
     val fileName: String,
     val tagData: AudioTagData?
@@ -85,6 +86,7 @@ class BatchRenameViewModel(
                     val songEntity = songRepository.getSongByUri(path)
                     songEntity?.let {
                         SongForBatchRename(
+                            uri = it.uri,
                             filePath = it.filePath,
                             fileName = it.fileName,
                             tagData = convertToAudioTagData(it)
@@ -213,7 +215,14 @@ class BatchRenameViewModel(
     }
 
     private suspend fun refreshSongsAfterRename(taskId: String) {
-        val renamedPathByOriginalPath = batchTaskRepository.observeItems(taskId)
+        data class RenameRefreshInfo(
+            val originalUri: String?,
+            val newUri: String?,
+            val originalPath: String?,
+            val newPath: String
+        )
+
+        val renameResults = batchTaskRepository.observeItems(taskId)
             .first()
             .filter { it.status == BatchTaskStatus.SUCCEEDED && it.resultJson != null }
             .mapNotNull { item ->
@@ -224,26 +233,51 @@ class BatchRenameViewModel(
                     )
                 }.getOrNull()
 
-                val originalPath = result?.originalPath ?: item.filePath
-                val newPath = result?.newPath
+                result?.let {
+                    RenameRefreshInfo(
+                        originalUri = it.originalUri ?: item.songUri,
+                        newUri = it.newUri,
+                        originalPath = it.originalPath ?: item.filePath,
+                        newPath = it.newPath
+                    )
+                }
+            }
 
-                if (newPath == null || originalPath == null) null else originalPath to newPath
+        if (renameResults.isEmpty()) return
+
+        val renamedByOriginalUri = renameResults
+            .mapNotNull { result ->
+                val originalUri = result.originalUri
+                if (originalUri == null) null else originalUri to result
             }
             .toMap()
 
-        if (renamedPathByOriginalPath.isEmpty()) return
+        val renamedByOriginalPath = renameResults
+            .mapNotNull { result ->
+                val originalPath = result.originalPath
+                if (originalPath == null) null else originalPath to result
+            }
+            .toMap()
 
         val refreshedSongs = songsFlow.value.map { song ->
-            val newPath = renamedPathByOriginalPath[song.filePath] ?: return@map song
-            val newName = File(newPath).name
+            val result = renamedByOriginalUri[song.uri]
+                ?: renamedByOriginalPath[song.filePath]
+                ?: return@map song
+            val newName = File(result.newPath).name
             song.copy(
-                filePath = newPath,
+                uri = result.newUri ?: song.uri,
+                filePath = result.newPath,
                 fileName = newName,
                 tagData = song.tagData?.copy(fileName = newName)
             )
         }
 
         setSongs(refreshedSongs)
+
+        val refreshedSelectedUris = selectionManager.selectedUris.value.map { uri ->
+            renamedByOriginalUri[uri]?.newUri ?: uri
+        }.toSet()
+        selectionManager.setUris(refreshedSelectedUris)
     }
 
     private fun setSongs(songs: List<SongForBatchRename>) {

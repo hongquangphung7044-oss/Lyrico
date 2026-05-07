@@ -10,27 +10,19 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.rememberNavController
-import com.lonx.lyrico.viewmodel.SongListViewModel
 import com.ramcosta.composedestinations.DestinationsNavHost
 import com.ramcosta.composedestinations.animations.NavHostAnimatedDestinationStyle
 import com.ramcosta.composedestinations.generated.NavGraphs
 import com.ramcosta.composedestinations.generated.destinations.EditMetadataDestination
 import com.ramcosta.composedestinations.spec.Direction
-import org.koin.compose.viewmodel.koinActivityViewModel
 import top.yukonga.miuix.kmp.basic.Surface
 
 @Composable
 fun LyricoApp(externalUri: Uri?) {
-    val songListViewModel: SongListViewModel = koinActivityViewModel()
     val navController = rememberNavController()
-
-    LaunchedEffect(Unit) {
-        songListViewModel.initialScanIfEmpty()
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize()

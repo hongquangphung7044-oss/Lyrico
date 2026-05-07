@@ -29,6 +29,17 @@ interface FolderDao {
     @Query("SELECT * FROM folders WHERE path = :path LIMIT 1")
     suspend fun findByPath(path: String): FolderEntity?
 
+    @Query("SELECT * FROM folders")
+    suspend fun getAllFoldersOnce(): List<FolderEntity>
+
+    @Query("""
+        SELECT * FROM folders
+        WHERE addedBySaf = 1
+          AND treeUri IS NOT NULL
+          AND treeUri != ''
+    """)
+    suspend fun getSafFolders(): List<FolderEntity>
+
     /** 文件夹是否被忽略 */
     @Query("SELECT isIgnored FROM folders WHERE path = :path LIMIT 1")
     suspend fun isIgnored(path: String): Boolean?
@@ -44,15 +55,58 @@ interface FolderDao {
     @Transaction
     suspend fun upsertAndGetId(
         path: String,
+        treeUri: String? = null,
         addedBySaf: Boolean = false
     ): Long {
         val now = System.currentTimeMillis()
-        val existing = findByPath(path)
+        val normalizedPath = normalizeFolderPath(path)
+        val allFolders = getAllFoldersOnce()
+        val existing = allFolders.firstOrNull {
+            normalizeFolderPath(it.path) == normalizedPath
+        }
+
+        val existingParent = allFolders.firstOrNull {
+            it.id != existing?.id &&
+                    isParentFolder(
+                        parentPath = normalizeFolderPath(it.path),
+                        childPath = normalizedPath
+                    )
+        }
+        if (existingParent != null) {
+            val duplicateChildIds = allFolders
+                .filter {
+                    it.id != existingParent.id &&
+                            isParentFolder(
+                                parentPath = normalizeFolderPath(existingParent.path),
+                                childPath = normalizeFolderPath(it.path)
+                            )
+                }
+                .map { it.id }
+            if (duplicateChildIds.isNotEmpty()) {
+                deleteFoldersPermanently(duplicateChildIds)
+            }
+            return existingParent.id
+        }
+
+        val childFolderIds = allFolders
+            .filter {
+                it.id != existing?.id &&
+                        isParentFolder(
+                            parentPath = normalizedPath,
+                            childPath = normalizeFolderPath(it.path)
+                        )
+            }
+            .map { it.id }
+
+        if (childFolderIds.isNotEmpty()) {
+            deleteFoldersPermanently(childFolderIds)
+        }
 
         return if (existing == null) {
             insert(
                 FolderEntity(
-                    path = path,
+                    path = normalizedPath,
+                    treeUri = treeUri,
                     addedBySaf = addedBySaf,
                     lastScanned = now,
                     dbUpdateTime = now,
@@ -60,15 +114,32 @@ interface FolderDao {
                 )
             )
         } else {
-            // 如果原来不是 SAF 添加的，现在是，则更新状态
             val shouldUpdateSaf = addedBySaf && !existing.addedBySaf
+            val shouldUpdateTreeUri = !treeUri.isNullOrBlank() && treeUri != existing.treeUri
             update(existing.copy(
+                treeUri = if (shouldUpdateTreeUri) treeUri else existing.treeUri,
                 addedBySaf = if (shouldUpdateSaf) true else existing.addedBySaf,
+                path = normalizedPath,
                 lastScanned = now,
                 dbUpdateTime = now
             ))
             existing.id
         }
+    }
+
+    private fun normalizeFolderPath(path: String): String {
+        val normalized = path
+            .replace('\\', '/')
+            .trim()
+            .trimEnd('/')
+
+        return normalized.ifBlank { path.trim() }
+    }
+
+    private fun isParentFolder(parentPath: String, childPath: String): Boolean {
+        if (parentPath.isBlank() || childPath.isBlank()) return false
+        if (parentPath == childPath) return false
+        return childPath.startsWith("$parentPath/")
     }
 
     @Query("UPDATE folders SET isIgnored = :ignored, dbUpdateTime = :updateTime WHERE id = :folderId")
@@ -129,6 +200,9 @@ interface FolderDao {
      */
     @Query("DELETE FROM folders WHERE id = :folderId")
     suspend fun deleteFolderPermanently(folderId: Long)
+
+    @Query("DELETE FROM folders WHERE id IN (:folderIds)")
+    suspend fun deleteFoldersPermanently(folderIds: List<Long>)
 
     /**
      * 彻底删除所有文件夹记录 (用于用户在 UI 上点击“彻底移除”按钮)

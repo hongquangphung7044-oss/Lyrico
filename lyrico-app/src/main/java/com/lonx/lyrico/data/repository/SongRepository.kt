@@ -40,7 +40,11 @@ interface SongRepository {
      *
      * @param fullRescan 是否进行彻底的重新扫描（强制读取所有文件的元数据，忽略修改时间检查）
      */
-    suspend fun synchronize(fullRescan: Boolean)
+    suspend fun synchronize(
+        fullRescan: Boolean,
+        folderIds: Set<Long>? = null,
+        onProgress: (suspend (LibraryScanProgress) -> Unit)? = null
+    )
 
     /**
      * 更新歌曲元数据（仅更新数据库）
@@ -140,4 +144,26 @@ interface SongRepository {
 
     suspend fun renameSong(song: SongEntity, newFileName: String): Boolean
 
+    suspend fun renameSongAndGetResult(song: SongEntity, newFileName: String): RenameSongResult?
+}
+
+data class RenameSongResult(
+    val oldUri: String,
+    val newUri: String,
+    val newFilePath: String,
+    val newFileName: String
+)
+
+data class LibraryScanProgress(
+    val stage: LibraryScanStage,
+    val current: Int = 0,
+    val total: Int = 0,
+    val currentFile: String? = null
+)
+
+enum class LibraryScanStage {
+    LISTING_FILES,
+    READING_METADATA,
+    WRITING_DATABASE,
+    FINISHED
 }

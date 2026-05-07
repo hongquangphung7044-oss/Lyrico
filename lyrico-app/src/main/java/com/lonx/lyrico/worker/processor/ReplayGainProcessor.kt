@@ -63,6 +63,12 @@ class ReplayGainProcessor(
             throw Exception("Write failed")
         }
 
+        songRepository.updateSongMetadata(
+            tagData,
+            item.songUri,
+            System.currentTimeMillis()
+        )
+
         return BatchTaskProcessResult()
     }
 }
