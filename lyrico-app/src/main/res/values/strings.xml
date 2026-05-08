@@ -234,6 +234,7 @@
     <!-- Folder List Status -->
     <string name="folder_tip_disabled_logic">Only folders added here are scanned. Refresh a folder after changing its files.</string>
     <string name="folder_scanning">Scanning folder songs…</string>
+    <string name="folder_scan_queued">Waiting in scan queue…</string>
     <string name="folder_scan_failed">Scan failed: %s</string>
 
     <!-- Folder Item Info -->

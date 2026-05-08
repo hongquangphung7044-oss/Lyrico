@@ -22,6 +22,8 @@ import com.lonx.lyrico.data.repository.UpdateRepository
 import com.lonx.lyrico.data.repository.UpdateRepositoryImpl
 import com.lonx.lyrico.utils.MediaScanner
 import com.lonx.lyrico.utils.ReplayGainScanner
+import com.lonx.lyrico.utils.LibraryScanManager
+import com.lonx.lyrico.utils.LibraryScanManagerImpl
 import com.lonx.lyrico.utils.UpdateManager
 import com.lonx.lyrico.utils.UpdateManagerImpl
 import com.lonx.lyrico.worker.BatchTaskScheduler
@@ -234,6 +236,7 @@ val appModule = module {
     single<UpdateRepository> { UpdateRepositoryImpl(get(), get()) }
     single<PlaybackRepository> { PlaybackRepositoryImpl() }
     single<SongRepository> { SongRepositoryImpl(get(), androidContext(), get(), get(), get(), get()) }
+    single<LibraryScanManager> { LibraryScanManagerImpl(get(), get(), get()) }
     single<BatchTaskRepository> { BatchTaskRepositoryImpl(get()) }
     single<AppLogRepository> { AppLogRepositoryImpl(get(), get()) }
     single<GhContributorRepository> { GhContributorRepositoryImpl(get(), get()) }
@@ -252,7 +255,7 @@ val appModule = module {
     )) }
     // ViewModels
     viewModel { AboutViewModel(get(),get(), get()) }
-    viewModel { SongListViewModel(get(), get(), get(), get(),get(),get()) }
+    viewModel { SongListViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { SearchViewModel(get(), get()) }
     viewModel { CoverSearchViewModel(get(), get()) }
@@ -260,7 +263,7 @@ val appModule = module {
     viewModel { BatchMatchViewModel(get(), get(), get(), get()) }
     viewModel { AppLogViewModel(get()) }
 
-    viewModel { FolderManagerViewModel(get(), get()) }
+    viewModel { FolderManagerViewModel(get(), get(), get(), get()) }
     viewModel { (folderId: Long) ->
         FolderSongsViewModel(
             folderId = folderId,

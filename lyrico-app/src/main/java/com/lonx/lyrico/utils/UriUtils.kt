@@ -2,12 +2,16 @@ package com.lonx.lyrico.utils
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.util.Log
+import androidx.core.net.toUri
 
 object UriUtils {
+    private const val TAG = "UriUtils"
 
     /**
      * 尝试从 SAF 返回的 Tree Uri 中获取绝对路径
@@ -43,6 +47,80 @@ object UriUtils {
         } catch (e: Exception) {
             e.printStackTrace()
             return null
+        }
+    }
+
+    fun hasPersistedReadPermission(context: Context, treeUriString: String?): Boolean {
+        if (treeUriString.isNullOrBlank()) return false
+
+        return try {
+            val treeUri = treeUriString.toUri()
+            context.contentResolver.persistedUriPermissions.any { permission ->
+                permission.isReadPermission && permission.uri == treeUri
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun releasePersistedPermission(contentResolver: ContentResolver, treeUriString: String?): Boolean {
+        if (treeUriString.isNullOrBlank()) return true
+
+        val treeUri = try {
+            treeUriString.toUri()
+        } catch (e: Exception) {
+            Log.w(TAG, "Invalid tree uri: $treeUriString", e)
+            return true
+        }
+
+        val matchingPermissions = contentResolver.persistedUriPermissions
+            .filter { permission -> isSameTreeUri(permission.uri, treeUri) }
+
+        matchingPermissions.forEach { permission ->
+            if (permission.isReadPermission) {
+                releasePersistedPermissionFlag(
+                    contentResolver = contentResolver,
+                    uri = permission.uri,
+                    flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            if (permission.isWritePermission) {
+                releasePersistedPermissionFlag(
+                    contentResolver = contentResolver,
+                    uri = permission.uri,
+                    flag = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+        }
+
+        return contentResolver.persistedUriPermissions.none { permission ->
+            isSameTreeUri(permission.uri, treeUri)
+        }
+    }
+
+    private fun releasePersistedPermissionFlag(
+        contentResolver: ContentResolver,
+        uri: Uri,
+        flag: Int
+    ) {
+        try {
+            contentResolver.releasePersistableUriPermission(uri, flag)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Failed to release persisted permission: uri=$uri flag=$flag", e)
+        } catch (e: Exception) {
+            Log.w(TAG, "Unexpected error releasing persisted permission: uri=$uri flag=$flag", e)
+        }
+    }
+
+    private fun isSameTreeUri(left: Uri, right: Uri): Boolean {
+        if (left == right) return true
+
+        return try {
+            DocumentsContract.isTreeUri(left) &&
+                    DocumentsContract.isTreeUri(right) &&
+                    DocumentsContract.getTreeDocumentId(left) == DocumentsContract.getTreeDocumentId(right)
+        } catch (e: Exception) {
+            false
         }
     }
 

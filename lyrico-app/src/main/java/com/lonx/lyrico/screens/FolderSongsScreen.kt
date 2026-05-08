@@ -83,7 +83,7 @@ fun FolderSongsScreen(
             } else {
                 items(
                     items = songs,
-                    key = { song -> song.uri }
+                    key = { song -> song.uri.takeIf { it.isNotBlank() && it != "0" } ?: "song-${song.id}" }
                 ) { song ->
                     SongListItem(
                         song = song,

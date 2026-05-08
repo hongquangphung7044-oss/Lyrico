@@ -239,6 +239,7 @@
     <!-- 文件夹列表状态 -->
     <string name="folder_tip_disabled_logic">Lyrico 只会扫描这里添加的文件夹。文件变化后，可单独刷新对应文件夹</string>
     <string name="folder_scanning">正在扫描文件夹歌曲…</string>
+    <string name="folder_scan_queued">已加入扫描队列…</string>
     <string name="folder_scan_failed">扫描失败：%s</string>
 
     <!-- 文件夹项信息 -->

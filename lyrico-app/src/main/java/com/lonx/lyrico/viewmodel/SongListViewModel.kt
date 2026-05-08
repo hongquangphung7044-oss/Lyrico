@@ -15,10 +15,9 @@ import com.lonx.lyrico.data.repository.SongRepository
 import com.lonx.lyrico.data.model.LocalSearchType
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.entity.getUri
-import com.lonx.lyrico.data.repository.LibraryScanProgress
 import com.lonx.lyrico.data.repository.PlaybackRepository
+import com.lonx.lyrico.utils.LibraryScanManager
 import com.lonx.lyrico.utils.UpdateManager
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,8 +58,7 @@ data class SongListUiState(
     val batchHistoryId: Long = 0,
     val batchTimeMillis: Long = 0,
     val searchQuery: String = "",
-    val isSearching: Boolean = false,
-    val scanProgress: LibraryScanProgress? = null
+    val isSearching: Boolean = false
 )
 data class SheetUiState(
     val menuSong: SongEntity? = null,
@@ -74,6 +72,7 @@ class SongListViewModel(
     private val settingsRepository: SettingsRepository,
     private val playbackRepository: PlaybackRepository,
     private val updateManager: UpdateManager,
+    private val libraryScanManager: LibraryScanManager,
     private val selectionManager: SharedSelectionManager,
     database: LyricoDatabase
 ) : ViewModel() {
@@ -92,6 +91,8 @@ class SongListViewModel(
     val hasFolders: StateFlow<Boolean> = folderDao.getAllFolders()
         .map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val scanState = libraryScanManager.state
 
     private val _uiState = MutableStateFlow(SongListUiState())
     val uiState = _uiState.asStateFlow()
@@ -145,7 +146,7 @@ class SongListViewModel(
             if (success) {
                 dismissRenameDialog()
                 dismissAll()
-                triggerSync()
+                libraryScanManager.scanFolders(setOf(song.folderId))
             }
         }
     }
@@ -296,45 +297,13 @@ class SongListViewModel(
         selectionManager.setUris(selectedUris)
         return true
     }
-    private fun triggerSync(
-        folderIds: Set<Long>? = null
-    ) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, scanProgress = null) }
-            try {
-                songRepository.synchronize(
-                    fullRescan = false,
-                    folderIds = folderIds
-                ) { progress ->
-                        _uiState.update { it.copy(scanProgress = progress) }
-                    }
-            } catch (e: Exception) {
-                Log.e(TAG, "同步失败", e)
-            } finally {
-                delay(500L)
-                _uiState.update { it.copy(isLoading = false, scanProgress = null) }
-            }
-        }
-    }
-
     fun refreshSongs() {
-        if (_uiState.value.isLoading) return
         Log.d(TAG, "用户手动刷新歌曲列表")
-        triggerSync()
+        libraryScanManager.scanAll()
     }
 
     fun addSafFolderAndRefresh(path: String, treeUri: String) {
-        viewModelScope.launch {
-            val id = folderDao.upsertAndGetId(
-                path = path,
-                treeUri = treeUri,
-                addedBySaf = true
-            )
-            folderDao.setIgnored(id, false)
-            triggerSync(
-                folderIds = setOf(id)
-            )
-        }
+        libraryScanManager.addFolderAndScan(path, treeUri)
     }
 
     override fun onCleared() {

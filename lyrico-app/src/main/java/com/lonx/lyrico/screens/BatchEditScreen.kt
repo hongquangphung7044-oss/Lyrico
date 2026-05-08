@@ -605,7 +605,7 @@ fun BatchEditScreen(
                         ) {
                             items(
                                 items = selectedValueOptions,
-                                key = { it.sourceUri }
+                                key = { "${it.sourceUri}\n${it.value}" }
                             ) { option ->
                                 BatchEditValueOptionItem(
                                     option = option,
@@ -662,7 +662,7 @@ fun BatchEditScreen(
             if (!selectedCoverOptionsLoading && selectedCoverOptions.isNotEmpty()) {
                 gridItems(
                     items = selectedCoverOptions,
-                    key = { it.sourceUri }
+                    key = { "${it.sourceUri}\n${it.fileLastModified}" }
                 ) { option ->
                     BatchEditCoverOptionItem(
                         option = option,

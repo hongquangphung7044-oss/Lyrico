@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
@@ -198,44 +199,28 @@ fun FolderManagerScreen(
                     .fillMaxHeight(),
                 overscrollEffect = null,
             ) {
-
-
-                item {
-                    Card(
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    ) {
-                        folders.forEachIndexed { index, folder ->
-                            FolderListItem(
-                                folder = folder,
-                                isScanning = folder.id in uiState.scanningFolderIds,
-                                onClick = {
-                                    navigator.navigate(
-                                        FolderSongsDestination(
-                                            folder.id,
-                                            folder.path
-                                        )
-                                    )
-                                },
-                                onDelete = {
-                                    selectedFolderId = folder.id
-                                    showConfirmDialog.value = true
-                                },
-                                onRefresh = {
-                                    viewModel.refreshFolder(folder)
-                                }
-                            )
-
-                            if (index != folders.lastIndex) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
-                                    color = MiuixTheme.colorScheme.dividerLine,
-                                    thickness = 0.5.dp
+                items(items = folders) { folder ->
+                    FolderListItem(
+                        folder = folder,
+                        isScanning = folder.id in uiState.scanningFolderIds,
+                        isQueued = folder.id in uiState.queuedFolderIds,
+                        onClick = {
+                            navigator.navigate(
+                                FolderSongsDestination(
+                                    folder.id,
+                                    folder.path
                                 )
-                            }
+                            )
+                        },
+                        onDelete = {
+                            selectedFolderId = folder.id
+                            showConfirmDialog.value = true
+                        },
+                        onRefresh = {
+                            viewModel.refreshFolder(folder)
                         }
-                    }
+                    )
                 }
-
             }
         }
     }
@@ -246,65 +231,71 @@ fun FolderManagerScreen(
 private fun FolderListItem(
     folder: FolderEntity,
     isScanning: Boolean,
+    isQueued: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onRefresh: () -> Unit
 ) {
     val folderName = folder.path.substringAfterLast("/").ifBlank { folder.path }
-    val statusText = if (!isScanning) {
-        stringResource(R.string.folder_song_count_format, folder.songCount)
-    } else {
-        stringResource(R.string.folder_scanning)
+    val isBusy = isScanning || isQueued
+    val statusText = when {
+        isScanning -> stringResource(R.string.folder_scanning)
+        isQueued -> stringResource(R.string.folder_scan_queued)
+        else -> stringResource(R.string.folder_song_count_format, folder.songCount)
     }
 
-    BasicComponent(
-        endActions = {
-            IconButton(
-                enabled = !isScanning,
-                onClick = onRefresh
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Refresh,
-                    contentDescription = stringResource(R.string.action_refresh_folder)
-                )
-            }
-            IconButton(
-                enabled = !isScanning,
-                onClick = onDelete
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Delete,
-                    contentDescription = stringResource(R.string.common_delete),
-                    tint = MiuixTheme.colorScheme.error
-                )
-            }
-        },
-        bottomAction = {
-            AnimatedVisibility(
-                visible = isScanning
-            ) {
-                LinearProgressIndicator()
-            }
-        },
-        enabled = !isScanning,
-        onClick = onClick
-    ) {
-        Text(
-            text = folderName,
-            color = MiuixTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(3.dp))
-        Text(
-            text = folder.path,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            fontSize = MiuixTheme.textStyles.body2.fontSize
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = statusText,
-            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-            fontSize = MiuixTheme.textStyles.body2.fontSize
-        )
+    Card(
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+    ){
+        BasicComponent(
+            endActions = {
+                IconButton(
+                    enabled = !isBusy,
+                    onClick = onRefresh
+                ) {
+                    Icon(
+                        imageVector = MiuixIcons.Refresh,
+                        contentDescription = stringResource(R.string.action_refresh_folder)
+                    )
+                }
+                IconButton(
+                    enabled = !isBusy,
+                    onClick = onDelete
+                ) {
+                    Icon(
+                        imageVector = MiuixIcons.Delete,
+                        contentDescription = stringResource(R.string.common_delete),
+                        tint = MiuixTheme.colorScheme.error
+                    )
+                }
+            },
+            bottomAction = {
+                AnimatedVisibility(
+                    visible = isScanning
+                ) {
+                    LinearProgressIndicator()
+                }
+            },
+            enabled = !isBusy,
+            onClick = onClick
+        ) {
+            Text(
+                text = folderName,
+                color = MiuixTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = folder.path,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                fontSize = MiuixTheme.textStyles.body2.fontSize
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = statusText,
+                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                fontSize = MiuixTheme.textStyles.body2.fontSize
+            )
+        }
     }
 }

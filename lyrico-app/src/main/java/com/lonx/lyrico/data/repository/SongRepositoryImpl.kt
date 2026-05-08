@@ -25,6 +25,7 @@ import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.utils.SongQueryBuilder
 import com.lonx.lyrico.data.utils.SortKeyUtils
 import com.lonx.lyrico.utils.MediaScanner
+import com.lonx.lyrico.utils.UriUtils
 import com.lonx.lyrico.viewmodel.SortBy
 import com.lonx.lyrico.viewmodel.SortInfo
 import com.lonx.lyrico.viewmodel.SortOrder
@@ -56,6 +57,30 @@ class SongRepositoryImpl(
         const val TAG = "SongRepository"
         const val BATCH_SIZE = 50
         const val MAX_LOG_ITEMS = 20
+    }
+
+    private suspend fun removeSafFoldersWithoutPermission(): Int {
+        val foldersWithoutPermission = folderDao.getSafFoldersForPermissionCheck()
+            .filterNot { folder ->
+                UriUtils.hasPersistedReadPermission(context, folder.treeUri)
+            }
+
+        if (foldersWithoutPermission.isEmpty()) return 0
+
+        database.withTransaction {
+            folderDao.deleteFoldersPermanently(foldersWithoutPermission.map { it.id })
+        }
+
+        logApp(
+            level = AppLogLevel.WARNING,
+            message = "Removed SAF folders without persisted permission",
+            detail = buildString {
+                appendLine("count=${foldersWithoutPermission.size}")
+                appendLimitedItems("folders", foldersWithoutPermission.map { it.path })
+            }
+        )
+        Log.w(TAG, "已移除失去 SAF 权限的文件夹: ${foldersWithoutPermission.size} 个")
+        return foldersWithoutPermission.size
     }
 
     private fun formatRawProperties(rawProperties: Map<String, Array<String>>?): String? {
@@ -260,6 +285,7 @@ class SongRepositoryImpl(
                     val ignoreShortAudio = settingsRepository.ignoreShortAudio.first()
                     val minDuration = 60_000L
 
+                    val removedSafFolders = removeSafFoldersWithoutPermission()
                     val dbSyncInfos = songDao.getAllSyncInfo()
                     val dbSongMap = dbSyncInfos.associateBy { it.uri }
 
@@ -395,6 +421,7 @@ class SongRepositoryImpl(
                             appendLine("safSongs=${safScanResult.songs.size}")
                             appendLine("upserted=${songsToUpsert.size}")
                             appendLine("deleted=${deletedUris.size}")
+                            appendLine("removedSafFolders=$removedSafFolders")
                             appendLine("foldersUpdated=${impactedFolderIds.size}")
                             appendLine("itemFailures=${itemFailures.size}")
                             appendLine("ignoreShortAudio=$ignoreShortAudio")

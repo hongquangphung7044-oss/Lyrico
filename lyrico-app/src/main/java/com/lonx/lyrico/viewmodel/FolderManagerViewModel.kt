@@ -1,42 +1,53 @@
 package com.lonx.lyrico.viewmodel
 
+import android.app.Application
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.model.entity.FolderEntity
-import com.lonx.lyrico.data.repository.SongRepository
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.lonx.lyrico.utils.LibraryScanManager
+import com.lonx.lyrico.utils.UriUtils
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 
 data class FolderManagerUiState(
     val folders: List<FolderEntity> = emptyList(),
     val scanningFolderIds: Set<Long> = emptySet(),
+    val queuedFolderIds: Set<Long> = emptySet(),
     val error: String? = null
-) {
-    val isLoading: Boolean
-        get() = scanningFolderIds.isNotEmpty()
-}
+)
 
 class FolderManagerViewModel(
     private val database: LyricoDatabase,
-    private val songRepository: SongRepository
+    private val libraryScanManager: LibraryScanManager,
+    private val application: Application,
+    private val appScope: CoroutineScope
 ) : ViewModel() {
 
+    private companion object {
+        const val TAG = "FolderManagerViewModel"
+    }
+
     private val folderDao = database.folderDao()
-    private val scanState = MutableStateFlow(FolderManagerUiState())
+    private val contentResolver = application.contentResolver
 
     val uiState: StateFlow<FolderManagerUiState> =
         combine(
             folderDao.getAllFolders(),
-            scanState
-        ) { folders, state ->
-            state.copy(folders = folders)
+            libraryScanManager.state
+        ) { folders, scanState ->
+            FolderManagerUiState(
+                folders = folders,
+                scanningFolderIds = scanState.scanningFolderIds,
+                queuedFolderIds = scanState.queuedFolderIds,
+                error = scanState.error
+            )
         }
             .stateIn(
                 viewModelScope,
@@ -45,57 +56,20 @@ class FolderManagerViewModel(
             )
 
     fun addFolder(path: String, treeUri: String) {
-        viewModelScope.launch {
-            val id = folderDao.upsertAndGetId(
-                path = path,
-                treeUri = treeUri,
-                addedBySaf = true
-            )
-            folderDao.setIgnored(id, false)
-            scanFolder(id)
-        }
-    }
-
-    fun addFolderByPath(path: String) {
-        viewModelScope.launch {
-            val id = folderDao.upsertAndGetId(path, addedBySaf = true)
-            folderDao.setIgnored(id, false)
-            scanFolder(id)
-        }
+        libraryScanManager.addFolderAndScan(path, treeUri)
     }
 
     fun deleteFolder(folder: FolderEntity) {
-        viewModelScope.launch {
+        appScope.launch {
+            val released = UriUtils.releasePersistedPermission(contentResolver, folder.treeUri)
+            if (!released) {
+                Log.w(TAG, "Failed to fully release persisted permission for folder: ${folder.path}")
+            }
             folderDao.deleteFolderPermanently(folder.id)
         }
     }
 
     fun refreshFolder(folder: FolderEntity) {
-        viewModelScope.launch {
-            scanFolder(folder.id)
-        }
-    }
-
-    private suspend fun scanFolder(folderId: Long) {
-        if (folderId in scanState.value.scanningFolderIds) return
-
-        scanState.update {
-            it.copy(
-                scanningFolderIds = it.scanningFolderIds + folderId,
-                error = null
-            )
-        }
-        try {
-            songRepository.synchronize(
-                fullRescan = false,
-                folderIds = setOf(folderId)
-            )
-        } catch (e: Exception) {
-            scanState.update { it.copy(error = e.message) }
-        } finally {
-            scanState.update {
-                it.copy(scanningFolderIds = it.scanningFolderIds - folderId)
-            }
-        }
+        libraryScanManager.scanFolders(setOf(folder.id))
     }
 }

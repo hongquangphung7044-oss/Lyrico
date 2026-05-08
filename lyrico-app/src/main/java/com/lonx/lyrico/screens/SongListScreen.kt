@@ -203,6 +203,7 @@ fun SongListScreen(
     val batchReplayGainViewModel: BatchReplayGainViewModel = koinViewModel()
     val batchLyricsFormatViewModel: BatchLyricsFormatViewModel = koinViewModel()
     val songListUiState by songListViewModel.uiState.collectAsState()
+    val scanState by songListViewModel.scanState.collectAsStateWithLifecycle()
     val batchMatchUiState by batchMatchViewModel.uiState.collectAsState()
     val batchReplayGainUiState by batchReplayGainViewModel.uiState.collectAsStateWithLifecycle()
     val batchLyricsFormatUiState by batchLyricsFormatViewModel.uiState.collectAsStateWithLifecycle()
@@ -212,7 +213,7 @@ fun SongListScreen(
     val isSelectionMode by songListViewModel.isSelectionMode.collectAsState(initial = false)
     val selectedSongUris by songListViewModel.selectedSongUris.collectAsState()
     val hasFolders by songListViewModel.hasFolders.collectAsStateWithLifecycle()
-    val allSelected = selectedSongUris.size == songs.size
+    val allSelected = songs.isNotEmpty() && selectedSongUris.containsAll(songs.map { it.uri })
     val showScrollTopButton by songListViewModel.showScrollTopButton.collectAsStateWithLifecycle()
     val batchMatchConfig by batchMatchViewModel.batchMatchConfig.collectAsState()
     var sortOrderDropdownExpanded by remember { mutableStateOf(false) }
@@ -531,7 +532,7 @@ fun SongListScreen(
             val navigationBarBottomInset =
                 WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             PullToRefresh(
-                isRefreshing = songListUiState.isLoading,
+                isRefreshing = scanState.isScanning,
                 onRefresh = { songListViewModel.refreshSongs() },
                 modifier = Modifier.padding(
                     start = paddingValues.calculateStartPadding(layoutDirection),
@@ -590,7 +591,7 @@ fun SongListScreen(
                         if (songs.isNotEmpty()) {
                             items(
                                 items = songs,
-                                key = { song -> song.uri }
+                                key = { song -> song.uri.takeIf { it.isNotBlank() && it != "0" } ?: "song-${song.id}" }
                             ) { song ->
                                 SongListItem(
                                     song = song,
@@ -628,7 +629,7 @@ fun SongListScreen(
                             }
                         } else {
                             item {
-                                val scanProgress = songListUiState.scanProgress
+                                val scanProgress = scanState.progress
                                 when {
                                     scanProgress != null -> {
                                         Box(

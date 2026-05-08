@@ -40,6 +40,9 @@ interface FolderDao {
     """)
     suspend fun getSafFolders(): List<FolderEntity>
 
+    @Query("SELECT * FROM folders WHERE addedBySaf = 1")
+    suspend fun getSafFoldersForPermissionCheck(): List<FolderEntity>
+
     /** 文件夹是否被忽略 */
     @Query("SELECT isIgnored FROM folders WHERE path = :path LIMIT 1")
     suspend fun isIgnored(path: String): Boolean?
