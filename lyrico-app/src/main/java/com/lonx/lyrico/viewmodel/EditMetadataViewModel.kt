@@ -134,6 +134,7 @@ class EditMetadataViewModel(
                 // 2. 读取文件标签
                 val audioTagData = songRepository.readAudioTagData(uriString)
                 val firstPicture = audioTagData.pictures.firstOrNull()?.data
+                val displayFileName = song?.fileName ?: audioTagData.fileName
 
                 _uiState.update { state ->
                     state.copy(
@@ -143,7 +144,10 @@ class EditMetadataViewModel(
                         ),
                         originalTagData = audioTagData,
 
-                        fileName = song?.fileName?.substringBeforeLast( "."),
+                        fileName = displayFileName.substringBeforeLast(
+                            ".",
+                            missingDelimiterValue = displayFileName
+                        ),
                         // 如果当前没有在编辑，才重置 editingTagData
                         editingTagData = if (state.isEditing) state.editingTagData else audioTagData,
 
@@ -477,11 +481,15 @@ class EditMetadataViewModel(
                 if (success) {
                     val newModifiedTime = System.currentTimeMillis()
 
-                    val updateSuccess = songRepository.updateSongMetadata(
-                        audioTagData,
-                        uriString, // 传入 URI
-                        newModifiedTime
-                    )
+                    val updateSuccess = if (currentSong != null) {
+                        songRepository.updateSongMetadata(
+                            audioTagData,
+                            uriString, // 传入 URI
+                            newModifiedTime
+                        )
+                    } else {
+                        true
+                    }
 
                     if (updateSuccess) {
                         _uiState.update {

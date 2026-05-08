@@ -42,12 +42,31 @@ import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.MiuixPopupHost
 
 open class MainActivity : ComponentActivity() {
     private var externalUri by mutableStateOf<Uri?>(null)
+    private var pendingExternalUri: Uri? = null
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
                 Toast.makeText(
                     this,
                     "通知权限未授予，可能无法接收通知",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+    private val externalAudioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            val uri = pendingExternalUri
+            pendingExternalUri = null
+
+            if (uri != null) {
+                externalUri = uri
+            }
+
+            if (!isGranted) {
+                Toast.makeText(
+                    this,
+                    "未授予音频读取权限，将尝试使用外部应用提供的临时授权",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -158,18 +177,66 @@ open class MainActivity : ComponentActivity() {
 
         when (intent.action) {
             Intent.ACTION_VIEW -> {
-                externalUri = intent.data
+                handleExternalUri(intent.data, intent.flags)
             }
 
             Intent.ACTION_SEND -> {
-                externalUri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                handleExternalUri(
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM),
+                    intent.flags
+                )
             }
 
             ACTION_EDIT_TAG -> {
-                externalUri = intent.data
+                handleExternalUri(intent.data, intent.flags)
             }
         }
     }
+
+    private fun handleExternalUri(uri: Uri?, intentFlags: Int) {
+        if (uri == null) return
+
+        if (needsExternalAudioReadPermission(uri, intentFlags)) {
+            pendingExternalUri = uri
+            requestExternalAudioReadPermission()
+        } else {
+            externalUri = uri
+        }
+    }
+
+    private fun needsExternalAudioReadPermission(uri: Uri, intentFlags: Int): Boolean {
+        val permission = externalAudioReadPermission() ?: return false
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            return false
+        }
+
+        val readGrant = intentFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0
+        if (uri.scheme == "content" && uri.authority != "media") {
+            return !readGrant
+        }
+
+        return !readGrant
+    }
+
+    private fun requestExternalAudioReadPermission() {
+        val permission = externalAudioReadPermission()
+        if (permission == null) {
+            pendingExternalUri?.let { externalUri = it }
+            pendingExternalUri = null
+            return
+        }
+
+        externalAudioPermissionLauncher.launch(permission)
+    }
+
+    private fun externalAudioReadPermission(): String? {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> Manifest.permission.READ_MEDIA_AUDIO
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> Manifest.permission.READ_EXTERNAL_STORAGE
+            else -> null
+        }
+    }
+
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
 

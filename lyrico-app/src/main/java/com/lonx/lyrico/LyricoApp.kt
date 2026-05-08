@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.rememberNavController
@@ -23,67 +24,69 @@ import top.yukonga.miuix.kmp.basic.Surface
 
 @Composable
 fun LyricoApp(externalUri: Uri?) {
-    val navController = rememberNavController()
-
     Surface(
         modifier = Modifier.fillMaxSize()
     ) {
-        val startDirection: Direction =
-            externalUri?.let { EditMetadataDestination(it.toString()) }
-                ?: NavGraphs.root.defaultStartDirection
+        val externalUriString = externalUri?.toString()
+        key(externalUriString) {
+            val navController = rememberNavController()
+            val startDirection: Direction =
+                externalUriString?.let { EditMetadataDestination(it) }
+                    ?: NavGraphs.root.defaultStartDirection
 
-        Log.d("LyricoApp", "LyricoApp: $startDirection")
-        DestinationsNavHost(
-            navGraph = NavGraphs.root,
-            navController = navController,
-            start = startDirection,
-            dependenciesContainerBuilder = {
-            },
-            defaultTransitions = object : NavHostAnimatedDestinationStyle() {
-                override val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
-                    {
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = FastOutSlowInEasing
+            Log.d("LyricoApp", "LyricoApp: $startDirection")
+            DestinationsNavHost(
+                navGraph = NavGraphs.root,
+                navController = navController,
+                start = startDirection,
+                dependenciesContainerBuilder = {
+                },
+                defaultTransitions = object : NavHostAnimatedDestinationStyle() {
+                    override val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
+                        {
+                            slideInHorizontally(
+                                initialOffsetX = { it },
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = FastOutSlowInEasing
+                                )
                             )
-                        )
-                    }
+                        }
 
-                override val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
-                    {
-                        slideOutHorizontally(
-                            targetOffsetX = { -it },
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = FastOutSlowInEasing
+                    override val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
+                        {
+                            slideOutHorizontally(
+                                targetOffsetX = { -it },
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = FastOutSlowInEasing
+                                )
                             )
-                        )
-                    }
+                        }
 
-                override val popEnterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
-                    {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = FastOutSlowInEasing
+                    override val popEnterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
+                        {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = FastOutSlowInEasing
+                                )
                             )
-                        )
-                    }
+                        }
 
-                override val popExitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
-                    {
-                        slideOutHorizontally(
-                            targetOffsetX = { it },
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = FastOutSlowInEasing
+                    override val popExitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
+                        {
+                            slideOutHorizontally(
+                                targetOffsetX = { it },
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = FastOutSlowInEasing
+                                )
                             )
-                        )
-                    }
-            }
-        )
+                        }
+                }
+            )
+        }
     }
 }
