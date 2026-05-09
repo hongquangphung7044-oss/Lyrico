@@ -214,6 +214,7 @@
     <string name="label_artists">Artists</string>
     <string name="label_album">Album</string>
     <string name="label_date">Year/Date</string>
+    <string name="label_language">Language</string>
     <string name="label_genre">Genre</string>
     <string name="label_track_number">Track Number</string>
     <string name="label_duration">Duration</string>

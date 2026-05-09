@@ -183,6 +183,7 @@ object AudioTagReader {
                     album = firstOf("ALBUM"),
                     genre = allJoined(", ", "GENRE", "TCON") ?: allJoined(", ", "STYLE", "SUBGENRE", "MOOD"),
                     date = firstOf("DATE", "YEAR"),
+                    language = allJoined(", ", "LANGUAGE", "TLAN"),
                     trackNumber = firstIntOf("TRACKNUMBER", "TRACK", "TRCK")?.toString(),
 
                     albumArtist = albumArtist,

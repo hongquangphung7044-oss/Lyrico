@@ -5,7 +5,6 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.lonx.lyrico.data.migration.DeleteBatchMatchHistorySpec
 import com.lonx.lyrico.data.model.dao.AppLogDao
 import com.lonx.lyrico.data.model.dao.BatchTaskDao
 import com.lonx.lyrico.data.model.dao.FolderDao
@@ -24,7 +23,7 @@ import com.lonx.lyrico.data.model.entity.SongEntity
         BatchTaskItemEntity::class,
         AppLogEntity::class
     ],
-    version = 16,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -32,12 +31,7 @@ import com.lonx.lyrico.data.model.entity.SongEntity
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
-        AutoMigration(from = 8, to = 9),
-        AutoMigration(from = 9, to = 10),
-        AutoMigration(from = 10, to = 11, spec = DeleteBatchMatchHistorySpec::class),
-        AutoMigration(from = 11, to = 12),
-        AutoMigration(from = 12, to = 13),
-        AutoMigration(from = 13, to = 14)
+        AutoMigration(from = 8, to = 9)
     ]
 )
 abstract class LyricoDatabase : RoomDatabase() {
@@ -47,8 +41,18 @@ abstract class LyricoDatabase : RoomDatabase() {
     abstract fun appLogDao(): AppLogDao
 
     companion object {
-        val MIGRATION_14_15 = object : Migration(14, 15) {
+        val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE songs ADD COLUMN replayGainTrackGain TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE songs ADD COLUMN replayGainTrackPeak TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE songs ADD COLUMN replayGainAlbumGain TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE songs ADD COLUMN replayGainAlbumPeak TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE songs ADD COLUMN replayGainReferenceLoudness TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE songs ADD COLUMN source TEXT NOT NULL DEFAULT 'MEDIA_STORE'")
+                db.execSQL("ALTER TABLE songs ADD COLUMN language TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE folders ADD COLUMN treeUri TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_folders_addedBySaf ON folders(addedBySaf)")
+
                 db.execSQL(
                     """
                     UPDATE songs SET
@@ -65,7 +69,8 @@ abstract class LyricoDatabase : RoomDatabase() {
                         titleSortKey = COALESCE(NULLIF(titleSortKey, ''), '#'),
                         artistGroupKey = COALESCE(NULLIF(artistGroupKey, ''), '#'),
                         artistSortKey = COALESCE(NULLIF(artistSortKey, ''), '#'),
-                        uri = COALESCE(uri, '')
+                        uri = COALESCE(uri, ''),
+                        source = COALESCE(NULLIF(source, ''), 'MEDIA_STORE')
                     WHERE filePath IS NULL
                         OR fileName IS NULL
                         OR durationMilliseconds IS NULL
@@ -84,18 +89,79 @@ abstract class LyricoDatabase : RoomDatabase() {
                         OR artistSortKey IS NULL
                         OR artistSortKey = ''
                         OR uri IS NULL
+                        OR source IS NULL
+                        OR source = ''
                     """.trimIndent()
                 )
-            }
-        }
 
-        val MIGRATION_15_16 = object : Migration(15, 16) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE folders ADD COLUMN treeUri TEXT")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_folders_addedBySaf ON folders(addedBySaf)")
+                db.execSQL("DROP TABLE IF EXISTS batch_match_records")
+                db.execSQL("DROP TABLE IF EXISTS batch_match_history")
 
-                db.execSQL("ALTER TABLE songs ADD COLUMN source TEXT NOT NULL DEFAULT 'MEDIA_STORE'")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_songs_source ON songs(source)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS batch_tasks (
+                        taskId TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        total INTEGER NOT NULL,
+                        current INTEGER NOT NULL,
+                        successCount INTEGER NOT NULL,
+                        failureCount INTEGER NOT NULL,
+                        skippedCount INTEGER NOT NULL,
+                        currentFile TEXT,
+                        configJson TEXT,
+                        workId TEXT,
+                        startedAt INTEGER,
+                        finishedAt INTEGER,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        errorMessage TEXT,
+                        PRIMARY KEY(taskId)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_tasks_status ON batch_tasks(status)")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS batch_task_items (
+                        itemId TEXT NOT NULL,
+                        taskId TEXT NOT NULL,
+                        mediaId INTEGER NOT NULL,
+                        songUri TEXT NOT NULL,
+                        filePath TEXT,
+                        fileName TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        progress REAL,
+                        resultJson TEXT,
+                        errorMessage TEXT,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        PRIMARY KEY(itemId)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_task_items_taskId ON batch_task_items(taskId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_task_items_status ON batch_task_items(status)")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS app_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        level TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        tag TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        detail TEXT,
+                        relatedId TEXT
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_app_logs_createdAt ON app_logs(createdAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_app_logs_level ON app_logs(level)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_app_logs_type ON app_logs(type)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_app_logs_relatedId ON app_logs(relatedId)")
             }
         }
     }

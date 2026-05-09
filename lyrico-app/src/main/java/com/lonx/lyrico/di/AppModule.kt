@@ -225,8 +225,7 @@ val appModule = module {
             "lyrico_database"
         )
             .addMigrations(
-                LyricoDatabase.MIGRATION_14_15,
-                LyricoDatabase.MIGRATION_15_16
+                LyricoDatabase.MIGRATION_9_10
             )
             .build()
     }

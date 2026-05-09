@@ -130,6 +130,7 @@ fun BatchEditScreen(
             BatchEditField.ALBUM_ARTIST -> viewModel.updateAlbumArtist(value)
             BatchEditField.ALBUM -> viewModel.updateAlbum(value)
             BatchEditField.DATE -> viewModel.updateDate(value)
+            BatchEditField.LANGUAGE -> viewModel.updateLanguage(value)
             BatchEditField.GENRE -> viewModel.updateGenre(value)
             BatchEditField.TRACK_NUMBER -> viewModel.updateTrackNumber(value)
             BatchEditField.DISC_NUMBER -> viewModel.updateDiscNumber(value)
@@ -335,6 +336,12 @@ fun BatchEditScreen(
                                 value = uiState.date,
                                 onValueChange = { viewModel.updateDate(it) },
                                 onSelectFromSongs = { openSelectedValueSheet(BatchEditField.DATE) }
+                            )
+                            BatchEditFieldItem(
+                                field = BatchEditField.LANGUAGE,
+                                value = uiState.language,
+                                onValueChange = { viewModel.updateLanguage(it) },
+                                onSelectFromSongs = { openSelectedValueSheet(BatchEditField.LANGUAGE) }
                             )
                             BatchEditFieldItem(
                                 field = BatchEditField.GENRE,

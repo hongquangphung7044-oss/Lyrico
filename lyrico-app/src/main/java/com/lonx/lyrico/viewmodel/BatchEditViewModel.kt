@@ -42,6 +42,7 @@ enum class BatchEditField(val labelResId: Int) {
     ALBUM_ARTIST(R.string.label_album_artist),
     ALBUM(R.string.label_album),
     DATE(R.string.label_date),
+    LANGUAGE(R.string.label_language),
     GENRE(R.string.label_genre),
     TRACK_NUMBER(R.string.label_track_number),
     DISC_NUMBER(R.string.label_disc_number),
@@ -75,6 +76,7 @@ data class BatchEditUiState(
     val albumArtist: String = "<keep>",
     val album: String = "<keep>",
     val date: String = "<keep>",
+    val language: String = "<keep>",
     val genre: String = "<keep>",
     val trackNumber: String = "<keep>",
     val discNumber: String = "<keep>",
@@ -185,6 +187,10 @@ class BatchEditViewModel(
 
     fun updateDate(value: String) {
         _uiState.update { it.copy(date = value) }
+    }
+
+    fun updateLanguage(value: String) {
+        _uiState.update { it.copy(language = value) }
     }
 
     fun updateGenre(value: String) {
@@ -319,6 +325,7 @@ class BatchEditViewModel(
         BatchEditField.ALBUM_ARTIST -> "albumArtist"
         BatchEditField.ALBUM -> "album"
         BatchEditField.DATE -> "date"
+        BatchEditField.LANGUAGE -> "language"
         BatchEditField.GENRE -> "genre"
         BatchEditField.TRACK_NUMBER -> "trackerNumber"
         BatchEditField.DISC_NUMBER -> "discNumber"
@@ -487,6 +494,7 @@ class BatchEditViewModel(
             albumArtist = albumArtist,
             album = album,
             date = date,
+            language = language,
             genre = genre,
             trackNumber = trackNumber,
             discNumber = discNumber,
@@ -622,6 +630,7 @@ class BatchEditViewModel(
         if (state.albumArtist != "<keep>") tag = tag.copy(albumArtist = state.albumArtist)
         if (state.album != "<keep>") tag = tag.copy(album = state.album)
         if (state.date != "<keep>") tag = tag.copy(date = state.date)
+        if (state.language != "<keep>") tag = tag.copy(language = state.language)
         if (state.genre != "<keep>") tag = tag.copy(genre = state.genre)
         if (state.trackNumber != "<keep>") tag = tag.copy(trackNumber = state.trackNumber)
         if (state.discNumber != "<keep>") tag =

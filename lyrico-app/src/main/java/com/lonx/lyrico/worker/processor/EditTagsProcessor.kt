@@ -17,6 +17,7 @@ data class EditTagsTaskConfig(
     val albumArtist: String = "<keep>",
     val album: String = "<keep>",
     val date: String = "<keep>",
+    val language: String = "<keep>",
     val genre: String = "<keep>",
     val trackNumber: String = "<keep>",
     val discNumber: String = "<keep>",
@@ -94,6 +95,7 @@ class EditTagsProcessor(
         if (config.albumArtist != keep) tag = tag.copy(albumArtist = config.albumArtist)
         if (config.album != keep) tag = tag.copy(album = config.album)
         if (config.date != keep) tag = tag.copy(date = config.date)
+        if (config.language != keep) tag = tag.copy(language = config.language)
         if (config.genre != keep) tag = tag.copy(genre = config.genre)
         if (config.trackNumber != keep) tag = tag.copy(trackNumber = config.trackNumber)
         if (config.discNumber != keep) tag = tag.copy(discNumber = config.discNumber.toIntOrNull())

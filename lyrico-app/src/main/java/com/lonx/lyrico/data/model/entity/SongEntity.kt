@@ -34,6 +34,7 @@ import androidx.room.PrimaryKey
  * @property albumArtist 专辑艺术家
  * @property album 专辑名
  * @property genre 流派
+ * @property language 语言
  * @property composer 作曲
  * @property lyricist 作词
  * @property comment 备注
@@ -112,6 +113,8 @@ data class SongEntity(
     val comment: String? = null,
     val album: String? = null,
     val genre: String? = null,
+    @ColumnInfo(defaultValue = "NULL")
+    val language: String? = null,
     val trackerNumber: String? = null,
     val date: String? = null,
     val lyrics: String? = null,
@@ -166,6 +169,7 @@ data class SongEntity(
         if (artist != other.artist) return false
         if (album != other.album) return false
         if (genre != other.genre) return false
+        if (language != other.language) return false
         if (trackerNumber != other.trackerNumber) return false
         if (date != other.date) return false
         if (lyrics != other.lyrics) return false
@@ -199,6 +203,7 @@ data class SongEntity(
         result = 31 * result + (artist?.hashCode() ?: 0)
         result = 31 * result + (album?.hashCode() ?: 0)
         result = 31 * result + (genre?.hashCode() ?: 0)
+        result = 31 * result + (language?.hashCode() ?: 0)
         result = 31 * result + (trackerNumber?.hashCode() ?: 0)
         result = 31 * result + (date?.hashCode() ?: 0)
         result = 31 * result + (lyrics?.hashCode() ?: 0)

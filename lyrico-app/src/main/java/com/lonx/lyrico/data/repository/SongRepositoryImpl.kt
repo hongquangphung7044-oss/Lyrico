@@ -458,6 +458,7 @@ class SongRepositoryImpl(
                     artist = tag.artist ?: song.artist,
                     lyrics = tag.lyrics ?: song.lyrics,
                     date = tag.date ?: song.date,
+                    language = tag.language ?: song.language,
                     trackerNumber = tag.trackNumber ?: song.trackerNumber,
                     album = tag.album ?: song.album,
                     genre = tag.genre ?: song.genre,
@@ -506,6 +507,7 @@ class SongRepositoryImpl(
                 genre = audioData.genre,
                 trackerNumber = audioData.trackNumber,
                 date = audioData.date,
+                language = audioData.language,
                 lyrics = audioData.lyrics,
                 composer = audioData.composer,
                 lyricist = audioData.lyricist,
@@ -552,6 +554,7 @@ class SongRepositoryImpl(
                 album = audioTagData.album ?: existingSong.album,
                 albumArtist = audioTagData.albumArtist ?: existingSong.albumArtist,
                 genre = audioTagData.genre ?: existingSong.genre,
+                language = audioTagData.language ?: existingSong.language,
                 trackerNumber = audioTagData.trackNumber ?: existingSong.trackerNumber,
                 discNumber = audioTagData.discNumber ?: existingSong.discNumber,
                 date = audioTagData.date ?: existingSong.date,
@@ -922,6 +925,7 @@ class SongRepositoryImpl(
             updateTag("ALBUM", audioTagData.album, listOf("TALB"))
             updateTag("GENRE", audioTagData.genre, listOf("TCON", "STYLE", "SUBGENRE", "MOOD"))
             updateTag("DATE", audioTagData.date, listOf("YEAR", "TYER", "TDAT"))
+            updateTag("LANGUAGE", audioTagData.language, listOf("TLAN"))
             updateTag("TRACKNUMBER", audioTagData.trackNumber, listOf("TRACK", "TRCK"))
 
             updateTag("ALBUMARTIST", audioTagData.albumArtist, listOf("TPE2", "ALBUM ARTIST", "aART", "ALBUMARTISTSORT"))
@@ -1007,6 +1011,7 @@ class SongRepositoryImpl(
             updateTagIfPresent("ALBUM", audioTagData.album, listOf("TALB"))
             updateTagIfPresent("GENRE", audioTagData.genre, listOf("TCON", "STYLE", "SUBGENRE", "MOOD"))
             updateTagIfPresent("DATE", audioTagData.date, listOf("YEAR", "TYER", "TDAT"))
+            updateTagIfPresent("LANGUAGE", audioTagData.language, listOf("TLAN"))
             updateTagIfPresent("TRACKNUMBER", audioTagData.trackNumber, listOf("TRACK", "TRCK"))
 
             updateTagIfPresent("ALBUMARTIST", audioTagData.albumArtist, listOf("TPE2", "ALBUM ARTIST", "aART", "ALBUMARTISTSORT"))

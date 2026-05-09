@@ -488,6 +488,21 @@ fun EditMetadataScreen(
                         }
                     )
                     MetadataInputField(
+                        label = stringResource(R.string.label_language),
+                        value = editingTagData?.language ?: "",
+                        onValueChange = { viewModel.updateTag { copy(language = it) } },
+                        isModified = !editingTagData?.language.isEqualIgnoringBlank(
+                            originalTagData?.language
+                        ),
+                        onRevert = {
+                            viewModel.updateTag {
+                                copy(
+                                    language = originalTagData?.language ?: ""
+                                )
+                            }
+                        }
+                    )
+                    MetadataInputField(
                         label = stringResource(R.string.label_genre),
                         value = editingTagData?.genre ?: "",
                         onValueChange = { viewModel.updateTag { copy(genre = it) } },

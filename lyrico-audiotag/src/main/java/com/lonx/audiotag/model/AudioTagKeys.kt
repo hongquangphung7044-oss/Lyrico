@@ -7,6 +7,7 @@ object AudioTagKeys {
         "ALBUM", "TALB",
         "GENRE", "TCON", "STYLE", "SUBGENRE", "MOOD",
         "DATE", "YEAR", "TYER", "TDAT",
+        "LANGUAGE", "TLAN",
         "TRACKNUMBER", "TRACK", "TRCK",
         "ALBUMARTIST", "ALBUM ARTIST", "TPE2", "AART", "ALBUMARTISTSORT",
         "DISCNUMBER", "DISC", "TPOS", "DISKNUMBER",

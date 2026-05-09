@@ -37,6 +37,7 @@ class ExtraMetadataResolver(
             albumArtist = second.albumArtist ?: first.albumArtist,
             genre = second.genre ?: first.genre,
             date = second.date ?: first.date,
+            language = second.language ?: first.language,
             trackNumber = second.trackNumber ?: first.trackNumber,
             composer = second.composer ?: first.composer,
             lyricist = second.lyricist ?: first.lyricist,
