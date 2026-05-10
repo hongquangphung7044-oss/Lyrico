@@ -86,6 +86,7 @@ import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Undo
@@ -1238,7 +1239,7 @@ private fun BatchEditCustomFieldItem(
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onRemove) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_delete_24dp),
+                    MiuixIcons.Delete,
                     contentDescription = stringResource(R.string.action_remove_custom_tag)
                 )
             }

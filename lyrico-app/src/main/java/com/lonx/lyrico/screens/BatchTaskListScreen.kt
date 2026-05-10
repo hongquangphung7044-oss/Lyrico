@@ -46,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -212,7 +213,7 @@ fun BatchTaskListScreen(
                         }
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_delete_24dp),
+                            MiuixIcons.Delete,
                             contentDescription = stringResource(R.string.batch_task_clear_title),
                             tint = if (canClearFinishedTasks) {
                                 MiuixTheme.colorScheme.error
@@ -340,7 +341,7 @@ private fun BatchTaskCard(
                 } else {
                     IconButton(onClick = onDeleteClick) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_delete_24dp),
+                            MiuixIcons.Delete,
                             contentDescription = stringResource(R.string.common_delete),
                             tint = MiuixTheme.colorScheme.error
                         )
