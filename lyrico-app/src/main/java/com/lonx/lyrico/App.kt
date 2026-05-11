@@ -94,9 +94,9 @@ class App : Application(), SingletonImageLoader.Factory {
                     .build()
             }
             .diskCache {
-                // 磁盘缓存：设备存储可用大小的 2%，目录为应用缓存目录
+                // 磁盘缓存：最大 50 MB，目录为应用缓存目录
                 DiskCache.Builder()
-                    .maxSizePercent(0.02)
+                    .maxSizeBytes(50L * 1024 * 1024)
                     .directory(context.cacheDir.resolve("image_cache"))
                     .build()
             }
