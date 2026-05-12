@@ -100,50 +100,60 @@ class SongRepositoryImpl(
 
     override suspend fun deleteSong(song: SongEntity) {
         withContext(Dispatchers.IO) {
-            val success = deleteSingleSongFile(song)
-            if (!success) return@withContext
+            when (deleteSingleSongFile(song)) {
+                DeleteFileResult.Deleted,
+                DeleteFileResult.AlreadyMissing -> {
+                    database.withTransaction {
+                        songDao.deleteByUri(song.uri)
+                        folderDao.refreshSongCount(song.folderId)
+                        folderDao.performPostScanCleanup()
+                    }
+                }
 
-            database.withTransaction {
-                songDao.deleteByUri(song.uri)
-                folderDao.refreshSongCount(song.folderId)
-                folderDao.performPostScanCleanup()
+                DeleteFileResult.Failed -> return@withContext
             }
-
-            logApp(
-                level = AppLogLevel.INFO,
-                message = "Song deleted",
-                detail = "title=${song.title}, uri=${song.uri}",
-                relatedId = song.uri
-            )
-            Log.d(TAG, "已删除歌曲: ${song.title}")
         }
     }
-
+    private sealed interface DeleteFileResult {
+        data object Deleted : DeleteFileResult
+        data object AlreadyMissing : DeleteFileResult
+        data object Failed : DeleteFileResult
+    }
     override suspend fun deleteSongs(songs: List<SongEntity>) {
         withContext(Dispatchers.IO) {
             if (songs.isEmpty()) return@withContext
 
-            val deletedSongs = mutableListOf<SongEntity>()
+            val dbSongsToDelete = mutableListOf<SongEntity>()
             val impactedFolderIds = mutableSetOf<Long>()
 
             songs.forEach { song ->
-                val success = deleteSingleSongFile(song)
-                if (success) {
-                    deletedSongs.add(song)
-                    impactedFolderIds.add(song.folderId)
+                when (deleteSingleSongFile(song)) {
+                    DeleteFileResult.Deleted,
+                    DeleteFileResult.AlreadyMissing -> {
+                        dbSongsToDelete.add(song)
+                        impactedFolderIds.add(song.folderId)
+                    }
+
+                    DeleteFileResult.Failed -> {
+                        // 保留 DB，避免权限失败时误删记录
+                    }
                 }
             }
 
-            if (deletedSongs.isEmpty()) return@withContext
+            if (dbSongsToDelete.isEmpty()) return@withContext
 
             database.withTransaction {
-                deletedSongs.map { it.uri }
+                dbSongsToDelete
+                    .map { it.uri }
                     .chunked(BATCH_SIZE)
-                    .forEach { chunk -> songDao.deleteByUris(chunk) }
+                    .forEach { chunk ->
+                        songDao.deleteByUris(chunk)
+                    }
 
                 impactedFolderIds.forEach { folderId ->
                     folderDao.refreshSongCount(folderId)
                 }
+
                 folderDao.performPostScanCleanup()
             }
 
@@ -151,18 +161,16 @@ class SongRepositoryImpl(
                 level = AppLogLevel.INFO,
                 message = "Songs deleted",
                 detail = buildString {
-                    appendLine("count=${deletedSongs.size}")
-                    appendLimitedItems(
-                        "uris",
-                        deletedSongs.map { it.uri }
-                    )
+                    appendLine("count=${dbSongsToDelete.size}")
+                    appendLimitedItems("uris", dbSongsToDelete.map { it.uri })
                 }
             )
-            Log.d(TAG, "已批量删除歌曲: ${deletedSongs.size} 首")
+
+            Log.d(TAG, "已批量删除歌曲数据库记录: ${dbSongsToDelete.size} 首")
         }
     }
 
-    private suspend fun deleteSingleSongFile(song: SongEntity): Boolean {
+    private suspend fun deleteSingleSongFile(song: SongEntity): DeleteFileResult {
         return if (song.source == "SAF") {
             deleteSafSongFile(song)
         } else {
@@ -170,21 +178,68 @@ class SongRepositoryImpl(
         }
     }
 
-    private suspend fun deleteSafSongFile(song: SongEntity): Boolean {
+    private suspend fun deleteSafSongFile(song: SongEntity): DeleteFileResult {
         return try {
-            DocumentsContract.deleteDocument(context.contentResolver, song.uri.toUri())
-        } catch (e: Exception) {
-            Log.e(TAG, "SAF 删除失败: ${song.uri}", e)
+            val uri = song.uri.toUri()
+
+            val deleted = DocumentsContract.deleteDocument(context.contentResolver, uri)
+
+            if (deleted) {
+                DeleteFileResult.Deleted
+            } else {
+                // deleteDocument 返回 false，通常说明目标不存在或 provider 拒绝删除。
+                // 再尝试打开读取，如果打不开，认为文件已经不存在，可以清 DB。
+                if (isUriMissing(uri)) {
+                    DeleteFileResult.AlreadyMissing
+                } else {
+                    DeleteFileResult.Failed
+                }
+            }
+        } catch (e: FileNotFoundException) {
+            Log.w(TAG, "SAF 文件已不存在，清理数据库记录: ${song.uri}")
+            DeleteFileResult.AlreadyMissing
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SAF 删除权限不足: ${song.uri}", e)
             logException(
-                message = "Failed to delete SAF song",
+                message = "Failed to delete SAF song: permission denied",
                 throwable = e,
                 relatedId = song.uri
             )
+            DeleteFileResult.Failed
+        } catch (e: Exception) {
+            val uri = song.uri.toUri()
+
+            if (isUriMissing(uri)) {
+                Log.w(TAG, "SAF 文件已不存在，清理数据库记录: ${song.uri}", e)
+                DeleteFileResult.AlreadyMissing
+            } else {
+                Log.e(TAG, "SAF 删除失败: ${song.uri}", e)
+                logException(
+                    message = "Failed to delete SAF song",
+                    throwable = e,
+                    relatedId = song.uri
+                )
+                DeleteFileResult.Failed
+            }
+        }
+    }
+    private fun isUriMissing(uri: Uri): Boolean {
+        return try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use {
+                false
+            } ?: true
+        } catch (e: FileNotFoundException) {
+            true
+        } catch (e: IllegalArgumentException) {
+            true
+        } catch (e: SecurityException) {
+            // 权限问题不能等同于文件不存在，否则会误删 DB
+            false
+        } catch (e: Exception) {
             false
         }
     }
-
-    private suspend fun deleteMediaStoreSongFile(song: SongEntity): Boolean {
+    private suspend fun deleteMediaStoreSongFile(song: SongEntity): DeleteFileResult {
         return try {
             val contentResolver = context.contentResolver
             val uri = song.uri.toUri()
@@ -192,8 +247,12 @@ class SongRepositoryImpl(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 try {
                     val rowsDeleted = contentResolver.delete(uri, null, null)
-                    if (rowsDeleted == 0) {
-                        Log.w(TAG, "系统未返回删除行数或文件已不存在: $uri")
+
+                    if (rowsDeleted > 0) {
+                        DeleteFileResult.Deleted
+                    } else {
+                        Log.w(TAG, "MediaStore 文件已不存在或记录已不存在，清理数据库: $uri")
+                        DeleteFileResult.AlreadyMissing
                     }
                 } catch (e: RecoverableSecurityException) {
                     Log.w(TAG, "RecoverableSecurityException, 需要用户确认: $uri")
@@ -205,12 +264,18 @@ class SongRepositoryImpl(
                         throwable = e,
                         relatedId = song.uri
                     )
-                    return false
+                    DeleteFileResult.Failed
                 }
             } else {
-                contentResolver.delete(uri, null, null)
+                val rowsDeleted = contentResolver.delete(uri, null, null)
+                if (rowsDeleted > 0) {
+                    DeleteFileResult.Deleted
+                } else {
+                    DeleteFileResult.AlreadyMissing
+                }
             }
-            true
+        } catch (e: FileNotFoundException) {
+            DeleteFileResult.AlreadyMissing
         } catch (e: Exception) {
             Log.e(TAG, "删除歌曲失败: ${song.title}", e)
             logException(
@@ -218,7 +283,7 @@ class SongRepositoryImpl(
                 throwable = e,
                 relatedId = song.uri
             )
-            false
+            DeleteFileResult.Failed
         }
     }
 
@@ -364,6 +429,7 @@ class SongRepositoryImpl(
                     }
 
                     val successfulSafFolderIds = safScanResult.successfulFolderIds
+                    val missingSafFolderIds = safScanResult.missingFolderIds
 
                     val deletedUris = dbSyncInfos
                         .filter { info ->
@@ -375,15 +441,26 @@ class SongRepositoryImpl(
                         .map { it.uri }
                         .toSet()
 
-                    if (deletedUris.isNotEmpty()) {
+                    val missingFolderSongUris = dbSyncInfos
+                        .filter { info ->
+                            info.source == "SAF" && info.folderId in missingSafFolderIds
+                        }
+                        .map { it.uri }
+                        .toSet()
+
+                    val allDeletedUris = deletedUris + missingFolderSongUris
+
+                    if (allDeletedUris.isNotEmpty()) {
                         val folderIdsOfDeletedSongs = dbSyncInfos
-                            .filter { it.uri in deletedUris }
+                            .filter { it.uri in allDeletedUris }
                             .map { it.folderId }
                         impactedFolderIds.addAll(folderIdsOfDeletedSongs)
                     }
 
-                    Log.d(TAG, "准备提交: ${songsToUpsert.size} 条更新, ${deletedUris.size} 条删除")
-                    val databaseChanges = songsToUpsert.size + deletedUris.size
+                    impactedFolderIds.addAll(missingSafFolderIds)
+
+                    Log.d(TAG, "准备提交: ${songsToUpsert.size} 条更新, ${allDeletedUris.size} 条删除, ${missingSafFolderIds.size} 个缺失文件夹")
+                    val databaseChanges = songsToUpsert.size + allDeletedUris.size + missingSafFolderIds.size
                     onProgress?.invoke(
                         LibraryScanProgress(
                             stage = LibraryScanStage.WRITING_DATABASE,
@@ -398,15 +475,22 @@ class SongRepositoryImpl(
                             }
                         }
 
-                        if (deletedUris.isNotEmpty()) {
-                            deletedUris.chunked(BATCH_SIZE).forEach { chunk ->
+                        if (allDeletedUris.isNotEmpty()) {
+                            allDeletedUris.chunked(BATCH_SIZE).forEach { chunk ->
                                 songDao.deleteByUris(chunk.toList())
                             }
                         }
 
-                        impactedFolderIds.forEach { folderId ->
-                            folderDao.refreshSongCount(folderId)
+                        if (missingSafFolderIds.isNotEmpty()) {
+                            folderDao.deleteFoldersPermanently(missingSafFolderIds.toList())
                         }
+
+                        impactedFolderIds
+                            .filterNot { it in missingSafFolderIds }
+                            .forEach { folderId ->
+                                folderDao.refreshSongCount(folderId)
+                            }
+
                         folderDao.performPostScanCleanup()
                     }
                     onProgress?.invoke(
@@ -425,7 +509,8 @@ class SongRepositoryImpl(
                             appendLine("fullRescan=$fullRescan")
                             appendLine("safSongs=${safScanResult.songs.size}")
                             appendLine("upserted=${songsToUpsert.size}")
-                            appendLine("deleted=${deletedUris.size}")
+                            appendLine("deleted=${allDeletedUris.size}")
+                            appendLine("missingSafFolders=${missingSafFolderIds.size}")
                             appendLine("removedSafFolders=$removedSafFolders")
                             appendLine("foldersUpdated=${impactedFolderIds.size}")
                             appendLine("itemFailures=${itemFailures.size}")
@@ -727,7 +812,9 @@ class SongRepositoryImpl(
         if (uri.scheme != "content") return AudioTagData(fileName = displayName)
 
         val cacheDir = File(context.cacheDir, "external-audio-read-cache").apply { mkdirs() }
-        val tempFile = File.createTempFile("audio-", ".tmp", cacheDir)
+        val tempFile = withContext(Dispatchers.IO) {
+            File.createTempFile("audio-", ".tmp", cacheDir)
+        }
 
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->

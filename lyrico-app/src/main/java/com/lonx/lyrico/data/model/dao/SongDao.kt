@@ -176,4 +176,7 @@ interface SongDao {
         ORDER BY CASE WHEN s.artist = :artist THEN 0 ELSE 1 END, s.trackerNumber ASC
     """)
     suspend fun getSongsByAlbum(album: String, artist: String): List<SongEntity>
+
+    @Query("DELETE FROM songs WHERE folderId IN (:folderIds)")
+    suspend fun deleteByFolderIds(folderIds: List<Long>)
 }

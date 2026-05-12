@@ -8,11 +8,13 @@ import com.lonx.lyrico.data.model.SongFile
 import com.lonx.lyrico.data.model.entity.FolderEntity
 import java.util.Locale
 import kotlin.math.abs
+import androidx.core.net.toUri
 
 data class SafScanResult(
     val songs: List<SafScannedSongFile>,
     val successfulFolderIds: Set<Long>,
-    val failedFolderIds: Set<Long>
+    val failedFolderIds: Set<Long>,
+    val missingFolderIds: Set<Long>,
 )
 
 data class SafScannedSongFile(
@@ -30,6 +32,7 @@ class MediaScanner(
         val results = mutableListOf<SafScannedSongFile>()
         val successfulFolderIds = mutableSetOf<Long>()
         val failedFolderIds = mutableSetOf<Long>()
+        val missingFolderIds = mutableSetOf<Long>()
         val visitedUris = mutableSetOf<String>()
 
         for (folder in folders) {
@@ -41,11 +44,12 @@ class MediaScanner(
             }
 
             try {
-                val treeUri = Uri.parse(treeUriString)
+                val treeUri = treeUriString.toUri()
                 val root = DocumentFile.fromTreeUri(context, treeUri)
 
                 if (root == null || !root.exists() || !root.isDirectory) {
-                    failedFolderIds.add(folder.id)
+                    Log.w(TAG, "SAF 根目录不存在或已被删除: ${folder.path}, uri=$treeUriString")
+                    missingFolderIds.add(folder.id)
                     continue
                 }
 
@@ -65,7 +69,12 @@ class MediaScanner(
             }
         }
 
-        return SafScanResult(results, successfulFolderIds, failedFolderIds)
+        return SafScanResult(
+            songs = results,
+            successfulFolderIds = successfulFolderIds,
+            failedFolderIds = failedFolderIds,
+            missingFolderIds = missingFolderIds
+        )
     }
 
     private fun scanDocumentDirectory(
