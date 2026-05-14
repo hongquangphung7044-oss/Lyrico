@@ -422,7 +422,7 @@
     <string name="batch_edit_select_fields">Select Fields to Edit</string>
     <string name="batch_edit_no_fields">No fields added yet.\nTap the \"Add\" button to select fields to edit.</string>
     <string name="batch_edit_saving_progress">Saving: %1$d / %2$d</string>
-    <string name="batch_edit_result_summary">Success: %1$d / Total: %2$d, Failed: %3$d</string>
+    <string name="batch_edit_result_summary">Success: %1$d / Total: %2$d, Skipped: %3$d, Failed: %4$d</string>
     <string name="batch_edit_success_title">Batch Edit Successful</string>
     <string name="batch_edit_finished_title">Batch Edit Completed</string>
     <string name="batch_edit_cover_change">Change Cover</string>

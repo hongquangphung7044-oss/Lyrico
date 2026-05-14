@@ -115,6 +115,7 @@ data class BatchEditUiState(
     val saveProgressBottomSheet: Boolean = false,  // 是否显示保存进度对话框
     val currentFile: String = "",  // 当前处理的文件名
     val successCount: Int = 0,  // 成功计数
+    val skippedCount: Int = 0,  // 跳过计数
     val failureCount: Int = 0,  // 失败计数
     val saveTimeMillis: Long = 0  // 保存总用时（毫秒）
 )
@@ -411,6 +412,7 @@ class BatchEditViewModel(
                     saveTotal = selectedUris.size,
                     currentFile = "",
                     successCount = 0,
+                    skippedCount = 0,
                     failureCount = 0,
                     saveTimeMillis = 0,
                     saveSuccess = null,
@@ -504,6 +506,7 @@ class BatchEditViewModel(
                 saveTotal = 0,
                 currentFile = "",
                 successCount = 0,
+                skippedCount = 0,
                 failureCount = 0,
                 saveTimeMillis = 0,
                 saveSuccess = null,
@@ -529,6 +532,7 @@ class BatchEditViewModel(
                         saveTotal = task.total,
                         currentFile = task.currentFile ?: "",
                         successCount = task.successCount,
+                        skippedCount = task.skippedCount,
                         failureCount = task.failureCount,
                         saveTimeMillis = duration,
                         saveSuccess = if (isRunning) null else task.status == BatchTaskStatus.SUCCEEDED && task.failureCount == 0,
@@ -539,6 +543,7 @@ class BatchEditViewModel(
                                 R.string.batch_edit_result_summary,
                                 task.successCount,
                                 task.total,
+                                task.skippedCount,
                                 task.failureCount
                             )
                         }
@@ -613,6 +618,7 @@ class BatchEditViewModel(
                     saveTotal = selectedUris.size,
                     currentFile = "",
                     successCount = 0,
+                    skippedCount = 0,
                     failureCount = 0,
                     saveTimeMillis = 0,
                     saveSuccess = null,
@@ -660,6 +666,7 @@ class BatchEditViewModel(
                         R.string.batch_edit_result_summary,
                         successCounter.get(),
                         selectedUris.size,
+                        0,
                         failureCounter.get()
                     )
                 )
@@ -803,10 +810,6 @@ class BatchEditViewModel(
 
     // ── 状态清理 ──────────────────────────────────────────
 
-    fun clearSaveResult() {
-        _uiState.update { it.copy(saveSuccess = null, saveResultMessage = null) }
-    }
-
     /**
      * 关闭保存进度对话框
      */
@@ -818,6 +821,7 @@ class BatchEditViewModel(
                 isSaving = false,
                 saveTimeMillis = 0,
                 successCount = 0,
+                skippedCount = 0,
                 failureCount = 0
             )
         }
@@ -843,13 +847,10 @@ class BatchEditViewModel(
                 currentFile = "",
                 saveTimeMillis = 0,
                 successCount = 0,
+                skippedCount = 0,
                 failureCount = 0
             )
         }
-    }
-
-    fun clearError() {
-        _uiState.update { it.copy(errorMessage = null) }
     }
 
     /**

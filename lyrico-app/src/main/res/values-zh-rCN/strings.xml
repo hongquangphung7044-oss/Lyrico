@@ -419,7 +419,7 @@
     <string name="batch_edit_select_fields">选择要编辑的标签</string>
     <string name="batch_edit_no_fields">尚未添加任何标签。\n点击「添加」按钮选择要编辑的标签。</string>
     <string name="batch_edit_saving_progress">保存中: %1$d / %2$d</string>
-    <string name="batch_edit_result_summary">成功: %1$d / 总数: %2$d，失败: %3$d</string>
+    <string name="batch_edit_result_summary">成功: %1$d / 总数: %2$d，跳过: %3$d，失败: %4$d</string>
     <string name="batch_edit_success_title">批量编辑成功</string>
     <string name="batch_edit_finished_title">批量编辑完成</string>
     <string name="batch_edit_cover_change">更换封面</string>

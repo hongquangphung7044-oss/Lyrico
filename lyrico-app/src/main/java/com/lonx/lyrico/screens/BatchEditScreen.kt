@@ -870,6 +870,13 @@ fun BatchEditScreen(
                 )
                 Text(
                     text = stringResource(
+                        R.string.batch_replay_gain_skipped,
+                        uiState.skippedCount
+                    ),
+                    style = MiuixTheme.textStyles.main
+                )
+                Text(
+                    text = stringResource(
                         R.string.batch_matching_failure,
                         uiState.failureCount
                     ),

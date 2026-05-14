@@ -71,6 +71,10 @@ class EditTagsProcessor(
         }
 
         val mergedTag = buildMergedTag(currentTag, config)
+        if (mergedTag == currentTag) {
+            throw BatchTaskSkippedException("No changes")
+        }
+
         val success = try {
             songRepository.overwriteAudioTags(item.songUri, mergedTag)
         } catch (e: Exception) {
