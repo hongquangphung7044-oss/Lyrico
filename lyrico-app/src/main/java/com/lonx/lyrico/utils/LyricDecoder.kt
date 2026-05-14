@@ -152,7 +152,7 @@ object LyricDecoder {
     private fun separateLrcTracks(allLines: List<LyricsLine>): Triple<List<LyricsLine>, List<LyricsLine>?, List<LyricsLine>?> {
         val groups = mutableListOf<TimeGroup>()
         for (line in allLines) {
-            val existing = groups.find { kotlin.math.abs(it.time - line.start) <= 10 }
+            val existing = groups.find { it.time == line.start }
             if (existing != null) {
                 existing.lines.add(line)
             } else {

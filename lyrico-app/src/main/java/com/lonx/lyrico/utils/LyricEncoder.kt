@@ -7,7 +7,6 @@ import com.lonx.lyrico.data.model.LyricFormat.*
 import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrics.model.LyricsLine
 import com.lonx.lyrics.model.LyricsResult
-import kotlin.math.abs
 
 object LyricEncoder {
     // 匹配 TTML 格式: begin="00:01:23.456" 或 end="00:01:23.456"
@@ -138,12 +137,16 @@ object LyricEncoder {
         val builder = StringBuilder()
     
         val romanMap = if (config.showRomanization) {
-            convertedResult.romanization?.associateBy { it.start } ?: emptyMap()
-        } else emptyMap()
+            alignSubLines(convertedResult.original, convertedResult.romanization)
+        } else {
+            emptyMap()
+        }
     
         val translatedMap = if (config.showTranslation) {
-            convertedResult.translated?.associateBy { it.start } ?: emptyMap()
-        } else emptyMap()
+            alignSubLines(convertedResult.original, convertedResult.translated)
+        } else {
+            emptyMap()
+        }
     
         convertedResult.original.forEach { line ->
             if (config.removeEmptyLines && isBlankOrPlaceholder(line)) {
@@ -151,12 +154,12 @@ object LyricEncoder {
             }
     
             val matchedTranslation = if (config.showTranslation) {
-                val match = matchingSubLine(line, translatedMap)
+                val match = translatedMap[line.start]
                 if (config.removeEmptyLines && match != null && isBlankOrPlaceholder(match)) null else match
             } else null
     
             val matchedRoman = if (config.showRomanization) {
-                val match = matchingSubLine(line, romanMap)
+                val match = romanMap[line.start]
                 if (config.removeEmptyLines && match != null && isBlankOrPlaceholder(match)) null else match
             } else null
     
@@ -219,12 +222,16 @@ object LyricEncoder {
         }
 
         val romanMap = if (config.showRomanization) {
-            convertedResult.romanization?.associateBy { it.start } ?: emptyMap()
-        } else emptyMap()
+            alignSubLines(convertedResult.original, convertedResult.romanization)
+        } else {
+            emptyMap()
+        }
 
         val translatedMap = if (config.showTranslation) {
-            convertedResult.translated?.associateBy { it.start } ?: emptyMap()
-        } else emptyMap()
+            alignSubLines(convertedResult.original, convertedResult.translated)
+        } else {
+            emptyMap()
+        }
 
         convertedResult.original.forEach { line ->
             if (config.removeEmptyLines && isBlankOrPlaceholder(line)) {
@@ -232,12 +239,12 @@ object LyricEncoder {
             }
 
             val matchedTranslation = if (config.showTranslation) {
-                val match = matchingSubLine(line, translatedMap)
+                val match = translatedMap[line.start]
                 if (config.removeEmptyLines && match != null && isBlankOrPlaceholder(match)) null else match
             } else null
 
             val matchedRoman = if (config.showRomanization) {
-                val match = matchingSubLine(line, romanMap)
+                val match = romanMap[line.start]
                 if (config.removeEmptyLines && match != null && isBlankOrPlaceholder(match)) null else match
             } else null
 
@@ -441,14 +448,24 @@ object LyricEncoder {
         }
     }
 
-    private fun matchingSubLine(
-        originalLine: LyricsLine,
-        subLineMap: Map<Long, LyricsLine>
-    ): LyricsLine? {
-        val matched = subLineMap[originalLine.start]
-        if (matched != null) return matched
-        return subLineMap.entries.find { abs(it.key - originalLine.start) < 300 }?.value
+    private fun alignSubLines(
+        originalLines: List<LyricsLine>,
+        subLines: List<LyricsLine>?
+    ): Map<Long, LyricsLine> {
+        if (originalLines.isEmpty() || subLines.isNullOrEmpty()) return emptyMap()
+
+        val subLinesByStart = subLines.groupBy { it.start }
+        val usedCounts = mutableMapOf<Long, Int>()
+
+        return originalLines.mapNotNull { originalLine ->
+            val sameTimeSubLines = subLinesByStart[originalLine.start].orEmpty()
+            val usedCount = usedCounts[originalLine.start] ?: 0
+            val matchedLine = sameTimeSubLines.getOrNull(usedCount) ?: return@mapNotNull null
+            usedCounts[originalLine.start] = usedCount + 1
+            originalLine.start to matchedLine
+        }.toMap()
     }
+
     /**
      * 对纯文本歌词字符串进行整体时间偏移
      * @param lyricsText 歌词全文 (支持 LRC, Enhanced LRC, Verbatim, TTML)
