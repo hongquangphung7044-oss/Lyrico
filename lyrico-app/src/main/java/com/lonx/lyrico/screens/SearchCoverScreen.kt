@@ -4,13 +4,13 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -55,6 +56,7 @@ import com.ramcosta.composedestinations.result.ResultBackNavigator
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.TabRowWithContour
@@ -71,11 +73,11 @@ fun SearchCoverScreen(
 ) {
     val viewModel: CoverSearchViewModel = koinViewModel()
     val uiState by viewModel.coverUiState.collectAsState()
-    
+
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState { uiState.availableSources.size + 1 }
-    
+
     // 用于缓存图片尺寸的Map
     val imageSizeCache = remember { mutableStateOf<Map<String, Pair<Int, Int>>>(emptyMap()) }
 
@@ -194,6 +196,7 @@ fun SearchCoverScreen(
                             CircularProgressIndicator()
                         }
                     }
+
                     uiState.searchError != null -> {
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             Text(
@@ -203,11 +206,13 @@ fun SearchCoverScreen(
                             )
                         }
                     }
+
                     results.isEmpty() -> {
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             Text(stringResource(id = R.string.cd_no_results))
                         }
                     }
+
                     else -> {
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(minSize = 150.dp),
@@ -268,21 +273,26 @@ fun CoverGridItem(
     }
 
     Card(
-        modifier = Modifier
-            .clickable(onClick = onClick),
+        modifier = Modifier,
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.secondaryContainer
+        )
     ) {
-        Column {
+        Column(
+            modifier = Modifier.clip(RoundedCornerShape(CardDefaults.CornerRadius))
+                .clickable(onClick = onClick),
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .aspectRatio(1f)
                     .background(LyricoColors.coverPlaceholder)
             ) {
                 AsyncImage(
                     model = cover.url,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     placeholder = rememberTintedPainter(
                         painter = painterResource(R.drawable.ic_album_24dp),
                         tint = LyricoColors.coverPlaceholderIcon
@@ -335,7 +345,7 @@ fun CoverGridItem(
                     }
                 }
             }
-            
+
             // 歌曲信息
             Column(
                 modifier = Modifier
@@ -343,37 +353,29 @@ fun CoverGridItem(
                     .padding(8.dp)
             ) {
                 // 标题
-                if (cover.title.isNotBlank()) {
-                    Text(
-                        text = cover.title,
-                        style = MiuixTheme.textStyles.body2,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                }
-                
+                Text(
+                    text = cover.title.ifBlank { "未知标题" },
+                    style = MiuixTheme.textStyles.body2,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
                 // 歌手
-                if (cover.artist.isNotBlank()) {
-                    Text(
-                        text = cover.artist,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                }
-                
+                Text(
+                    text = cover.artist.ifBlank { "未知歌手" },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
                 // 专辑
-                if (cover.album.isNotBlank()) {
-                    Text(
-                        text = cover.album,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = cover.album.ifBlank { "未知专辑" },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
             }
         }
     }
