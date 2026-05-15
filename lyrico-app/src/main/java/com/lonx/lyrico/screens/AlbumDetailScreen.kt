@@ -1,6 +1,15 @@
 package com.lonx.lyrico.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -93,28 +102,55 @@ fun AlbumDetailScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                if (isSelectionMode) {
-                    SongSelectionTopAppBar(
-                        songs = songs,
-                        selectedSongUris = selectedSongUris,
-                        scrollBehavior = topAppBarScrollBehavior,
-                        onSelectAll = selectionViewModel::selectAll,
-                        onDeselectAll = selectionViewModel::deselectAll,
-                        onClose = selectionViewModel::exitSelectionMode
-                    )
-                } else {
-                    SmallTopAppBar(
-                        title = album.ifBlank { stringResource(R.string.album_detail_title) },
-                        navigationIcon = {
-                            IconButton(onClick = { navigator.popBackStack() }) {
-                                Icon(
-                                    imageVector = MiuixIcons.Back,
-                                    contentDescription = stringResource(R.string.action_back)
+                AnimatedContent(
+                    targetState = isSelectionMode,
+                    label = "AlbumDetailTopBarAnimation",
+                    transitionSpec = {
+                        val animationDuration = 300
+                        val enter = fadeIn(tween(animationDuration)) +
+                                slideInVertically(
+                                    animationSpec = tween(
+                                        animationDuration,
+                                        easing = FastOutSlowInEasing
+                                    ),
+                                    initialOffsetY = { -it / 3 }
                                 )
-                            }
-                        },
-                        scrollBehavior = topAppBarScrollBehavior
-                    )
+                        val exit = fadeOut(tween(animationDuration)) +
+                                slideOutVertically(
+                                    animationSpec = tween(
+                                        animationDuration,
+                                        easing = FastOutSlowInEasing
+                                    ),
+                                    targetOffsetY = { -it / 3 }
+                                )
+
+                        (enter togetherWith exit).using(SizeTransform(clip = false))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { selectionMode ->
+                    if (selectionMode) {
+                        SongSelectionTopAppBar(
+                            songs = songs,
+                            selectedSongUris = selectedSongUris,
+                            scrollBehavior = topAppBarScrollBehavior,
+                            onSelectAll = selectionViewModel::selectAll,
+                            onDeselectAll = selectionViewModel::deselectAll,
+                            onClose = selectionViewModel::exitSelectionMode
+                        )
+                    } else {
+                        SmallTopAppBar(
+                            title = album.ifBlank { stringResource(R.string.album_detail_title) },
+                            navigationIcon = {
+                                IconButton(onClick = { navigator.popBackStack() }) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Back,
+                                        contentDescription = stringResource(R.string.action_back)
+                                    )
+                                }
+                            },
+                            scrollBehavior = topAppBarScrollBehavior
+                        )
+                    }
                 }
             }
         ) { paddingValues ->
