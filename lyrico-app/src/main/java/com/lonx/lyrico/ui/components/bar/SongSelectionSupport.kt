@@ -1,4 +1,4 @@
-package com.lonx.lyrico.screens
+package com.lonx.lyrico.ui.components.bar
 
 import android.content.Context
 import androidx.compose.foundation.layout.BoxWithConstraints

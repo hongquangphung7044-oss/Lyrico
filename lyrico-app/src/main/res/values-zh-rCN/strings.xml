@@ -341,8 +341,7 @@
 
 
 
-    <string name="show_scroll_top_button">快速回到顶部</string>
-    <string name="show_scroll_top_button_hint">列表滚动时显示浮动按钮</string>
+    <string name="show_scroll_top_button">返回顶部按钮</string>
 
 
     <string name="action_reset">点击重置</string>
@@ -605,4 +604,6 @@
     <string name="song_count">%1$d 首</string>
     <string name="album_count">%1$d 张专辑</string>
     <string name="album_song_count">%1$d 张专辑 - %2$d 首</string>
+    <string name="sort_ascending">升序</string>
+    <string name="sort_descending">降序</string>
 </resources>

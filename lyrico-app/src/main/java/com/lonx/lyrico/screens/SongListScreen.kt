@@ -55,25 +55,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.entity.SongEntity
-import com.lonx.lyrico.ui.components.DropdownItem
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.SearchBar
+import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
+import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.bar.findScrollIndex
-import com.lonx.lyrico.ui.components.base.YesNoDialog
-import com.lonx.lyrico.ui.components.batch.BatchLyricsFormatBottomSheet
-import com.lonx.lyrico.ui.components.batch.BatchLyricsFormatConfigBottomSheet
-import com.lonx.lyrico.ui.components.batch.BatchMatchBottomSheet
-import com.lonx.lyrico.ui.components.batch.BatchMatchConfigBottomSheet
-import com.lonx.lyrico.ui.components.batch.BatchRGBottomSheet
-import com.lonx.lyrico.ui.components.batch.BatchRGConfigBottomSheet
-import com.lonx.lyrico.ui.components.fab.ExpandableFabMenu
-import com.lonx.lyrico.ui.components.fab.ExpandableFabMenuStyle
-import com.lonx.lyrico.ui.components.fab.FabMenuItem
 import com.lonx.lyrico.ui.components.fab.ScrollToTopButton
 import com.lonx.lyrico.ui.components.search.LocalSearchTypeTabs
 import com.lonx.lyrico.ui.components.selection.dragSelection
@@ -92,8 +82,6 @@ import com.lonx.lyrico.viewmodel.SortInfo
 import com.lonx.lyrico.viewmodel.SortOrder
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.generated.destinations.BatchEditDestination
-import com.ramcosta.composedestinations.generated.destinations.BatchRenameDestination
 import com.ramcosta.composedestinations.generated.destinations.EditMetadataDestination
 import com.ramcosta.composedestinations.generated.destinations.LocalSearchDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingsDestination
@@ -104,11 +92,10 @@ import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.viewmodel.koinActivityViewModel
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.ListPopupColumn
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -116,16 +103,10 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Edit
-import top.yukonga.miuix.kmp.icon.extended.Rename
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
-import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.icon.extended.Sort
-import top.yukonga.miuix.kmp.overlay.OverlayListPopup
-import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -148,9 +129,6 @@ fun SongListScreen(
     navigator: DestinationsNavigator
 ) {
     val songListViewModel: SongListViewModel = koinActivityViewModel()
-    val batchMatchViewModel: BatchMatchViewModel = koinViewModel()
-    val batchReplayGainViewModel: BatchReplayGainViewModel = koinViewModel()
-    val batchLyricsFormatViewModel: BatchLyricsFormatViewModel = koinViewModel()
     val songListUiState by songListViewModel.uiState.collectAsState()
     val scanState by songListViewModel.scanState.collectAsStateWithLifecycle()
 
@@ -161,7 +139,6 @@ fun SongListScreen(
     val selectedSongUris by songListViewModel.selectedSongUris.collectAsState()
     val hasFolders by songListViewModel.hasFolders.collectAsStateWithLifecycle()
     val showScrollTopButton by songListViewModel.showScrollTopButton.collectAsStateWithLifecycle()
-    var sortOrderDropdownExpanded by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -352,72 +329,67 @@ fun SongListScreen(
                                     }
                                 },
                                 actions = {
-                                            IconButton(onClick = {
-                                                navigator.navigate(LocalSearchDestination)
-                                            }) {
-                                                Icon(
-                                                    imageVector = MiuixIcons.Search,
-                                                    contentDescription = stringResource(R.string.cd_search)
+                                    IconButton(onClick = {
+                                        navigator.navigate(LocalSearchDestination)
+                                    }) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Search,
+                                            contentDescription = stringResource(R.string.cd_search)
                                         )
                                     }
-                                    Box {
-                                        IconButton(
-                                            onClick = { sortOrderDropdownExpanded = true }
-                                        ) {
-                                            Icon(
-                                                imageVector = MiuixIcons.Sort,
-                                                contentDescription = stringResource(R.string.cd_sort)
-                                            )
-                                        }
-                                        OverlayListPopup(
-                                            show = sortOrderDropdownExpanded,
-                                            popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
-                                            onDismissRequest = { sortOrderDropdownExpanded = false }
-                                        ) {
-                                            ListPopupColumn {
-                                                val sortTypes = SortBy.entries.toList()
-                                                sortTypes.forEach { type ->
-                                                    val isSelected = sortInfo.sortBy == type
-                                                    DropdownItem(
-                                                        text = stringResource(type.labelRes),
-                                                        optionSize = sortTypes.size + 1,
-                                                        index = sortTypes.indexOf(type),
-                                                        isSelected = isSelected,
-                                                        iconPainter = if (isSelected) {
-                                                            if (sortInfo.order == SortOrder.ASC) {
-                                                                painterResource(R.drawable.ic_arrow_down_24dp)
-                                                            } else {
-                                                                painterResource(R.drawable.ic_arrow_up_24dp)
-                                                            }
-                                                        } else null,
-                                                        onSelectedIndexChange = {
-                                                            val newOrder = if (isSelected) {
-                                                                if (sortInfo.order == SortOrder.ASC) SortOrder.DESC else SortOrder.ASC
-                                                            } else {
-                                                                SortOrder.ASC
-                                                            }
-                                                            songListViewModel.onSortChange(
-                                                                SortInfo(
-                                                                    type,
-                                                                    newOrder
-                                                                )
-                                                            )
+                                    val sortTypes = SortBy.entries.toList()
+                                    val sortEntries = DropdownEntry(
+                                        items = sortTypes.mapIndexed { _, sortBy ->
+                                            val isSelected = sortInfo.sortBy == sortBy
+                                            DropdownItem(
+                                                text = stringResource(sortBy.labelRes),
+                                                selected = isSelected,
+                                                summary = if (isSelected) {
+                                                    stringResource(
+                                                        when (sortInfo.order) {
+                                                            SortOrder.ASC -> R.string.sort_ascending
+                                                            SortOrder.DESC -> R.string.sort_descending
                                                         }
                                                     )
-                                                }
-                                                HorizontalDivider()
-                                                SwitchPreference(
-                                                    title = stringResource(R.string.show_scroll_top_button),
-                                                    summary = stringResource(R.string.show_scroll_top_button_hint),
-                                                    checked = showScrollTopButton,
-                                                    onCheckedChange = {
-                                                        songListViewModel.setScrollToTopButtonEnabled(
-                                                            it
-                                                        )
+                                                } else {
+                                                    null
+                                                },
+                                                onClick = {
+                                                    val newOrder = if (isSelected) {
+                                                        if (sortInfo.order == SortOrder.ASC) SortOrder.DESC else SortOrder.ASC
+                                                    } else {
+                                                        SortOrder.ASC
                                                     }
-                                                )
-                                            }
+                                                    songListViewModel.onSortChange(
+                                                        SortInfo(
+                                                            sortBy,
+                                                            newOrder
+                                                        )
+                                                    )
+                                                }
+                                            )
                                         }
+                                    )
+                                    val buttonEntry = DropdownEntry(
+                                        items = listOf(
+                                            DropdownItem(
+                                                text = stringResource(R.string.show_scroll_top_button),
+                                                selected = showScrollTopButton,
+                                                onClick = {
+                                                    songListViewModel.setScrollToTopButtonEnabled(
+                                                        !showScrollTopButton
+                                                    )
+                                                }
+                                            )
+                                        )
+                                    )
+                                    OverlayIconDropdownMenu(
+                                        entries = listOf(sortEntries, buttonEntry),
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Sort,
+                                            contentDescription = stringResource(R.string.cd_sort)
+                                        )
                                     }
                                 }
                             )

@@ -38,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.ui.components.bar.SearchBar
+import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
+import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.ui.components.search.ArtistSongItem
 import com.lonx.lyrico.ui.components.search.SearchSectionHeader

@@ -355,8 +355,7 @@
 
 
 
-    <string name="show_scroll_top_button">Quick back to top</string>
-    <string name="show_scroll_top_button_hint">Shows a floating button when scrolling</string>
+    <string name="show_scroll_top_button">Back to top Btn</string>
     <string name="action_reset">Reset</string>
     <string name="action_batch_rename">Batch Rename</string>
     <string name="no_tag_data">Failed to load tag data for selected songs</string>
@@ -594,4 +593,6 @@
     <string name="song_count">%1$d songs</string>
     <string name="album_count">%1$d albums</string>
     <string name="album_song_count">%1$d albums - %2$d songs</string>
+    <string name="sort_ascending">Ascending</string>
+    <string name="sort_descending">Descending</string>
 </resources>

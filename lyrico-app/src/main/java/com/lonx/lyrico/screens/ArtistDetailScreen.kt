@@ -46,6 +46,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.AlbumSearchResult
 import com.lonx.lyrico.data.model.entity.SongEntity
+import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
+import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.cover.CoverImage
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.ui.components.song.SongActionSheets
