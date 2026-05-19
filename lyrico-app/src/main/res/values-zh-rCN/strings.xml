@@ -412,6 +412,7 @@
     <string name="batch_edit_lyrics_offset_hint">支持正负值，未填写正负号默认为正</string>
     <string name="pull_to_refresh">下拉刷新</string>
     <string name="release_to_refresh">松开刷新</string>
+    <string name="refresh">刷新</string>
     <string name="refreshing">正在刷新</string>
     <string name="refresh_success">刷新成功</string>
     <string name="lyrics_empty">无歌词</string>
@@ -627,7 +628,9 @@
     <string name="label_album_count">专辑数量</string>
     <string name="empty_artists_title">暂无艺术家</string>
     <string name="empty_albums_title">暂无专辑</string>
+    <string name="empty_songs_title">暂无歌曲</string>
     <string name="building_library_index">媒体库索引正在构建。</string>
+    <string name="empty_library_index_summary">媒体库中暂无可显示的歌曲</string>
     <string name="artist_tab_songs">单曲</string>
     <string name="artist_tab_albums">专辑</string>
     <string name="song_count">%1$d 首</string>

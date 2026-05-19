@@ -225,7 +225,7 @@ fun ArtistSplitSettingsScreen(
             item(key = "custom_no_split") {
                 SmallTitle(text = stringResource(R.string.section_no_split_artists))
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                    if (uiState.config.customNoSplitArtists.isNotEmpty()){
+                    if (uiState.config.customNoSplitArtists.isNotEmpty()) {
                         ChipGrid(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)
                         ) {

@@ -8,6 +8,7 @@ import androidx.room.RawQuery
 import androidx.room.Update
 import androidx.room.Upsert
 import androidx.sqlite.db.SupportSQLiteQuery
+import com.lonx.lyrico.data.model.entity.FolderEntity
 import com.lonx.lyrico.data.model.entity.SongEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -346,7 +347,7 @@ interface SongDao {
      * 使用指定的查询来获取歌曲列表
      * 使用 RawQuery，并指定 observedEntities 参数，以监听数据库变化
      */
-    @RawQuery(observedEntities = [SongEntity::class])
+    @RawQuery(observedEntities = [SongEntity::class, FolderEntity::class])
     fun getSongs(query: SupportSQLiteQuery): Flow<List<SongEntity>>
 
     @RawQuery

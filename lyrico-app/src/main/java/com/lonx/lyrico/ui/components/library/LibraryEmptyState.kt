@@ -1,6 +1,9 @@
 package com.lonx.lyrico.ui.components.library
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -16,15 +19,24 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun LibraryEmptyState(
     title: String,
     summary: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    action: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     Box(
-        modifier = modifier.height(240.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(240.dp),
         contentAlignment = Alignment.Center
     ) {
-        Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+        ) {
             androidx.compose.foundation.layout.Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -42,8 +54,11 @@ fun LibraryEmptyState(
                         textAlign = TextAlign.Center
                     )
                 }
+                if (action != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    action()
+                }
             }
         }
     }
 }
-

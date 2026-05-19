@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.model.entity.FolderEntity
+import com.lonx.lyrico.data.repository.LibraryIndexRepository
 import com.lonx.lyrico.utils.LibraryScanManager
 import com.lonx.lyrico.utils.UriUtils
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +28,8 @@ class FolderManagerViewModel(
     private val database: LyricoDatabase,
     private val libraryScanManager: LibraryScanManager,
     private val application: Application,
-    private val appScope: CoroutineScope
+    private val appScope: CoroutineScope,
+    private val libraryIndexRepository: LibraryIndexRepository
 ) : ViewModel() {
 
     private companion object {
@@ -66,6 +68,7 @@ class FolderManagerViewModel(
                 Log.w(TAG, "Failed to fully release persisted permission for folder: ${folder.path}")
             }
             folderDao.deleteFolderPermanently(folder.id)
+            libraryIndexRepository.refreshAndPruneIndexes()
         }
     }
 
@@ -76,6 +79,7 @@ class FolderManagerViewModel(
     fun setFolderIgnored(folder: FolderEntity, ignored: Boolean) {
         appScope.launch {
             folderDao.setIgnored(folder.id, ignored)
+            libraryIndexRepository.refreshAndPruneIndexes()
         }
     }
 }

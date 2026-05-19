@@ -47,6 +47,8 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -139,7 +141,15 @@ fun ArtistsPage(
             if (artists.isEmpty()) {
                 LibraryEmptyState(
                     title = stringResource(R.string.empty_artists_title),
-                    summary = stringResource(R.string.building_library_index)
+                    summary = stringResource(R.string.empty_library_index_summary),
+                    modifier = Modifier.align(Alignment.Center),
+                    action = {
+                        TextButton(
+                            text = stringResource(R.string.refresh),
+                            onClick = { viewModel.refreshSongs() },
+                            colors = MiuixButtonDefaults.textButtonColorsPrimary()
+                        )
+                    }
                 )
             } else {
                 PullToRefresh(

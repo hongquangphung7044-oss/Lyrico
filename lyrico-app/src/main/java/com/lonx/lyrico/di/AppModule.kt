@@ -301,7 +301,7 @@ val appModule = module {
     viewModel { BatchMatchViewModel(get(), get(), get(), get()) }
     viewModel { AppLogViewModel(get()) }
 
-    viewModel { FolderManagerViewModel(get(), get(), get(), get()) }
+    viewModel { FolderManagerViewModel(get(), get(), get(), get(), get()) }
     viewModel { (folderId: Long) ->
         FolderSongsViewModel(
             folderId = folderId,

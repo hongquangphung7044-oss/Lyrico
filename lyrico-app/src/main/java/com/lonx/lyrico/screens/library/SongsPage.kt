@@ -54,6 +54,7 @@ import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.bar.findScrollIndex
 import com.lonx.lyrico.ui.components.fab.ScrollToTopButton
+import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.song.LibraryScanProgressText
 import com.lonx.lyrico.ui.components.song.SongActionSheets
@@ -82,7 +83,9 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -328,52 +331,84 @@ fun SongsPage(
                     end = paddingValues.calculateEndPadding(layoutDirection)
                 ).fillMaxSize()
             ) {
-                PullToRefresh(
-                    isRefreshing = scanState.isScanning,
-                    onRefresh = { viewModel.refreshSongs() },
-                    modifier = Modifier.fillMaxSize(),
-                    topAppBarScrollBehavior = topAppBarScrollBehavior,
-                    refreshTexts = refreshTexts
-                ) {
-                    LazyColumnScrollbar(
-                        state = listState,
-                        settings = ScrollbarSettings.Default.copy(
-                            enabled = !enableIndex && songs.isNotEmpty(),
-                            alwaysShowScrollbar = !enableIndex,
-                            selectionMode = ScrollbarSelectionMode.Full,
-                            thumbUnselectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            thumbSelectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                        )
+                if (songs.isEmpty()) {
+                    val scanProgress = scanState.progress
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        LazyColumn(
-                            modifier = Modifier
-                                .scrollEndHaptic()
-                                .overScrollVertical()
-                                .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-                                .fillMaxHeight()
-                                .dragSelection(
-                                    listState = listState,
-                                    itemCount = songs.size,
-                                    isSelectionMode = isSelectionMode,
-                                    onDragSelectionStart = { index ->
-                                        viewModel.startDragSelection(index, songs)
-                                    },
-                                    onDragSelectionChange = { startIndex, endIndex ->
-                                        viewModel.updateDragSelection(
-                                            startIndex,
-                                            endIndex,
-                                            songs
+                        when {
+                            scanProgress != null -> {
+                                LibraryScanProgressText(progress = scanProgress)
+                            }
+
+                            !hasFolders -> {
+                                SongListEmptyState(
+                                    onAddFolder = { folderPickerLauncher.launch(null) }
+                                )
+                            }
+
+                            else -> {
+                                LibraryEmptyState(
+                                    title = stringResource(R.string.empty_songs_title),
+                                    summary = stringResource(R.string.empty_library_index_summary),
+                                    action = {
+                                        TextButton(
+                                            text = stringResource(R.string.refresh),
+                                            onClick = { viewModel.refreshSongs() },
+                                            colors = MiuixButtonDefaults.textButtonColorsPrimary()
                                         )
-                                    },
-                                    onDragSelectionEnd = {
-                                        viewModel.endDragSelection()
                                     }
-                                ),
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    PullToRefresh(
+                        isRefreshing = scanState.isScanning,
+                        onRefresh = { viewModel.refreshSongs() },
+                        modifier = Modifier.fillMaxSize(),
+                        topAppBarScrollBehavior = topAppBarScrollBehavior,
+                        refreshTexts = refreshTexts
+                    ) {
+                        LazyColumnScrollbar(
                             state = listState,
-                            overscrollEffect = null,
-                            contentPadding = PaddingValues()
+                            settings = ScrollbarSettings.Default.copy(
+                                enabled = !enableIndex,
+                                alwaysShowScrollbar = !enableIndex,
+                                selectionMode = ScrollbarSelectionMode.Full,
+                                thumbUnselectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                                thumbSelectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            )
                         ) {
-                            if (songs.isNotEmpty()) {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .scrollEndHaptic()
+                                    .overScrollVertical()
+                                    .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
+                                    .fillMaxHeight()
+                                    .dragSelection(
+                                        listState = listState,
+                                        itemCount = songs.size,
+                                        isSelectionMode = isSelectionMode,
+                                        onDragSelectionStart = { index ->
+                                            viewModel.startDragSelection(index, songs)
+                                        },
+                                        onDragSelectionChange = { startIndex, endIndex ->
+                                            viewModel.updateDragSelection(
+                                                startIndex,
+                                                endIndex,
+                                                songs
+                                            )
+                                        },
+                                        onDragSelectionEnd = {
+                                            viewModel.endDragSelection()
+                                        }
+                                    ),
+                                state = listState,
+                                overscrollEffect = null,
+                                contentPadding = PaddingValues()
+                            ) {
                                 items(
                                     items = songs,
                                     key = { song ->
@@ -408,38 +443,6 @@ fun SongsPage(
                                             }
                                         }
                                     )
-                                }
-                            } else {
-                                item {
-                                    val scanProgress = scanState.progress
-                                    when {
-                                        scanProgress != null -> {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(420.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                LibraryScanProgressText(
-                                                    progress = scanProgress
-                                                )
-                                            }
-                                        }
-
-                                        !hasFolders -> {
-                                            SongListEmptyState(
-                                                onAddFolder = { folderPickerLauncher.launch(null) }
-                                            )
-                                        }
-
-                                        else -> {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(240.dp)
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }

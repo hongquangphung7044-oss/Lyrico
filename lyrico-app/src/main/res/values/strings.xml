@@ -423,6 +423,7 @@
 
     <string name="pull_to_refresh">Pull down to refresh</string>
     <string name="release_to_refresh">Release to refresh</string>
+    <string name="refresh">Refresh</string>
     <string name="refreshing">Refreshing</string>
     <string name="refresh_success">Refresh successfully</string>
     <string name="lyrics_empty">Lyrics is empty</string>
@@ -616,7 +617,9 @@
     <string name="label_album_count">Album count</string>
     <string name="empty_artists_title">No artists yet</string>
     <string name="empty_albums_title">No albums yet</string>
+    <string name="empty_songs_title">No songs yet</string>
     <string name="building_library_index">The library index is still being built.</string>
+    <string name="empty_library_index_summary">No visible songs in the library.</string>
     <string name="artist_tab_songs">Songs</string>
     <string name="artist_tab_albums">Albums</string>
     <string name="song_count">%1$d songs</string>
