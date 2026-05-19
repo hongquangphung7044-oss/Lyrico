@@ -84,6 +84,7 @@ fun SongActionSheets(
             song.fileName
         ),
         onConfirm = {
+            onDismissMenu()
             onDelete(song)
         },
         onDismissRequest = onDismissDelete
