@@ -273,7 +273,7 @@ class MediaScanner(
     }
 
     private val supportedAudioExtensions = setOf(
-        "mp3", "flac", "m4a", "mp4", "ogg", "opus", "wav", "aac", "wma", "ape"
+        "mp3", "flac", "m4a", "ogg", "opus", "wav", "aac", "wma", "ape"
     )
 
     private fun shouldSkipDirectory(name: String): Boolean {
