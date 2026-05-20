@@ -21,7 +21,18 @@ data class ArtistListItem(
     val groupKey: String,
     val sortKey: String
 )
-
+data class AlbumListItem(
+    val id: Long,
+    val name: String,
+    val albumArtist: String?,
+    val normalizedKey: String,
+    val groupKey: String,
+    val sortKey: String,
+    val songCount: Int,
+    val coverSongUri: String?,
+    val coverSongLastModified: Long,
+    val year: String?
+)
 @Dao
 interface LibraryIndexDao {
     @Query("DELETE FROM artist_song WHERE songId = :songId")
@@ -207,12 +218,35 @@ interface LibraryIndexDao {
     fun observeAlbumsByArtistId(artistId: Long): Flow<List<AlbumEntity>>
 
     @Query("""
-        SELECT *
-        FROM albums
-        WHERE songCount > 0
-        ORDER BY sortKey ASC, name ASC
+        SELECT 
+            a.id,
+            a.name,
+            a.albumArtist,
+            a.normalizedKey,
+            a.groupKey,
+            a.sortKey,
+            a.songCount,
+            a.coverSongUri,
+            a.coverSongLastModified,
+            (
+                SELECT SUBSTR(TRIM(s.date), 1, 4)
+                FROM album_song AS als
+                INNER JOIN songs AS s ON s.id = als.songId
+                INNER JOIN folders AS f ON f.id = s.folderId
+                WHERE als.albumId = a.id
+                  AND f.isIgnored = 0
+                  AND TRIM(COALESCE(s.date, '')) != ''
+                ORDER BY COALESCE(s.discNumber, 0) ASC,
+                    CAST(NULLIF(s.trackerNumber, '') AS INTEGER) ASC,
+                    s.titleSortKey ASC,
+                    s.fileName ASC
+                LIMIT 1
+            ) AS year
+        FROM albums AS a
+        WHERE a.songCount > 0
+        ORDER BY a.sortKey ASC, a.name ASC
     """)
-    fun observeAlbums(): Flow<List<AlbumEntity>>
+    fun observeAlbums(): Flow<List<AlbumListItem>>
 
     @Query("SELECT * FROM albums WHERE id = :albumId LIMIT 1")
     fun observeAlbumById(albumId: Long): Flow<AlbumEntity?>

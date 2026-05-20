@@ -47,7 +47,7 @@ enum class BatchEditField(val labelResId: Int) {
     ARTIST(R.string.label_artists),
     ALBUM_ARTIST(R.string.label_album_artist),
     ALBUM(R.string.label_album),
-    DATE(R.string.label_date),
+    DATE(R.string.label_year),
     LANGUAGE(R.string.label_language),
     GENRE(R.string.label_genre),
     TRACK_NUMBER(R.string.label_track_number),

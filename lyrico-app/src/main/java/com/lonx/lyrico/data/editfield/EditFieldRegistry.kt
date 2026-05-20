@@ -93,7 +93,7 @@ object EditFieldRegistry {
         EditFieldDefinition(
             code = "basic_info.date",
             groupCode = GROUP_BASIC_INFO,
-            titleRes = R.string.label_date,
+            titleRes = R.string.label_year,
             defaultVisible = true,
             order = 50,
             scope = EditFieldScope.Both,

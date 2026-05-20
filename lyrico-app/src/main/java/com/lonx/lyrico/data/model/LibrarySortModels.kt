@@ -24,7 +24,8 @@ enum class AlbumSortBy(
 ) {
     NAME(R.string.label_album, true),
     ALBUM_ARTIST(R.string.label_album_artist, false),
-    SONG_COUNT(R.string.label_song_count, false)
+    SONG_COUNT(R.string.label_song_count, false),
+    YEAR(R.string.label_year, false)
 }
 
 data class AlbumSortInfo(

@@ -215,7 +215,7 @@
     <string name="label_title">Title</string>
     <string name="label_artists">Artists</string>
     <string name="label_album">Album</string>
-    <string name="label_date">Year/Date</string>
+    <string name="label_year">Year</string>
     <string name="label_language">Language</string>
     <string name="label_genre">Genre</string>
     <string name="label_track_number">Track Number</string>
@@ -657,4 +657,5 @@
     <string name="duplicate_builtin_item">This item already exists in the built-in list</string>
     <string name="artist_split_delete_rule_title">Delete rule?</string>
     <string name="artist_split_delete_rule_message">Delete \"%1$s\"? This change takes effect after rebuilding the artist index.</string>
+    <string name="album_grid_columns_format">%1$d columns</string>
 </resources>

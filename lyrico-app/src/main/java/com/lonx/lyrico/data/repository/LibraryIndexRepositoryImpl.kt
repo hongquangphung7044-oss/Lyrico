@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.model.artist.ArtistSplitConfig
 import com.lonx.lyrico.data.model.artist.normalizedArtistKey
+import com.lonx.lyrico.data.model.dao.AlbumListItem
 import com.lonx.lyrico.data.model.dao.ArtistListItem
 import com.lonx.lyrico.data.model.dao.LibraryIndexDao
 import com.lonx.lyrico.data.model.dao.SongDao
@@ -41,7 +42,7 @@ class LibraryIndexRepositoryImpl(
         return indexDao.observeAlbumsByArtistId(artistId)
     }
 
-    override fun observeAlbums(): Flow<List<AlbumEntity>> {
+    override fun observeAlbums(): Flow<List<AlbumListItem>> {
         return indexDao.observeAlbums()
     }
 

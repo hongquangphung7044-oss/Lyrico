@@ -130,7 +130,7 @@ fun SongDetailBottomSheet(
                     onCopy = copyToClipboard
                 )
                 SongDetailItem(
-                    stringResource(R.string.label_date),
+                    stringResource(R.string.label_year),
                     song.date,
                     onCopy = copyToClipboard
                 )

@@ -1,5 +1,6 @@
 package com.lonx.lyrico.screens.library
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -8,12 +9,19 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -26,7 +34,9 @@ import com.lonx.lyrico.data.model.AlbumSortBy
 import com.lonx.lyrico.data.model.AlbumSortInfo
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.findScrollIndex
+import com.lonx.lyrico.ui.components.library.AlbumGridItem
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
+import com.lonx.lyrico.ui.components.library.rememberAlbumGridTextStyle
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.viewmodel.AlbumLibraryViewModel
 import com.lonx.lyrico.viewmodel.SortOrder
@@ -36,6 +46,7 @@ import com.ramcosta.composedestinations.generated.destinations.SettingsDestinati
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
+import my.nanihadesuka.compose.LazyVerticalGridScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
 import org.koin.androidx.compose.koinViewModel
@@ -71,8 +82,10 @@ fun AlbumsPage(
 
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val sortInfo by viewModel.sortInfo.collectAsStateWithLifecycle()
+    var albumGridColumns by rememberSaveable { mutableIntStateOf(2) }
+    val albumTextStyle = rememberAlbumGridTextStyle(albumGridColumns)
     val topAppBarScrollBehavior = MiuixScrollBehavior()
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     val layoutDirection = LocalLayoutDirection.current
     val sections = remember(sortInfo.order) {
@@ -118,7 +131,13 @@ fun AlbumsPage(
                         )
                     }
                     OverlayIconDropdownMenu(
-                        entries = listOf(albumSortDropdownEntry(sortInfo, viewModel::onSortChange))
+                        entries = listOf(
+                            albumGridColumnsDropdownEntry(
+                                columns = albumGridColumns,
+                                onColumnsChange = { albumGridColumns = it }
+                            ),
+                            albumSortDropdownEntry(sortInfo, viewModel::onSortChange)
+                        )
                     ) {
                         Icon(
                             imageVector = MiuixIcons.Sort,
@@ -159,8 +178,8 @@ fun AlbumsPage(
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                     refreshTexts = refreshTexts
                 ) {
-                    LazyColumnScrollbar(
-                        state = listState,
+                    LazyVerticalGridScrollbar(
+                        state = gridState,
                         settings = ScrollbarSettings.Default.copy(
                             enabled = !enableIndex,
                             alwaysShowScrollbar = !enableIndex,
@@ -169,29 +188,39 @@ fun AlbumsPage(
                             thumbSelectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions
                         )
                     ) {
-                        LazyColumn(
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(albumGridColumns),
+                            state = gridState,
                             modifier = Modifier
                                 .scrollEndHaptic()
                                 .overScrollVertical()
                                 .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-                                .fillMaxHeight(),
-                            state = listState,
-                            overscrollEffect = null,
-                            contentPadding = PaddingValues()
+                                .fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = paddingValues.calculateStartPadding(layoutDirection) + 12.dp,
+                                top = 12.dp,
+                                end = paddingValues.calculateEndPadding(layoutDirection) + 12.dp,
+                                bottom = 12.dp
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            overscrollEffect = null
                         ) {
                             items(
                                 items = albums,
                                 key = { it.id }
                             ) { album ->
-                                AlbumSongItem(
-                                    title = album.name,
-                                    subtitle = listOf(
-                                        album.albumArtist?.takeIf { it.isNotBlank() }
-                                            ?: stringResource(R.string.unknown_album_artist),
-                                        stringResource(R.string.song_count, album.songCount)
-                                    ).joinToString(" - "),
+                                AlbumGridItem(
+                                    albumName = album.name,
+                                    summary = buildAlbumSummary(
+                                        songCountText = stringResource(R.string.song_count, album.songCount),
+                                        year = album.year
+                                    ),
                                     coverUri = album.coverSongUri,
                                     coverLastModified = album.coverSongLastModified,
+                                    titleStyle = albumTextStyle.title,
+                                    summaryStyle = albumTextStyle.summary,
+                                    titleMaxLines = albumTextStyle.titleMaxLines,
                                     onClick = {
                                         navigator.navigate(AlbumDetailDestination(albumId = album.id))
                                     }
@@ -209,7 +238,9 @@ fun AlbumsPage(
                                 sectionIndexMap = sectionIndexMap,
                                 order = sortInfo.order
                             )
-                            scope.launch { listState.scrollToItem(index) }
+                            scope.launch {
+                                gridState.scrollToItem(index)
+                            }
                         },
                         modifier = Modifier.align(Alignment.CenterEnd)
                     )
@@ -218,7 +249,30 @@ fun AlbumsPage(
         }
     }
 }
-
+private fun buildAlbumSummary(
+    songCountText: String,
+    year: String?
+): String {
+    return listOfNotNull(
+        songCountText,
+        year?.takeIf { it.length == 4 && it.all(Char::isDigit) }
+    ).joinToString(" ")
+}
+@Composable
+private fun albumGridColumnsDropdownEntry(
+    columns: Int,
+    onColumnsChange: (Int) -> Unit
+): DropdownEntry {
+    return DropdownEntry(
+        items = listOf(2, 3, 4).map { count ->
+            DropdownItem(
+                text = stringResource(R.string.album_grid_columns_format, count),
+                selected = columns == count,
+                onClick = { onColumnsChange(count) }
+            )
+        }
+    )
+}
 @Composable
 private fun albumSortDropdownEntry(
     sortInfo: AlbumSortInfo,

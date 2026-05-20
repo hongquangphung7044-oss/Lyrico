@@ -13,7 +13,7 @@ enum class TagField(
     ALBUM(4, R.string.label_album),
     TRACK(5, R.string.label_track_number),
     DISC(6, R.string.label_disc_number),
-    YEAR(7, R.string.label_date),
+    YEAR(7, R.string.label_year),
     GENRE(8, R.string.label_genre);
 
     companion object {

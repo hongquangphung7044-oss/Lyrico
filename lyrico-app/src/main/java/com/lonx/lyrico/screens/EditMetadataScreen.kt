@@ -66,12 +66,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -459,7 +457,7 @@ fun EditMetadataScreen(
                             }
                             if (visibleFieldCodes.contains("basic_info.date")) {
                                 MetadataInputField(
-                                    label = stringResource(R.string.label_date),
+                                    label = stringResource(R.string.label_year),
                                     value = editingTagData?.date ?: "",
                                     onValueChange = { viewModel.updateTag { copy(date = it) } },
                                     isModified = !editingTagData?.date.isEqualIgnoringBlank(

@@ -32,7 +32,7 @@ enum class BatchMatchField(
     ARTIST(R.string.label_artists),
     ALBUM(R.string.label_album),
     GENRE(R.string.label_genre),
-    DATE(R.string.label_date),
+    DATE(R.string.label_year),
     TRACK_NUMBER(R.string.label_track_number),
     LYRICS(R.string.label_lyrics),
     COVER(R.string.label_cover)

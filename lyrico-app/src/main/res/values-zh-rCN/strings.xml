@@ -219,7 +219,7 @@
     <string name="label_title">标题</string>
     <string name="label_artists">艺术家</string>
     <string name="label_album">专辑</string>
-    <string name="label_date">年份/日期</string>
+    <string name="label_year">年份</string>
     <string name="label_language">语言</string>
     <string name="label_genre">流派</string>
     <string name="label_track_number">音轨号</string>
@@ -668,4 +668,5 @@
     <string name="duplicate_builtin_item">该项已存在于内置列表中</string>
     <string name="artist_split_delete_rule_title">删除规则？</string>
     <string name="artist_split_delete_rule_message">确定删除「%1$s」吗？重建艺术家索引后生效。</string>
+    <string name="album_grid_columns_format">%1$d 列显示</string>
 </resources>
