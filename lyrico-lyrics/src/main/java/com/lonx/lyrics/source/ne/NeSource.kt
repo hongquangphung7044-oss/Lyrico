@@ -378,7 +378,7 @@ class NeSource(
 
             resp.data?.resources?.take(pageSize)?.mapNotNull { res ->
                 val song = res.baseInfo.simpleSongData
-                val picUrl = song.album.picUrl
+                val picUrl = song.album.picUrl.replace("http:", "https:")
                 
                 if (picUrl.isBlank()) return@mapNotNull null
 

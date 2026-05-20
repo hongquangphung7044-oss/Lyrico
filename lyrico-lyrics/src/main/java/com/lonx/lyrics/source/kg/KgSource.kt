@@ -125,7 +125,7 @@ class KgSource(
             if (response.errorCode != 0) return@withContext emptyList()
 
             response.data?.lists?.take(pageSize)?.mapNotNull { item ->
-                val picUrl = if (item.picUrl.isNotBlank()) item.picUrl.replace("{size}", "480") else ""
+                val picUrl = if (item.picUrl.isNotBlank()) item.picUrl.replace("{size}", "480").replace("http:", "https:") else ""
                 
                 if (picUrl.isBlank()) return@mapNotNull null
 
