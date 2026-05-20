@@ -113,24 +113,8 @@ class SongListViewModel(
 
     fun renameSong(song: SongEntity, newFileName: String) {
         viewModelScope.launch {
-            val success = songRepository.renameSong(song, newFileName)
-            if (success) {
-                libraryScanManager.scanFolders(setOf(song.folderId))
-            }
+            songRepository.renameSong(song, newFileName)
         }
-    }
-
-
-    fun onSearchQueryChanged(query: String) {
-        _uiState.update {
-            it.copy(
-                searchQuery = query,
-                isSearching = query.isNotBlank()
-            )
-        }
-    }
-    fun onSearchTypeChanged(type: LocalSearchType) {
-        _searchType.value = type
     }
     fun clearSearch() {
         _uiState.update { it.copy(searchQuery = "") }

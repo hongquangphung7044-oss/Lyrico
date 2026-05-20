@@ -239,8 +239,7 @@ open class MainActivity : ComponentActivity() {
     private fun externalAudioReadPermission(): String? {
         return when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> Manifest.permission.READ_MEDIA_AUDIO
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> Manifest.permission.READ_EXTERNAL_STORAGE
-            else -> null
+            else -> Manifest.permission.READ_EXTERNAL_STORAGE
         }
     }
 

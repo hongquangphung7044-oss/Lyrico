@@ -87,12 +87,6 @@ class App : Application(), SingletonImageLoader.Factory {
                 add(AudioCoverKeyer())
                 add(AudioCoverFetcher.Factory(context.contentResolver))
             }
-            .memoryCache {
-                // 内存缓存：应用可用内存的 25%
-                MemoryCache.Builder()
-                    .maxSizePercent(context, 0.25)
-                    .build()
-            }
             .diskCache {
                 // 磁盘缓存：最大 50 MB，目录为应用缓存目录
                 DiskCache.Builder()
