@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ArtistLibraryViewModel(
-    libraryIndexRepository: LibraryIndexRepository,
+    private val libraryIndexRepository: LibraryIndexRepository,
     private val libraryScanManager: LibraryScanManager,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
@@ -59,7 +59,9 @@ class ArtistLibraryViewModel(
     }
 
     fun refreshSongs() {
-        libraryScanManager.scanAll()
+        libraryScanManager.scanAll {
+            libraryIndexRepository.rebuildArtistIndex()
+        }
     }
 }
 

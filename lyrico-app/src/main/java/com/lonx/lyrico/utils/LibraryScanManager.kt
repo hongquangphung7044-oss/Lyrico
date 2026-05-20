@@ -23,7 +23,10 @@ data class LibraryScanState(
 interface LibraryScanManager {
     val state: StateFlow<LibraryScanState>
 
-    fun scanAll(fullRescan: Boolean = false)
+    fun scanAll(
+        fullRescan: Boolean = false,
+        onSuccess: (suspend () -> Unit)? = null
+    )
     fun scanFolders(folderIds: Set<Long>, fullRescan: Boolean = false)
     fun addFolderAndScan(path: String, treeUri: String)
 }
@@ -41,8 +44,17 @@ class LibraryScanManagerImpl(
     private val pendingRequests = ArrayDeque<ScanRequest>()
     private val queueLock = Any()
 
-    override fun scanAll(fullRescan: Boolean) {
-        enqueueScan(ScanRequest(fullRescan = fullRescan, folderIds = null))
+    override fun scanAll(
+        fullRescan: Boolean,
+        onSuccess: (suspend () -> Unit)?
+    ) {
+        enqueueScan(
+            ScanRequest(
+                fullRescan = fullRescan,
+                folderIds = null,
+                onSuccessActions = listOfNotNull(onSuccess)
+            )
+        )
     }
 
     override fun scanFolders(folderIds: Set<Long>, fullRescan: Boolean) {
@@ -88,7 +100,8 @@ class LibraryScanManagerImpl(
         if (existingIndex >= 0) {
             val existing = pendingRequests[existingIndex]
             pendingRequests[existingIndex] = existing.copy(
-                folderIds = existing.folderIds.orEmpty() + request.folderIds
+                folderIds = existing.folderIds.orEmpty() + request.folderIds,
+                onSuccessActions = existing.onSuccessActions + request.onSuccessActions
             )
         } else {
             pendingRequests.addLast(request)
@@ -123,6 +136,7 @@ class LibraryScanManagerImpl(
                 ) { progress ->
                     _state.update { it.copy(progress = progress) }
                 }
+                request.onSuccessActions.forEach { action -> action() }
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: e::class.java.simpleName) }
             } finally {
@@ -153,6 +167,7 @@ class LibraryScanManagerImpl(
 
     private data class ScanRequest(
         val fullRescan: Boolean,
-        val folderIds: Set<Long>?
+        val folderIds: Set<Long>?,
+        val onSuccessActions: List<suspend () -> Unit> = emptyList()
     )
 }

@@ -44,11 +44,21 @@ fun ArtistSplitConfig.effectiveSeparators(): List<String> {
 }
 
 fun ArtistSplitConfig.effectiveNoSplitArtists(): Set<String> {
+    return effectiveNoSplitArtistNames()
+        .map { it.normalizedArtistKey() }
+        .toSet()
+}
+
+fun ArtistSplitConfig.effectiveNoSplitArtistNames(): List<String> {
+    val builtin = ArtistSplitDefaults.BUILTIN_NO_SPLIT_ARTISTS
+        .filter { item -> builtinNoSplitArtistOverrides[item.id] ?: item.defaultEnabled }
+        .map { it.name }
+
     val custom = customNoSplitArtists
         .filter { it.enabled }
         .map { it.name }
 
-    return custom
-        .map { it.normalizedArtistKey() }
-        .toSet()
+    return (builtin + custom)
+        .filter { it.isNotBlank() }
+        .distinctBy { it.normalizedArtistKey() }
 }

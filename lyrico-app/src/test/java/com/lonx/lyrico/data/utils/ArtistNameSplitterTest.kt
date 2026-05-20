@@ -94,4 +94,30 @@ class ArtistNameSplitterTest {
             )
         )
     }
+
+    @Test
+    fun splitArtists_preservesCustomNoSplitArtistInsideMultiArtistValue() {
+        assertEquals(
+            listOf("R!N/Gemie", "周杰伦", "陈奕迅"),
+            ArtistNameSplitter.splitArtists(
+                "R!N/Gemie/周杰伦/陈奕迅",
+                ArtistSplitConfig(
+                    customNoSplitArtists = listOf(CustomNoSplitArtist("R!N/Gemie"))
+                )
+            )
+        )
+    }
+
+    @Test
+    fun splitArtists_preservesCustomNoSplitArtistInMiddleOfMultiArtistValue() {
+        assertEquals(
+            listOf("周杰伦", "R!N/Gemie", "陈奕迅"),
+            ArtistNameSplitter.splitArtists(
+                "周杰伦/R!N/Gemie/陈奕迅",
+                ArtistSplitConfig(
+                    customNoSplitArtists = listOf(CustomNoSplitArtist("R!N/Gemie"))
+                )
+            )
+        )
+    }
 }

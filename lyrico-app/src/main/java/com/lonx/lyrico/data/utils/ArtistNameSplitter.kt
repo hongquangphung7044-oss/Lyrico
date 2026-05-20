@@ -1,6 +1,7 @@
 package com.lonx.lyrico.data.utils
 
 import com.lonx.lyrico.data.model.artist.ArtistSplitConfig
+import com.lonx.lyrico.data.model.artist.effectiveNoSplitArtistNames
 import com.lonx.lyrico.data.model.artist.effectiveNoSplitArtists
 import com.lonx.lyrico.data.model.artist.effectiveSeparators
 import com.lonx.lyrico.data.model.artist.normalizedArtistKey
@@ -21,15 +22,70 @@ object ArtistNameSplitter {
         val separators = config.effectiveSeparators()
         if (separators.isEmpty()) return listOf(raw)
 
-        val regex = separators
-            .sortedByDescending { it.length }
+        val separatorRegex = separators.toAnchoredRegex()
+        val noSplitArtistRegex = config.effectiveNoSplitArtistNames()
+            .filter { it.containsAny(separators) }
+            .toAnchoredRegex()
+
+        return splitPreservingNoSplitArtists(
+            raw = raw,
+            separatorRegex = separatorRegex,
+            noSplitArtistRegex = noSplitArtistRegex
+        )
+    }
+
+    private fun splitPreservingNoSplitArtists(
+        raw: String,
+        separatorRegex: Regex?,
+        noSplitArtistRegex: Regex?
+    ): List<String> {
+        val artists = mutableListOf<String>()
+        val current = StringBuilder()
+        var index = 0
+
+        while (index < raw.length) {
+            val noSplitMatch = noSplitArtistRegex?.anchoredMatchAt(raw, index)
+            if (noSplitMatch != null) {
+                current.append(noSplitMatch.value)
+                index = noSplitMatch.range.last + 1
+                continue
+            }
+
+            val separatorMatch = separatorRegex?.anchoredMatchAt(raw, index)
+            if (separatorMatch != null) {
+                current.flushTo(artists)
+                index = separatorMatch.range.last + 1
+                continue
+            }
+
+            current.append(raw[index])
+            index++
+        }
+
+        current.flushTo(artists)
+        return artists.distinctBy { it.normalizedArtistKey() }
+    }
+
+    private fun List<String>.toAnchoredRegex(): Regex? {
+        if (isEmpty()) return null
+        return sortedByDescending { it.length }
             .joinToString("|") { Regex.escape(it) }
             .toRegex(RegexOption.IGNORE_CASE)
+    }
 
-        return raw.split(regex)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinctBy { it.normalizedArtistKey() }
+    private fun Regex.anchoredMatchAt(input: String, index: Int): MatchResult? {
+        return find(input, index)?.takeIf { it.range.first == index }
+    }
+
+    private fun String.containsAny(values: List<String>): Boolean {
+        return values.any { value -> contains(value, ignoreCase = true) }
+    }
+
+    private fun StringBuilder.flushTo(items: MutableList<String>) {
+        val value = toString().trim()
+        if (value.isNotEmpty()) {
+            items += value
+        }
+        clear()
     }
 }
-
