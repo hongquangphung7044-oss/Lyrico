@@ -10,6 +10,8 @@ import com.lonx.lyrico.data.model.LogRetentionOption
 import com.lonx.lyrico.data.model.SearchConfig
 import com.lonx.lyrico.data.model.ThemeConfig
 import com.lonx.lyrico.data.model.ThemeMode
+import com.lonx.lyrico.data.model.AlbumSortInfo
+import com.lonx.lyrico.data.model.ArtistSortInfo
 import com.lonx.lyrico.data.model.artist.ArtistSplitConfig
 import com.lonx.lyrico.ui.theme.KeyColor
 import com.lonx.lyrico.viewmodel.SortInfo
@@ -26,6 +28,9 @@ interface SettingsRepository {
     // Flow properties
     val lyricFormat: Flow<LyricFormat>
     val sortInfo: Flow<SortInfo>
+    val albumSortInfo: Flow<AlbumSortInfo>
+    val artistSortInfo: Flow<ArtistSortInfo>
+    val albumGridColumns: Flow<Int>
     val separator: Flow<String>
     val romaEnabled: Flow<Boolean>
 
@@ -58,6 +63,9 @@ interface SettingsRepository {
     // Save functions
     suspend fun saveLyricDisplayMode(mode: LyricFormat)
     suspend fun saveSortInfo(sortInfo: SortInfo)
+    suspend fun saveAlbumSortInfo(sortInfo: AlbumSortInfo)
+    suspend fun saveArtistSortInfo(sortInfo: ArtistSortInfo)
+    suspend fun saveAlbumGridColumns(columns: Int)
     suspend fun saveSeparator(separator: String)
     suspend fun saveRomaEnabled(enabled: Boolean)
     suspend fun saveConversionMode(mode: ConversionMode)

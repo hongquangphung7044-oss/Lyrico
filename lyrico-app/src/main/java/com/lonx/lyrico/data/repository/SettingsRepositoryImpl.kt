@@ -29,6 +29,10 @@ import com.lonx.lyrico.data.model.SearchConfig
 import com.lonx.lyrico.data.model.SettingsBackup
 import com.lonx.lyrico.data.model.ThemeConfig
 import com.lonx.lyrico.data.model.ThemeMode
+import com.lonx.lyrico.data.model.AlbumSortBy
+import com.lonx.lyrico.data.model.AlbumSortInfo
+import com.lonx.lyrico.data.model.ArtistSortBy
+import com.lonx.lyrico.data.model.ArtistSortInfo
 import com.lonx.lyrico.data.model.artist.ArtistSplitConfig
 import com.lonx.lyrico.ui.theme.KeyColor
 import com.lonx.lyrico.ui.theme.KeyColors
@@ -62,6 +66,11 @@ object SettingsDefaults {
     val LYRIC_FORMAT = LyricFormat.VERBATIM_LRC
     val SORT_BY = SortBy.TITLE
     val SORT_ORDER = SortOrder.ASC
+    val ALBUM_SORT_BY = AlbumSortBy.NAME
+    val ALBUM_SORT_ORDER = SortOrder.ASC
+    val ARTIST_SORT_BY = ArtistSortBy.NAME
+    val ARTIST_SORT_ORDER = SortOrder.ASC
+    const val ALBUM_GRID_COLUMNS = 2
     const val SEPARATOR = "/"
     const val ROMA_ENABLED = true
     const val TRANSLATION_ENABLED = true
@@ -97,6 +106,11 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val LAST_SCAN_TIME = longPreferencesKey("last_scan_time")
         val SORT_BY = stringPreferencesKey("sort_by")
         val SORT_ORDER = stringPreferencesKey("sort_order")
+        val ALBUM_SORT_BY = stringPreferencesKey("album_sort_by")
+        val ALBUM_SORT_ORDER = stringPreferencesKey("album_sort_order")
+        val ARTIST_SORT_BY = stringPreferencesKey("artist_sort_by")
+        val ARTIST_SORT_ORDER = stringPreferencesKey("artist_sort_order")
+        val ALBUM_GRID_COLUMNS = intPreferencesKey("album_grid_columns")
         val SEPARATOR = stringPreferencesKey("separator")
         val ROMA_ENABLED = booleanPreferencesKey("roma_enabled")
         val CHECK_UPDATE_ENABLED = booleanPreferencesKey("check_update_enabled")
@@ -148,6 +162,51 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             }
 
             SortInfo(sortBy, sortOrder)
+        }
+
+    override val albumSortInfo: Flow<AlbumSortInfo>
+        get() = context.settingsDataStore.data.map { preferences ->
+            val sortBy = runCatching {
+                AlbumSortBy.valueOf(
+                    preferences[PreferencesKeys.ALBUM_SORT_BY]
+                        ?: SettingsDefaults.ALBUM_SORT_BY.name
+                )
+            }.getOrDefault(SettingsDefaults.ALBUM_SORT_BY)
+
+            val sortOrder = runCatching {
+                SortOrder.valueOf(
+                    preferences[PreferencesKeys.ALBUM_SORT_ORDER]
+                        ?: SettingsDefaults.ALBUM_SORT_ORDER.name
+                )
+            }.getOrDefault(SettingsDefaults.ALBUM_SORT_ORDER)
+
+            AlbumSortInfo(sortBy, sortOrder)
+        }
+
+    override val artistSortInfo: Flow<ArtistSortInfo>
+        get() = context.settingsDataStore.data.map { preferences ->
+            val sortBy = runCatching {
+                ArtistSortBy.valueOf(
+                    preferences[PreferencesKeys.ARTIST_SORT_BY]
+                        ?: SettingsDefaults.ARTIST_SORT_BY.name
+                )
+            }.getOrDefault(SettingsDefaults.ARTIST_SORT_BY)
+
+            val sortOrder = runCatching {
+                SortOrder.valueOf(
+                    preferences[PreferencesKeys.ARTIST_SORT_ORDER]
+                        ?: SettingsDefaults.ARTIST_SORT_ORDER.name
+                )
+            }.getOrDefault(SettingsDefaults.ARTIST_SORT_ORDER)
+
+            ArtistSortInfo(sortBy, sortOrder)
+        }
+
+    override val albumGridColumns: Flow<Int>
+        get() = context.settingsDataStore.data.map { preferences ->
+            val columns = preferences[PreferencesKeys.ALBUM_GRID_COLUMNS]
+                ?: SettingsDefaults.ALBUM_GRID_COLUMNS
+            columns.coerceIn(2, 4)
         }
 
     override val separator: Flow<String>
@@ -349,6 +408,26 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         }
     }
 
+    override suspend fun saveAlbumSortInfo(sortInfo: AlbumSortInfo) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.ALBUM_SORT_BY] = sortInfo.sortBy.name
+            preferences[PreferencesKeys.ALBUM_SORT_ORDER] = sortInfo.order.name
+        }
+    }
+
+    override suspend fun saveArtistSortInfo(sortInfo: ArtistSortInfo) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.ARTIST_SORT_BY] = sortInfo.sortBy.name
+            preferences[PreferencesKeys.ARTIST_SORT_ORDER] = sortInfo.order.name
+        }
+    }
+
+    override suspend fun saveAlbumGridColumns(columns: Int) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.ALBUM_GRID_COLUMNS] = columns.coerceIn(2, 4)
+        }
+    }
+
     override suspend fun saveSeparator(separator: String) {
         context.settingsDataStore.edit { preferences ->
             preferences[PreferencesKeys.SEPARATOR] = separator
@@ -503,6 +582,21 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             sortOrder = prefs[PreferencesKeys.SORT_ORDER]
                 ?: SettingsDefaults.SORT_ORDER.name,
 
+            albumSortBy = prefs[PreferencesKeys.ALBUM_SORT_BY]
+                ?: SettingsDefaults.ALBUM_SORT_BY.name,
+
+            albumSortOrder = prefs[PreferencesKeys.ALBUM_SORT_ORDER]
+                ?: SettingsDefaults.ALBUM_SORT_ORDER.name,
+
+            artistSortBy = prefs[PreferencesKeys.ARTIST_SORT_BY]
+                ?: SettingsDefaults.ARTIST_SORT_BY.name,
+
+            artistSortOrder = prefs[PreferencesKeys.ARTIST_SORT_ORDER]
+                ?: SettingsDefaults.ARTIST_SORT_ORDER.name,
+
+            albumGridColumns = prefs[PreferencesKeys.ALBUM_GRID_COLUMNS]
+                ?: SettingsDefaults.ALBUM_GRID_COLUMNS,
+
             separator = prefs[PreferencesKeys.SEPARATOR]
                 ?: SettingsDefaults.SEPARATOR,
 
@@ -569,6 +663,13 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 backup.lyricFormat?.let { prefs[PreferencesKeys.LYRIC_FORMAT] = it }
                 backup.sortBy?.let { prefs[PreferencesKeys.SORT_BY] = it }
                 backup.sortOrder?.let { prefs[PreferencesKeys.SORT_ORDER] = it }
+                backup.albumSortBy?.let { prefs[PreferencesKeys.ALBUM_SORT_BY] = it }
+                backup.albumSortOrder?.let { prefs[PreferencesKeys.ALBUM_SORT_ORDER] = it }
+                backup.artistSortBy?.let { prefs[PreferencesKeys.ARTIST_SORT_BY] = it }
+                backup.artistSortOrder?.let { prefs[PreferencesKeys.ARTIST_SORT_ORDER] = it }
+                backup.albumGridColumns?.let {
+                    prefs[PreferencesKeys.ALBUM_GRID_COLUMNS] = it.coerceIn(2, 4)
+                }
                 backup.separator?.let { prefs[PreferencesKeys.SEPARATOR] = it }
                 backup.romaEnabled?.let { prefs[PreferencesKeys.ROMA_ENABLED] = it }
                 backup.checkUpdateEnabled?.let { prefs[PreferencesKeys.CHECK_UPDATE_ENABLED] = it }

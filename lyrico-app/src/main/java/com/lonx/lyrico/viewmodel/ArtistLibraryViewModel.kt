@@ -6,19 +6,25 @@ import com.lonx.lyrico.data.model.ArtistSortBy
 import com.lonx.lyrico.data.model.ArtistSortInfo
 import com.lonx.lyrico.data.model.dao.ArtistListItem
 import com.lonx.lyrico.data.repository.LibraryIndexRepository
+import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.utils.LibraryScanManager
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class ArtistLibraryViewModel(
     libraryIndexRepository: LibraryIndexRepository,
-    private val libraryScanManager: LibraryScanManager
+    private val libraryScanManager: LibraryScanManager,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
-    private val _sortInfo = MutableStateFlow(ArtistSortInfo())
-    val sortInfo: StateFlow<ArtistSortInfo> = _sortInfo
+    val sortInfo: StateFlow<ArtistSortInfo> = settingsRepository.artistSortInfo
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ArtistSortInfo())
+
+    val showScrollTopButton = settingsRepository.showScrollTopButton
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     val scanState = libraryScanManager.state
     val artists: StateFlow<List<ArtistListItem>> =
         combine(libraryIndexRepository.observeArtists(), sortInfo) { artists, sort ->
@@ -41,7 +47,15 @@ class ArtistLibraryViewModel(
         )
 
     fun onSortChange(sortInfo: ArtistSortInfo) {
-        _sortInfo.value = sortInfo
+        viewModelScope.launch {
+            settingsRepository.saveArtistSortInfo(sortInfo)
+        }
+    }
+
+    fun setScrollToTopButtonEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.saveShowScrollTopButton(enabled)
+        }
     }
 
     fun refreshSongs() {

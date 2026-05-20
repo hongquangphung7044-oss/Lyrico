@@ -5,21 +5,29 @@ import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.data.model.AlbumSortBy
 import com.lonx.lyrico.data.model.AlbumSortInfo
 import com.lonx.lyrico.data.model.dao.AlbumListItem
-import com.lonx.lyrico.data.model.entity.AlbumEntity
 import com.lonx.lyrico.data.repository.LibraryIndexRepository
+import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.utils.LibraryScanManager
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class AlbumLibraryViewModel(
     libraryIndexRepository: LibraryIndexRepository,
-    private val libraryScanManager: LibraryScanManager
+    private val libraryScanManager: LibraryScanManager,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
-    private val _sortInfo = MutableStateFlow(AlbumSortInfo())
-    val sortInfo: StateFlow<AlbumSortInfo> = _sortInfo
+    val sortInfo: StateFlow<AlbumSortInfo> = settingsRepository.albumSortInfo
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AlbumSortInfo())
+
+    val showScrollTopButton = settingsRepository.showScrollTopButton
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val gridColumns = settingsRepository.albumGridColumns
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 2)
+
     val scanState = libraryScanManager.state
     val albums: StateFlow<List<AlbumListItem>> =
         combine(libraryIndexRepository.observeAlbums(), sortInfo) { albums, sort ->
@@ -61,7 +69,21 @@ class AlbumLibraryViewModel(
         )
 
     fun onSortChange(sortInfo: AlbumSortInfo) {
-        _sortInfo.value = sortInfo
+        viewModelScope.launch {
+            settingsRepository.saveAlbumSortInfo(sortInfo)
+        }
+    }
+
+    fun setScrollToTopButtonEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.saveShowScrollTopButton(enabled)
+        }
+    }
+
+    fun setGridColumns(columns: Int) {
+        viewModelScope.launch {
+            settingsRepository.saveAlbumGridColumns(columns)
+        }
     }
 
     fun refreshSongs() {
