@@ -1,7 +1,9 @@
 package com.lonx.lyrico.data.model
 
 import com.lonx.lyrico.data.repository.SettingsDefaults
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class LyricRenderConfig(
     val format: LyricFormat,
     val showRomanization: Boolean,

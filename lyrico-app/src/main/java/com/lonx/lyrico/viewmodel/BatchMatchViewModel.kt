@@ -9,8 +9,11 @@ import com.lonx.lyrico.data.model.MetadataFieldWriteRule
 import com.lonx.lyrico.data.model.MetadataFieldWriteRuleFactory
 import com.lonx.lyrico.data.model.BatchTaskStatus
 import com.lonx.lyrico.data.model.BatchTaskType
+import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.entity.SongEntity
+import com.lonx.lyrico.data.model.plugin.PluginLyricsConfig
 import com.lonx.lyrico.data.repository.BatchTaskRepository
+import com.lonx.lyrico.data.repository.PluginLyricsConfigRepository
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.worker.BatchTaskScheduler
@@ -47,6 +50,7 @@ class BatchMatchViewModel(
     private val selectionManager: SharedSelectionManager,
     private val batchTaskRepository: BatchTaskRepository,
     private val batchTaskScheduler: BatchTaskScheduler,
+    private val pluginLyricsConfigRepository: PluginLyricsConfigRepository,
     private val searchSourceProvider: SearchSourceProvider
 ) : ViewModel() {
 
@@ -61,12 +65,17 @@ class BatchMatchViewModel(
     private val sourceSettings: StateFlow<Map<String, SourceRuntimeConfig>> =
         settingsRepository.sourceSettingsByIdFlow
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    private val pluginLyricsConfigs: StateFlow<Map<String, PluginLyricsConfig>> =
+        pluginLyricsConfigRepository.configsFlow
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     private val allSources: StateFlow<List<SearchSource>> =
         searchSourceProvider.observeAllSources()
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val separator: StateFlow<String> = settingsRepository.separator
         .stateIn(viewModelScope, SharingStarted.Eagerly, "/")
+    private val lyricRenderConfig: StateFlow<LyricRenderConfig?> = settingsRepository.lyricRenderConfigFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _uiState = MutableStateFlow(BatchMatchUiState())
     val uiState: StateFlow<BatchMatchUiState> = _uiState.asStateFlow()
@@ -184,6 +193,8 @@ class BatchMatchViewModel(
                     enabledSourceOrderIds = currentOrderIds,
                     metadataFieldWriteRules = metadataFieldWriteRules.value,
                     sourceSettings = sourceSettings.value.mapValues { it.value.values },
+                    pluginLyricsConfigs = pluginLyricsConfigs.value,
+                    lyricRenderConfig = lyricRenderConfig.value,
                     concurrency = matchConfig.concurrency
                 )
             )

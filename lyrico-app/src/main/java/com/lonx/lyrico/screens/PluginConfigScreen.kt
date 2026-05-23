@@ -48,9 +48,13 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.MetadataFieldTarget
 import com.lonx.lyrico.data.model.MetadataFieldWriteRule
 import com.lonx.lyrico.data.model.MetadataWriteMode
+import com.lonx.lyrico.data.model.lyrics.SearchSourceCapability
+import com.lonx.lyrico.data.model.plugin.FollowGlobalBooleanMode
 import com.lonx.lyrico.data.model.plugin.PluginConfigField
 import com.lonx.lyrico.data.model.plugin.PluginConfigFieldType
+import com.lonx.lyrico.data.model.plugin.PluginLyricsConfig
 import com.lonx.lyrico.data.model.plugin.PluginMetadataField
+import com.lonx.lyrico.data.model.plugin.PluginScriptConversionMode
 import com.lonx.lyrico.plugin.source.toMetadataFieldTarget
 import com.lonx.lyrico.utils.isSatisfied
 import com.lonx.lyrico.viewmodel.SearchSourceConfigViewModel
@@ -71,6 +75,7 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -93,7 +98,19 @@ fun PluginConfigScreen(
     val context = LocalContext.current
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val scope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(pageCount = { 2 })
+
+    val tabs = remember(uiState.capabilities, uiState.metadataFields) {
+        buildList {
+            add(PluginConfigTab.Basic)
+            if (SearchSourceCapability.GET_LYRICS in uiState.capabilities) {
+                add(PluginConfigTab.Lyrics)
+            }
+            if (uiState.metadataFields.isNotEmpty()) {
+                add(PluginConfigTab.Metadata)
+            }
+        }
+    }
+    val pagerState = rememberPagerState(pageCount = { tabs.size.coerceAtLeast(1) })
 
     var editingFieldKey by rememberSaveable {
         mutableStateOf<String?>(null)
@@ -113,6 +130,12 @@ fun PluginConfigScreen(
         if (uiState.saved) {
             Toast.makeText(context, R.string.source_config_saved, Toast.LENGTH_SHORT).show()
             viewModel.consumeSaved()
+        }
+    }
+
+    LaunchedEffect(tabs.size) {
+        if (pagerState.currentPage >= tabs.size && tabs.isNotEmpty()) {
+            pagerState.scrollToPage(tabs.lastIndex)
         }
     }
 
@@ -141,6 +164,14 @@ fun PluginConfigScreen(
             uiState.errorMessage == null &&
                     !uiState.isLoading &&
                     uiState.metadataFields.isNotEmpty()
+        }
+    }
+
+    val hasLyricsContent by remember {
+        derivedStateOf {
+            uiState.errorMessage == null &&
+                    !uiState.isLoading &&
+                    uiState.lyricsConfig != null
         }
     }
 
@@ -197,10 +228,7 @@ fun PluginConfigScreen(
                     .padding(bottom = 8.dp)
             ) {
                 TabRowWithContour(
-                    tabs = listOf(
-                        stringResource(R.string.source_config_tab_config),
-                        stringResource(R.string.source_config_tab_metadata)
-                    ),
+                    tabs = tabs.map { stringResource(it.labelRes) },
                     selectedTabIndex = pagerState.currentPage,
                     onTabSelected = { index ->
                         scope.launch {
@@ -210,7 +238,7 @@ fun PluginConfigScreen(
                 )
             }
 
-            if (!hasConfigContent && !hasMetadataContent) {
+            if (!hasConfigContent && !hasMetadataContent && !hasLyricsContent) {
                 Text(
                     text = stringResource(R.string.source_config_empty),
                     modifier = Modifier
@@ -226,8 +254,8 @@ fun PluginConfigScreen(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                when (page) {
-                    0 -> PluginConfigTab(
+                when (tabs.getOrNull(page) ?: PluginConfigTab.Basic) {
+                    PluginConfigTab.Basic -> PluginBasicConfigTab(
                         fields = uiState.configFields,
                         values = uiState.values,
                         validationErrors = uiState.validationErrors,
@@ -236,12 +264,22 @@ fun PluginConfigScreen(
                         onValueChange = viewModel::updateValue
                     )
 
-                    1 -> PluginMetadataTab(
+                    PluginConfigTab.Lyrics -> PluginLyricsConfigTab(
+                        config = uiState.lyricsConfig ?: PluginLyricsConfig(uiState.pluginId),
+                        hasContent = uiState.lyricsConfig != null,
+                        topAppBarScrollBehavior = topAppBarScrollBehavior,
+                        onConfigChange = viewModel::updateLyricsConfig
+                    )
+
+                    PluginConfigTab.Metadata -> PluginMetadataTab(
                         pluginId = uiState.pluginId,
                         metadataFields = uiState.metadataFields,
                         metadataRules = uiState.metadataRules,
                         hasContent = hasMetadataContent,
                         topAppBarScrollBehavior = topAppBarScrollBehavior,
+                        onDisableAll = { viewModel.updateAllMetadataRules(MetadataWriteMode.DISABLED) },
+                        onSupplementAll = { viewModel.updateAllMetadataRules(MetadataWriteMode.SUPPLEMENT) },
+                        onOverwriteAll = { viewModel.updateAllMetadataRules(MetadataWriteMode.OVERWRITE) },
                         onEditField = { fieldKey ->
                             editingFieldKey = fieldKey
                             showMetadataRuleSheet = true
@@ -267,7 +305,7 @@ fun PluginConfigScreen(
 }
 
 @Composable
-private fun PluginConfigTab(
+private fun PluginBasicConfigTab(
     fields: List<PluginConfigField>,
     values: Map<String, String>,
     validationErrors: Map<String, String>,
@@ -314,6 +352,9 @@ private fun PluginMetadataTab(
     metadataRules: List<MetadataFieldWriteRule>,
     hasContent: Boolean,
     topAppBarScrollBehavior: ScrollBehavior,
+    onDisableAll: () -> Unit,
+    onSupplementAll: () -> Unit,
+    onOverwriteAll: () -> Unit,
     onEditField: (String) -> Unit
 ) {
     LazyColumn(
@@ -339,12 +380,106 @@ private fun PluginMetadataTab(
             return@LazyColumn
         }
 
+        item("metadata_batch_actions") {
+            MetadataRuleBatchActions(
+                onDisableAll = onDisableAll,
+                onSupplementAll = onSupplementAll,
+                onOverwriteAll = onOverwriteAll
+            )
+        }
+
         metadataRuleItems(
             pluginId = pluginId,
             metadataFields = metadataFields,
             metadataRules = metadataRules,
             onEditField = onEditField
         )
+    }
+}
+
+@Composable
+private fun PluginLyricsConfigTab(
+    config: PluginLyricsConfig,
+    hasContent: Boolean,
+    topAppBarScrollBehavior: ScrollBehavior,
+    onConfigChange: (PluginLyricsConfig) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .scrollEndHaptic()
+            .overScrollVertical()
+            .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+        contentPadding = PaddingValues(bottom = 12.dp),
+        overscrollEffect = null
+    ) {
+        if (!hasContent) {
+            item("empty_lyrics_config") {
+                Text(
+                    text = stringResource(R.string.source_config_empty),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    textAlign = TextAlign.Center,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                )
+            }
+            return@LazyColumn
+        }
+
+        item("lyrics_title") {
+            SmallTitle(text = stringResource(R.string.plugin_lyrics_config_title))
+        }
+
+        item("lyrics_config_card") {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.plugin_lyrics_config_summary),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                )
+
+                FollowGlobalBooleanPreference(
+                    title = stringResource(R.string.plugin_lyrics_remove_empty_lines),
+                    value = config.removeEmptyLines,
+                    onValueChange = { mode ->
+                        onConfigChange(config.copy(removeEmptyLines = mode))
+                    }
+                )
+
+                FollowGlobalBooleanPreference(
+                    title = stringResource(R.string.plugin_lyrics_normalize_whitespace),
+                    value = config.normalizeWhitespace,
+                    onValueChange = { mode ->
+                        onConfigChange(config.copy(normalizeWhitespace = mode))
+                    }
+                )
+
+                FollowGlobalBooleanPreference(
+                    title = stringResource(R.string.plugin_lyrics_keep_tags),
+                    value = config.keepLyricsTags,
+                    onValueChange = { mode ->
+                        onConfigChange(config.copy(keepLyricsTags = mode))
+                    }
+                )
+
+                WindowDropdownPreference(
+                    title = stringResource(R.string.plugin_lyrics_script_conversion),
+                    items = PluginScriptConversionMode.entries.map { stringResource(it.labelRes) },
+                    selectedIndex = PluginScriptConversionMode.entries.indexOf(config.scriptConversion).coerceAtLeast(0),
+                    onSelectedIndexChange = { index ->
+                        PluginScriptConversionMode.entries.getOrNull(index)?.let { mode ->
+                            onConfigChange(config.copy(scriptConversion = mode))
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -558,6 +693,70 @@ private fun LazyListScope.metadataRuleItems(
 }
 
 @Composable
+private fun MetadataRuleBatchActions(
+    onDisableAll: () -> Unit,
+    onSupplementAll: () -> Unit,
+    onOverwriteAll: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.source_config_batch_actions_summary),
+                fontSize = 13.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantActions
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(
+                    text = stringResource(R.string.source_config_disable_all),
+                    onClick = onDisableAll,
+                    modifier = Modifier.weight(1f)
+                )
+
+                TextButton(
+                    text = stringResource(R.string.source_config_supplement_all),
+                    onClick = onSupplementAll,
+                    modifier = Modifier.weight(1f)
+                )
+
+                TextButton(
+                    text = stringResource(R.string.source_config_overwrite_all),
+                    onClick = onOverwriteAll,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FollowGlobalBooleanPreference(
+    title: String,
+    value: FollowGlobalBooleanMode,
+    onValueChange: (FollowGlobalBooleanMode) -> Unit
+) {
+    WindowDropdownPreference(
+        title = title,
+        items = FollowGlobalBooleanMode.entries.map { stringResource(it.labelRes) },
+        selectedIndex = FollowGlobalBooleanMode.entries.indexOf(value).coerceAtLeast(0),
+        onSelectedIndexChange = { index ->
+            FollowGlobalBooleanMode.entries.getOrNull(index)?.let(onValueChange)
+        }
+    )
+}
+
+@Composable
 private fun MetadataRulePreference(
     field: PluginMetadataField,
     rule: MetadataFieldWriteRule,
@@ -749,6 +948,27 @@ private fun helperText(field: PluginConfigField, error: String?): String {
         error
     ).joinToString("\n")
 }
+
+private enum class PluginConfigTab(val labelRes: Int) {
+    Basic(R.string.plugin_config_tab_basic),
+    Lyrics(R.string.plugin_config_tab_lyrics),
+    Metadata(R.string.plugin_config_tab_metadata)
+}
+
+private val FollowGlobalBooleanMode.labelRes: Int
+    get() = when (this) {
+        FollowGlobalBooleanMode.FOLLOW_GLOBAL -> R.string.config_follow_global
+        FollowGlobalBooleanMode.ENABLED -> R.string.config_enabled
+        FollowGlobalBooleanMode.DISABLED -> R.string.config_disabled
+    }
+
+private val PluginScriptConversionMode.labelRes: Int
+    get() = when (this) {
+        PluginScriptConversionMode.FOLLOW_GLOBAL -> R.string.config_follow_global
+        PluginScriptConversionMode.DISABLED -> R.string.script_conversion_disabled
+        PluginScriptConversionMode.SIMPLIFIED -> R.string.script_conversion_simplified
+        PluginScriptConversionMode.TRADITIONAL -> R.string.script_conversion_traditional
+    }
 
 private const val DEFAULT_CONFIG_GROUP = "__basic__"
 private const val DEFAULT_METADATA_GROUP = "extended"

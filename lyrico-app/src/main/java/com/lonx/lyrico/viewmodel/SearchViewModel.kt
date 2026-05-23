@@ -6,14 +6,21 @@ import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.LyricFormat
+import com.lonx.lyrico.data.model.LyricRenderConfig
+import com.lonx.lyrico.data.model.plugin.GlobalLyricsSettings
+import com.lonx.lyrico.data.model.plugin.PluginLyricsConfig
+import com.lonx.lyrico.data.model.plugin.resolveLyricsProcessPolicy
+import com.lonx.lyrico.data.repository.PluginLyricsConfigRepository
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.domain.SearchSourceConfigApplier
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.utils.LyricEncoder
+import com.lonx.lyrico.utils.PluginLyricsPostProcessor
 import com.lonx.lyrico.utils.UiMessage
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
 import com.lonx.lyrico.data.model.lyrics.SearchSource
 import com.lonx.lyrico.data.model.lyrics.SongSearchResult
+import com.lonx.lyrico.data.model.plugin.ResolvedLyricsProcessPolicy
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -64,6 +71,7 @@ private data class SearchSourceState(
 class SearchViewModel(
     private val searchSourceProvider: SearchSourceProvider,
     private val settingsRepository: SettingsRepository,
+    private val pluginLyricsConfigRepository: PluginLyricsConfigRepository,
     searchSourceConfigApplier: SearchSourceConfigApplier
 ) : ViewModel() {
 
@@ -84,18 +92,29 @@ class SearchViewModel(
                 SharingStarted.WhileSubscribed(5000),
                 null
             )
+    private val pluginLyricsConfigsFlow =
+        pluginLyricsConfigRepository.configsFlow
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyMap()
+            )
     private val renderedLyricsFlow =
         combine(
             lyricsState,
-            lyricConfigFlow.filterNotNull()
-        ) { lyricsState, config ->
+            lyricConfigFlow.filterNotNull(),
+            pluginLyricsConfigsFlow
+        ) { lyricsState, config, pluginConfigs ->
 
             val raw = lyricsState.lyricsResult
+            val pluginConfig = lyricsState.song?.pluginId?.let { pluginConfigs[it] }
 
             val rendered = if (raw != null) {
+                val policy = config.resolvePluginLyricsPolicy(pluginConfig)
+                val processed = PluginLyricsPostProcessor.process(raw, policy)
                 LyricEncoder.encode(
-                    result = raw,
-                    config = config
+                    result = processed,
+                    config = config.withPluginLyricsPolicy(policy)
                 )
             } else null
 
@@ -343,12 +362,37 @@ class SearchViewModel(
         val lyricsResult = sourceImpl.getLyrics(song) ?: return null
 
         val config = settingsRepository.getLyricRenderConfig()
+        val policy = config.resolvePluginLyricsPolicy(
+            pluginLyricsConfigRepository.getConfig(sourceImpl.id)
+        )
+        val processed = PluginLyricsPostProcessor.process(lyricsResult, policy)
 
         return LyricEncoder.encode(
-            result = lyricsResult,
-            config = config
+            result = processed,
+            config = config.withPluginLyricsPolicy(policy)
         )
 
+    }
+
+    private fun LyricRenderConfig.resolvePluginLyricsPolicy(
+        pluginConfig: PluginLyricsConfig?
+    ): ResolvedLyricsProcessPolicy {
+        return resolveLyricsProcessPolicy(
+            global = GlobalLyricsSettings(
+                removeEmptyLines = removeEmptyLines,
+                conversionMode = conversionMode
+            ),
+            plugin = pluginConfig
+        )
+    }
+
+    private fun LyricRenderConfig.withPluginLyricsPolicy(
+        policy: ResolvedLyricsProcessPolicy
+    ): LyricRenderConfig {
+        return copy(
+            removeEmptyLines = policy.removeEmptyLines,
+            conversionMode = policy.conversionMode
+        )
     }
 
     // -------------------------------------------------------------------------

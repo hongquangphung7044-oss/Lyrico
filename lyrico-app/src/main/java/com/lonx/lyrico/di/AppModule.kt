@@ -16,6 +16,8 @@ import com.lonx.lyrico.data.repository.LibraryIndexRepository
 import com.lonx.lyrico.data.repository.LibraryIndexRepositoryImpl
 import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.data.repository.PlaybackRepositoryImpl
+import com.lonx.lyrico.data.repository.PluginLyricsConfigRepository
+import com.lonx.lyrico.data.repository.PluginLyricsConfigRepositoryImpl
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SettingsRepositoryImpl
 import com.lonx.lyrico.data.repository.SongRepository
@@ -168,6 +170,7 @@ val appModule = module {
     single { get<LyricoDatabase>().libraryIndexDao() }
     single { get<LyricoDatabase>().sourcePluginDao() }
     single<SettingsRepository> { SettingsRepositoryImpl(androidContext()) }
+    single<PluginLyricsConfigRepository> { PluginLyricsConfigRepositoryImpl(androidContext(), get()) }
     single { EditFieldVisibilityRepository(androidContext()) }
     single<UpdateRepository> { UpdateRepositoryImpl(get(), get()) }
     single<PlaybackRepository> { PlaybackRepositoryImpl() }
@@ -215,14 +218,14 @@ val appModule = module {
     viewModel { ArtistSplitSettingsViewModel(get(), get()) }
     viewModel { AlbumLibraryViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
-    viewModel { SearchViewModel(get(), get(), get()) }
+    viewModel { SearchViewModel(get(), get(), get(), get()) }
     viewModel { CoverSearchViewModel(get(), get(), get()) }
-    viewModel { SearchSourceConfigViewModel(get(), get()) }
+    viewModel { SearchSourceConfigViewModel(get(), get(), get()) }
     viewModel { EditMetadataViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { EditFieldVisibilitySettingsViewModel(get()) }
-    viewModel { BatchMatchViewModel(get(), get(), get(), get(), get()) }
+    viewModel { BatchMatchViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { AppLogViewModel(get(),get()) }
-    viewModel { PluginViewModel(get(), get(), get(), get(), get()) }
+    viewModel { PluginViewModel(get(), get(), get(), get(), get(), get()) }
 
     viewModel { FolderManagerViewModel(get(), get(), get(), get(), get()) }
     viewModel { (folderId: Long) ->

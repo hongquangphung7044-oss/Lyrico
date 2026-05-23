@@ -4,6 +4,7 @@ import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.BatchMatchField
 import com.lonx.lyrico.data.model.BatchMatchMode
+import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.MetadataFieldWriteRule
 import com.lonx.lyrico.data.model.MetadataFieldWriteRuleFactory
 import com.lonx.lyrico.data.model.ScoredSearchResult
@@ -11,6 +12,10 @@ import com.lonx.lyrico.data.model.entity.BatchTaskEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskItemEntity
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.lyrics.SearchSource
+import com.lonx.lyrico.data.model.plugin.GlobalLyricsSettings
+import com.lonx.lyrico.data.model.plugin.PluginLyricsConfig
+import com.lonx.lyrico.data.model.plugin.ResolvedLyricsProcessPolicy
+import com.lonx.lyrico.data.model.plugin.resolveLyricsProcessPolicy
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
@@ -18,6 +23,7 @@ import com.lonx.lyrico.utils.LyricEncoder
 import com.lonx.lyrico.utils.MetadataFieldResolver
 import com.lonx.lyrico.utils.MatchScoreDetail
 import com.lonx.lyrico.utils.MusicMatchUtils
+import com.lonx.lyrico.utils.PluginLyricsPostProcessor
 import com.lonx.lyrico.data.model.lyrics.SourceRuntimeConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -59,7 +65,7 @@ class MatchMetadataProcessor(
 
         val separator = config.separator
         val lyricConfig = if (plan.shouldFetchLyrics) {
-            settingsRepository.getLyricRenderConfig()
+            config.lyricRenderConfig ?: settingsRepository.getLyricRenderConfig()
         } else {
             null
         }
@@ -157,7 +163,14 @@ class MatchMetadataProcessor(
             coroutineScope {
                 val deferred = async(Dispatchers.Default) {
                     finalMatch.source?.getLyrics(finalMatch.result)?.let { result ->
-                        LyricEncoder.encode(result = result, config = lyricConfig)
+                        val sourceId = finalMatch.source.id
+                        val policy = lyricConfig.resolvePluginLyricsPolicy(
+                            config.pluginLyricsConfigs[sourceId]
+                        )
+                        LyricEncoder.encode(
+                            result = PluginLyricsPostProcessor.process(result, policy),
+                            config = lyricConfig.withPluginLyricsPolicy(policy)
+                        )
                     }
                 }
                 deferred.await()
@@ -309,6 +322,27 @@ class MatchMetadataProcessor(
                 replayGainAlbumGain == null && replayGainAlbumPeak == null &&
                 replayGainReferenceLoudness == null
     }
+
+    private fun LyricRenderConfig.resolvePluginLyricsPolicy(
+        pluginConfig: PluginLyricsConfig?
+    ): ResolvedLyricsProcessPolicy {
+        return resolveLyricsProcessPolicy(
+            global = GlobalLyricsSettings(
+                removeEmptyLines = removeEmptyLines,
+                conversionMode = conversionMode
+            ),
+            plugin = pluginConfig
+        )
+    }
+
+    private fun LyricRenderConfig.withPluginLyricsPolicy(
+        policy: ResolvedLyricsProcessPolicy
+    ): LyricRenderConfig {
+        return copy(
+            removeEmptyLines = policy.removeEmptyLines,
+            conversionMode = policy.conversionMode
+        )
+    }
 }
 
 private data class MatchMetadataPlan(
@@ -332,5 +366,7 @@ data class MatchMetadataTaskConfig(
     val enabledSourceOrderIds: List<String>,
     val metadataFieldWriteRules: List<MetadataFieldWriteRule> = emptyList(),
     val sourceSettings: Map<String, Map<String, String>> = emptyMap(),
+    val pluginLyricsConfigs: Map<String, PluginLyricsConfig> = emptyMap(),
+    val lyricRenderConfig: LyricRenderConfig? = null,
     val concurrency: Int = 3
 )
