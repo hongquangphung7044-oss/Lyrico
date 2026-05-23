@@ -2,6 +2,7 @@ package com.lonx.lyrico.screens
 
 import android.annotation.SuppressLint
 import android.content.ClipData
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -49,13 +50,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,7 +70,7 @@ import com.lonx.lyrico.ui.components.rememberTintedPainter
 import com.lonx.lyrico.ui.theme.LyricoColors
 import com.lonx.lyrico.ui.theme.isDarkTheme
 import com.lonx.lyrico.viewmodel.SearchViewModel
-import com.lonx.lyrics.model.SongSearchResult
+import com.lonx.lyrico.data.model.lyrics.SongSearchResult
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.result.ResultBackNavigator
@@ -207,6 +206,16 @@ fun SearchResultsScreen(
                 return@Column
             }
 
+            if (uiState.availableSources.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(stringResource(R.string.plugin_empty))
+                }
+                return@Column
+            }
+
             /**
              * Tabs
              */
@@ -217,7 +226,9 @@ fun SearchResultsScreen(
                     .padding(bottom = 12.dp)
             ) {
                 TabRowWithContour(
-                    tabs = uiState.availableSources.map { stringResource(id = it.labelRes) },
+                    tabs = uiState.availableSources.map { source ->
+                        source.labelRes?.let { stringResource(id = it) } ?: source.name
+                    },
                     selectedTabIndex = pagerState.currentPage,
                     onTabSelected = { index ->
                         scope.launch {
@@ -238,7 +249,7 @@ fun SearchResultsScreen(
                 val source = uiState.availableSources.getOrNull(page)
 
                 val results =
-                    uiState.searchResults[source?.name] ?: emptyList()
+                    uiState.searchResults[source?.id] ?: emptyList()
 
                 when {
                     uiState.isSearching && source == uiState.selectedSearchSource -> {
@@ -247,8 +258,8 @@ fun SearchResultsScreen(
                         }
                     }
 
-                    source != null && uiState.searchErrors[source.name] != null -> {
-                        val errorMessage = uiState.searchErrors[source.name]
+                    source != null && uiState.searchErrors[source.id] != null -> {
+                        val errorMessage = uiState.searchErrors[source.id]
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             Text(
                                 text = errorMessage?.asString().orEmpty(),
@@ -271,7 +282,7 @@ fun SearchResultsScreen(
                                 .fillMaxSize()
                                 .padding(horizontal = 12.dp)
                         ) {
-                            items(results, key = { "${it.source}_${it.id}" }) { song ->
+                            items(results, key = { "${it.pluginId}_${it.id}" }) { song ->
 
                                 SearchResultItem(
                                     song = song,
@@ -290,11 +301,12 @@ fun SearchResultsScreen(
                                                         album = song.album,
                                                         lyrics = lyrics,
                                                         date = song.date,
-                                                        trackerNumber = song.trackerNumber,
+                                                        trackerNumber = song.trackNumber,
                                                         picUrl = song.picUrl,
-                                                        source = song.source,
+                                                        pluginId = song.pluginId,
+                                                        pluginName = song.pluginName,
                                                         lyricsOnly = false,
-                                                        extras = song.extras
+                                                        fields = song.fields
                                                     )
                                                 )
                                             } else {
@@ -350,6 +362,7 @@ fun SearchResultsScreen(
 
     WindowBottomSheet(
         show = showLyricsSheet,
+        enableNestedScroll = false,
         onDismissRequest = { showLyricsSheet = false },
         onDismissFinished = { viewModel.clearLyrics() },
         title = song?.title ?: "",
@@ -478,11 +491,12 @@ fun SearchResultsScreen(
                                     album = currentSong.album,
                                     lyrics = uiState.lyricsState.content,
                                     date = currentSong.date,
-                                    trackerNumber = currentSong.trackerNumber,
+                                    trackerNumber = currentSong.trackNumber,
                                     picUrl = currentSong.picUrl,
-                                    source = currentSong.source,
+                                    pluginId = currentSong.pluginId,
+                                    pluginName = currentSong.pluginName,
                                     lyricsOnly = false,
-                                    extras = currentSong.extras
+                                    fields = currentSong.fields
                                 )
                             )
                         },
@@ -699,7 +713,7 @@ fun SearchResultItem(
 
                     val extraInfo = buildList {
                         if (song.date.isNotBlank()) add(song.date)
-                        if (song.trackerNumber.isNotBlank()) add("Track ${song.trackerNumber}")
+                        if (song.trackNumber.isNotBlank()) add("Track ${song.trackNumber}")
                     }.joinToString(" • ")
 
                     if (extraInfo.isNotEmpty()) {

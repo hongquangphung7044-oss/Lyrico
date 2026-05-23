@@ -4,22 +4,21 @@ import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.BatchMatchField
 import com.lonx.lyrico.data.model.BatchMatchMode
-import com.lonx.lyrico.data.model.ExtraMetadataKey
-import com.lonx.lyrico.data.model.ExtraMetadataTarget
-import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
-import com.lonx.lyrico.data.model.ExtraWriteMode
+import com.lonx.lyrico.data.model.MetadataFieldWriteRule
+import com.lonx.lyrico.data.model.MetadataFieldWriteRuleFactory
 import com.lonx.lyrico.data.model.ScoredSearchResult
 import com.lonx.lyrico.data.model.entity.BatchTaskEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskItemEntity
 import com.lonx.lyrico.data.model.entity.SongEntity
+import com.lonx.lyrico.data.model.lyrics.SearchSource
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
-import com.lonx.lyrico.utils.ExtraMetadataResolver
+import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.utils.LyricEncoder
+import com.lonx.lyrico.utils.MetadataFieldResolver
 import com.lonx.lyrico.utils.MatchScoreDetail
 import com.lonx.lyrico.utils.MusicMatchUtils
-import com.lonx.lyrics.model.SearchSource
-import com.lonx.lyrics.model.Source
+import com.lonx.lyrico.data.model.lyrics.SourceRuntimeConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -30,9 +29,9 @@ import kotlinx.serialization.json.Json
 class MatchMetadataProcessor(
     private val songRepository: SongRepository,
     private val settingsRepository: SettingsRepository,
-    private val sources: List<SearchSource>
+    private val searchSourceProvider: SearchSourceProvider
 ) : BatchTaskProcessor {
-    private val extraMetadataResolver = ExtraMetadataResolver()
+    private val metadataFieldResolver = MetadataFieldResolver()
 
     override suspend fun process(
         task: BatchTaskEntity,
@@ -44,10 +43,15 @@ class MatchMetadataProcessor(
         } ?: throw BatchTaskSkippedException("No config")
 
         val matchConfig = config.matchConfig
+        val sources = searchSourceProvider.getAllSources()
+        sources.forEach { source ->
+            val values = config.sourceSettings[source.id].orEmpty()
+            source.applyConfig(SourceRuntimeConfig(values))
+        }
         val song = songRepository.getSongByUri(item.songUri)
             ?: throw BatchTaskSkippedException("Song not found")
 
-        val plan = buildPlan(matchConfig, config.extraWriteRules, song)
+        val plan = buildPlan(matchConfig, config.metadataFieldWriteRules, song, sources)
         if (!plan.requiresSearch) {
             throw BatchTaskSkippedException("No fields need processing")
         }
@@ -59,9 +63,7 @@ class MatchMetadataProcessor(
         } else {
             null
         }
-        val enabledSourceOrder = config.enabledSourceOrderIds.mapNotNull { id ->
-            Source.entries.find { it.id == id }
-        }
+        val enabledSourceOrder = config.enabledSourceOrderIds
         val queries = MusicMatchUtils.buildSearchQueries(
             song = song,
             preferFileName = matchConfig.preferFileName
@@ -69,10 +71,10 @@ class MatchMetadataProcessor(
 
         val orderedSources = sources
             .filter { source ->
-                enabledSourceOrder.isEmpty() || source.sourceType in enabledSourceOrder
+                enabledSourceOrder.isEmpty() || source.id in enabledSourceOrder
             }
             .sortedBy { source ->
-                enabledSourceOrder.indexOf(source.sourceType).let { if (it == -1) Int.MAX_VALUE else it }
+                enabledSourceOrder.indexOf(source.id).let { if (it == -1) Int.MAX_VALUE else it }
             }
 
         var bestMatch: ScoredSearchResult? = null
@@ -84,7 +86,7 @@ class MatchMetadataProcessor(
                 coroutineScope {
                     async(Dispatchers.IO) {
                         try {
-                            val results = source.search(
+                            val results = source.searchSongs(
                                 keyword = query,
                                 separator = separator,
                                 pageSize = 2
@@ -170,11 +172,11 @@ class MatchMetadataProcessor(
         val newArtist = resolveValue(plan, BatchMatchField.ARTIST, finalMatch.result.artist)
         val newAlbum = resolveValue(plan, BatchMatchField.ALBUM, finalMatch.result.album)
         val newDate = resolveValue(plan, BatchMatchField.DATE, finalMatch.result.date)
-        val newTrack = resolveValue(plan, BatchMatchField.TRACK_NUMBER, finalMatch.result.trackerNumber)
+        val newTrack = resolveValue(plan, BatchMatchField.TRACK_NUMBER, finalMatch.result.trackNumber)
         val newGenre = resolveValue(plan, BatchMatchField.GENRE, null)
         val newLyricsResolved = resolveValue(plan, BatchMatchField.LYRICS, newLyrics)
         val newComment = resolveValue(plan, BatchMatchField.COMMENT,
-            finalMatch.result.extras["subtitle"]
+            finalMatch.result.normalizedFields()["subtitle"]
         )
         val picUrl = if (plan.shouldUpdateCover) finalMatch.result.picUrl else null
 
@@ -189,16 +191,16 @@ class MatchMetadataProcessor(
             picUrl = picUrl,
             comment = newComment,
         )
-        val extraTagData = extraMetadataResolver.resolve(
+        val metadataTagData = metadataFieldResolver.resolve(
             currentSong = song,
             scoredResults = allScoredResults,
-            rules = plan.extraRules
+            rules = plan.metadataRules
         )
-        val tagDataToWrite = extraMetadataResolver.mergeNonNull(standardTagData, extraTagData)
+        val tagDataToWrite = metadataFieldResolver.mergeNonNull(standardTagData, metadataTagData)
 
         val isEffectivelyEmpty = newTitle == null && newArtist == null && newAlbum == null &&
                 newGenre == null && newDate == null && newTrack == null &&
-                newLyricsResolved == null && picUrl == null && newComment == null && extraTagData.isEmpty()
+                newLyricsResolved == null && picUrl == null && newComment == null && metadataTagData.isEmpty()
 
         if (isEffectivelyEmpty) {
             throw BatchTaskSkippedException("No fields to update")
@@ -216,17 +218,19 @@ class MatchMetadataProcessor(
 
     private suspend fun buildPlan(
         matchConfig: BatchMatchConfig,
-        extraRules: List<ExtraMetadataWriteRule>,
-        song: SongEntity
+        metadataRules: List<MetadataFieldWriteRule>,
+        song: SongEntity,
+        sources: List<SearchSource>
     ): MatchMetadataPlan {
         val standardFields = matchConfig.fields.mapNotNull { (field, mode) ->
             if (shouldUpdateField(field, mode, song)) field else null
         }.toSet()
-        val applicableExtraRules = extraRules.filter { shouldApplyExtraRule(it, song) }
+        val applicableMetadataRules = MetadataFieldWriteRuleFactory.mergeWithDeclaredFields(metadataRules, sources)
+            .filter { shouldApplyMetadataRule(it, song) }
 
         return MatchMetadataPlan(
             standardFields = standardFields,
-            extraRules = applicableExtraRules
+            metadataRules = applicableMetadataRules
         )
     }
 
@@ -255,27 +259,37 @@ class MatchMetadataProcessor(
         }.getOrDefault(false)
     }
 
-    private fun shouldApplyExtraRule(
-        rule: ExtraMetadataWriteRule,
+    private suspend fun shouldApplyMetadataRule(
+        rule: MetadataFieldWriteRule,
         song: SongEntity
     ): Boolean {
-        if (rule.mode == ExtraWriteMode.DISABLED) return false
-        if (rule.mode == ExtraWriteMode.OVERWRITE) return true
+        if (rule.mode == com.lonx.lyrico.data.model.MetadataWriteMode.DISABLED) return false
+        if (rule.mode == com.lonx.lyrico.data.model.MetadataWriteMode.OVERWRITE) return true
 
         return when (rule.target) {
-            ExtraMetadataTarget.COMMENT -> {
-                val currentComment = song.comment
-                currentComment.isNullOrBlank() ||
-                        (rule.key == ExtraMetadataKey.NETEASE_163_KEY && isNetease163Key(currentComment))
-            }
-            ExtraMetadataTarget.REPLAY_GAIN_TRACK_GAIN -> song.replayGainTrackGain.isNullOrBlank()
-            ExtraMetadataTarget.REPLAY_GAIN_TRACK_PEAK -> song.replayGainTrackPeak.isNullOrBlank()
-            ExtraMetadataTarget.REPLAY_GAIN_REFERENCE_LOUDNESS -> song.replayGainReferenceLoudness.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.TITLE -> song.title.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.ARTIST -> song.artist.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.ALBUM -> song.album.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.ALBUM_ARTIST -> song.albumArtist.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.GENRE -> song.genre.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.DATE -> song.date.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.TRACK_NUMBER -> song.trackerNumber.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.DISC_NUMBER -> song.discNumber == null
+            com.lonx.lyrico.data.model.MetadataFieldTarget.COMPOSER -> song.composer.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.LYRICIST -> song.lyricist.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.COMMENT -> song.comment.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.LYRICS -> song.lyrics.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.COVER -> !hasEmbeddedCover(song)
+            com.lonx.lyrico.data.model.MetadataFieldTarget.LANGUAGE -> true
+            com.lonx.lyrico.data.model.MetadataFieldTarget.COPYRIGHT -> true
+            com.lonx.lyrico.data.model.MetadataFieldTarget.RATING -> true
+            com.lonx.lyrico.data.model.MetadataFieldTarget.REPLAY_GAIN_TRACK_GAIN -> song.replayGainTrackGain.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.REPLAY_GAIN_TRACK_PEAK -> song.replayGainTrackPeak.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.REPLAY_GAIN_ALBUM_GAIN -> true
+            com.lonx.lyrico.data.model.MetadataFieldTarget.REPLAY_GAIN_ALBUM_PEAK -> true
+            com.lonx.lyrico.data.model.MetadataFieldTarget.REPLAY_GAIN_REFERENCE_LOUDNESS -> song.replayGainReferenceLoudness.isNullOrBlank()
+            com.lonx.lyrico.data.model.MetadataFieldTarget.CUSTOM -> true
         }
-    }
-
-    private fun isNetease163Key(value: String?): Boolean {
-        return value?.startsWith("163 key(Don't modify):") == true
     }
 
     private fun resolveValue(
@@ -288,8 +302,10 @@ class MatchMetadataProcessor(
 
     private fun AudioTagData.isEmpty(): Boolean {
         return title == null && artist == null && album == null && genre == null &&
-                date == null && trackNumber == null && lyrics == null && picUrl == null &&
-                comment == null && replayGainTrackGain == null && replayGainTrackPeak == null &&
+                albumArtist == null && date == null && trackNumber == null &&
+                discNumber == null && composer == null && lyricist == null &&
+                lyrics == null && picUrl == null && comment == null &&
+                replayGainTrackGain == null && replayGainTrackPeak == null &&
                 replayGainAlbumGain == null && replayGainAlbumPeak == null &&
                 replayGainReferenceLoudness == null
     }
@@ -297,10 +313,10 @@ class MatchMetadataProcessor(
 
 private data class MatchMetadataPlan(
     val standardFields: Set<BatchMatchField>,
-    val extraRules: List<ExtraMetadataWriteRule>
+    val metadataRules: List<MetadataFieldWriteRule>
 ) {
     val requiresSearch: Boolean
-        get() = standardFields.isNotEmpty() || extraRules.isNotEmpty()
+        get() = standardFields.isNotEmpty() || metadataRules.isNotEmpty()
 
     val shouldFetchLyrics: Boolean
         get() = BatchMatchField.LYRICS in standardFields
@@ -314,6 +330,7 @@ data class MatchMetadataTaskConfig(
     val matchConfig: BatchMatchConfig,
     val separator: String,
     val enabledSourceOrderIds: List<String>,
-    val extraWriteRules: List<ExtraMetadataWriteRule> = emptyList(),
+    val metadataFieldWriteRules: List<MetadataFieldWriteRule> = emptyList(),
+    val sourceSettings: Map<String, Map<String, String>> = emptyMap(),
     val concurrency: Int = 3
 )

@@ -3,10 +3,10 @@ package com.lonx.lyrico.data.repository
 import com.lonx.lyrico.data.model.BatchMatchConfig
 import com.lonx.lyrico.data.model.CharacterMappingConfig
 import com.lonx.lyrico.data.model.ConversionMode
-import com.lonx.lyrico.data.model.ExtraMetadataWriteRule
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.LogRetentionOption
+import com.lonx.lyrico.data.model.MetadataFieldWriteRule
 import com.lonx.lyrico.data.model.SearchConfig
 import com.lonx.lyrico.data.model.ThemeConfig
 import com.lonx.lyrico.data.model.ThemeMode
@@ -15,13 +15,14 @@ import com.lonx.lyrico.data.model.ArtistSortInfo
 import com.lonx.lyrico.data.model.artist.ArtistSplitConfig
 import com.lonx.lyrico.ui.theme.KeyColor
 import com.lonx.lyrico.viewmodel.SortInfo
-import com.lonx.lyrics.model.Source
+import com.lonx.lyrico.data.model.lyrics.SourceRuntimeConfig
 import kotlinx.coroutines.flow.Flow
 
 
 interface SettingsRepository {
     val batchMatchConfig: Flow<BatchMatchConfig>
-    val extraMetadataWriteRules: Flow<List<ExtraMetadataWriteRule>>
+    val metadataFieldWriteRules: Flow<List<MetadataFieldWriteRule>>
+    val sourceSettingsByIdFlow: Flow<Map<String, SourceRuntimeConfig>>
 
     val renameFormat: Flow<String>
 
@@ -39,8 +40,8 @@ interface SettingsRepository {
     val translationEnabled: Flow<Boolean>
     val checkUpdateEnabled: Flow<Boolean>
     val ignoreShortAudio: Flow<Boolean>
-    val searchSourceOrder: Flow<List<Source>>
-    val enabledSearchSources: Flow<Set<Source>>
+    val searchSourceOrder: Flow<List<String>>
+    val enabledSearchSources: Flow<Set<String>>
     val searchPageSize: Flow<Int>
     val themeMode: Flow<ThemeMode>
     val keyColor: Flow<KeyColor>
@@ -73,8 +74,8 @@ interface SettingsRepository {
     suspend fun saveTranslationEnabled(enabled: Boolean)
     suspend fun saveIgnoreShortAudio(enabled: Boolean)
     suspend fun saveLastScanTime(time: Long)
-    suspend fun saveSearchSourceOrder(sources: List<Source>)
-    suspend fun saveEnabledSearchSources(sources: Set<Source>)
+    suspend fun saveSearchSourceOrder(sources: List<String>)
+    suspend fun saveEnabledSearchSources(sources: Set<String>)
     suspend fun saveSearchPageSize(size: Int)
     suspend fun saveThemeMode(mode: ThemeMode)
     suspend fun saveKeyColor(selectedKeyColor: KeyColor)
@@ -88,14 +89,17 @@ interface SettingsRepository {
     suspend fun exportSettings(): String
     suspend fun importSettings(jsonString: String): Boolean
     suspend fun saveBatchMatchConfig(config: BatchMatchConfig)
-    suspend fun saveExtraMetadataWriteRules(rules: List<ExtraMetadataWriteRule>)
+    suspend fun saveMetadataFieldWriteRules(rules: List<MetadataFieldWriteRule>)
+    suspend fun saveSourceSettings(sourceId: String, values: Map<String, String>)
+    suspend fun getSourceSettings(sourceId: String): SourceRuntimeConfig
+    suspend fun removePluginSettings(pluginId: String)
     suspend fun saveRenameFormat(format: String)
     suspend fun saveCharacterMappingConfig(config: CharacterMappingConfig)
     // 更新指定规则中的字符映射
     suspend fun updateCharacterMappingInRule(ruleId: String, charMappings: Map<String, String?>)
     suspend fun getCharacterMappingConfig(): CharacterMappingConfig
     suspend fun getBatchMatchConfig(): BatchMatchConfig
-    suspend fun getExtraMetadataWriteRules(): List<ExtraMetadataWriteRule>
+    suspend fun getMetadataFieldWriteRules(): List<MetadataFieldWriteRule>
     suspend fun saveArtistSplitConfig(config: ArtistSplitConfig)
     suspend fun getArtistSplitConfig(): ArtistSplitConfig
     suspend fun getLibraryIndexVersion(): Int

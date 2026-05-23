@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="kg_source_name">酷狗音乐</string>
+    <string name="qm_source_name">QQ 音乐</string>
+    <string name="ne_source_name">网易云音乐</string>
+    <string name="soda_source_name">汽水音乐</string>
+    <string name="am_source_name">Apple Music</string>
     <string name="search_settings">搜索设置</string>
-    <string name="search_source_priority">搜索源优先级</string>
-    <string name="search_source_priority_tip">长按拖动以调整搜索源的优先级顺序，优先级影响批量匹配时使用的搜索源顺序，以及单曲搜索时的默认源</string>
+    <string name="plugin_manager_title">插件管理</string>
+    <string name="search_source_priority_tip">插件顺序会影响搜索和批量匹配时的源调用顺序。拖动插件可调整优先级，关闭插件后不会参与搜索。</string>
 
     <!-- 搜索 -->
     <string name="search_lyrics_placeholder">搜索歌词…</string>
@@ -223,6 +228,22 @@
     <string name="label_year">年份</string>
     <string name="label_language">语言</string>
     <string name="label_genre">流派</string>
+    <string name="label_date">日期</string>
+    <string name="label_subtitle">副标题</string>
+    <string name="plugin_config_title">插件配置</string>
+    <string name="source_config_basic">基础配置</string>
+    <string name="source_config_extra_metadata">字段写入规则</string>
+    <string name="source_config_metadata_rules">字段写入规则</string>
+    <string name="source_config_write_mode">写入模式</string>
+    <string name="source_config_write_target">写入目标</string>
+    <string name="source_config_custom_tag_key">自定义标签名</string>
+    <string name="source_config_required_error">此项为必填项</string>
+    <string name="source_config_save">保存</string>
+    <string name="source_config_saved">已保存</string>
+    <string name="source_config_invalid_source">无效的插件</string>
+    <string name="source_config_empty">暂无可配置项</string>
+    <string name="source_config_tab_config">插件配置</string>
+    <string name="source_config_tab_metadata">写入规则</string>
     <string name="label_track_number">音轨号</string>
     <string name="label_duration">时长</string>
     <string name="label_bitrate">比特率</string>
@@ -232,6 +253,7 @@
     <string name="label_date_modified">修改时间</string>
     <string name="label_file_path">文件路径</string>
     <string name="label_cover">封面</string>
+    <string name="label_custom">自定义</string>
     <!-- 标题 -->
     <string name="label_extension">后缀</string>
     <string name="folder_manager_title">文件夹管理</string>
@@ -550,9 +572,6 @@
     <string name="label_replaygain_track_gain_summary">从 QQ 音乐写入 ReplayGain 曲目增益</string>
     <string name="label_replaygain_track_peak_summary">从 QQ 音乐写入 ReplayGain 曲目峰值</string>
     <string name="label_replaygain_reference_loudness_summary">从 QQ 音乐写入 ReplayGain 参考响度</string>
-    <string name="extra_metadata_writes_title">扩展元数据写入</string>
-    <string name="extra_metadata_writes_entry_summary">控制网易云 163 key、QQ ReplayGain 等来源专有字段</string>
-    <string name="extra_metadata_writes_summary">控制搜索源提供的额外字段是否写入到音频标签。保持禁用时，匹配行为不变</string>
     <string name="extra_metadata_comment_warning">补充模式只会在注释为空或已有 163 key 时写入。覆盖模式会替换注释</string>
     <string name="extra_write_mode_disabled">禁用</string>
     <string name="extra_write_mode_supplement">补充</string>
@@ -670,4 +689,46 @@
     <string name="artist_split_delete_rule_title">删除规则？</string>
     <string name="artist_split_delete_rule_message">确定删除「%1$s」吗？重建艺术家索引后生效。</string>
     <string name="album_grid_columns_format">%1$d 列显示</string>
+
+    <!-- QuickJS Test -->
+    <string name="quickjs_test_title">QuickJS 测试</string>
+    <string name="quickjs_test_description">测试说明</string>
+    <string name="quickjs_test_description_summary">运行测试以验证 QuickJS 运行时功能，包括 eval、函数调用、超时处理和内存限制。</string>
+    <string name="quickjs_test_run">运行测试</string>
+    
+    <string name="quickjs_test_eval_title">Eval 测试</string>
+    <string name="quickjs_test_eval_desc">测试基础 JavaScript 执行：\"hello\".toUpperCase()</string>
+    
+    <string name="quickjs_test_call_title">函数调用测试</string>
+    <string name="quickjs_test_call_desc">测试使用 JSON 参数调用 JavaScript 函数</string>
+    
+    <string name="quickjs_test_timeout_title">超时测试</string>
+    <string name="quickjs_test_timeout_desc">测试无限循环中断 (while(true){}) - 应在 2 秒后超时</string>
+    
+    <string name="quickjs_test_memory_title">内存限制测试</string>
+    <string name="quickjs_test_memory_desc">测试大数组分配的内存限制（4MB 限制）</string>
+    <string name="plugin_empty">未安装插件</string>
+    <string name="plugin_import_archive">导入插件</string>
+
+    <string name="plugin_config">配置</string>
+    <string name="plugin_uninstall">卸载</string>
+    <string name="plugin_uninstall_confirm_message">确定要卸载"%1$s"吗？此操作无法撤销。</string>
+    <string name="plugin_update_source_configured">更新源</string>
+    <string name="plugin_version_with_value">版本：%1$s</string>
+    <string name="plugin_author_with_value">作者：%1$s</string>
+    <string name="plugin_import_found_title">发现插件包</string>
+    <string name="plugin_import_install">安装</string>
+    <string name="plugin_import_installable_title">可安装插件（%1$d）</string>
+    <string name="plugin_import_failed_title">无法安装（%1$d）</string>
+    <string name="plugin_import_version">版本</string>
+    <string name="plugin_import_path">路径</string>
+    <string name="plugin_import_include_dirs">包含目录</string>
+    <string name="plugin_import_none">无</string>
+    <string name="plugin_import_unknown_path">未知路径</string>
+    <string name="plugin_import_conflict_new">新安装</string>
+    <string name="plugin_import_conflict_update">更新</string>
+    <string name="plugin_import_conflict_overwrite">覆盖</string>
+    <string name="plugin_import_conflict_downgrade">降级</string>
+    <string name="plugin_import_expand">展开</string>
+    <string name="plugin_import_collapse">收起</string>
 </resources>

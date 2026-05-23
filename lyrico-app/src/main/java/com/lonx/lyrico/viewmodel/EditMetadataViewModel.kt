@@ -23,10 +23,10 @@ import com.lonx.lyrico.data.exception.RequiresUserPermissionException
 import com.lonx.lyrico.data.model.AppLogLevel
 import com.lonx.lyrico.data.model.AppLogType
 import com.lonx.lyrico.data.model.ConversionMode
-import com.lonx.lyrico.data.model.ExtraMetadataWriteDefaults
 import com.lonx.lyrico.data.model.LyricFormat
 import com.lonx.lyrico.data.model.LyricRenderConfig
 import com.lonx.lyrico.data.model.LyricsSearchResult
+import com.lonx.lyrico.data.model.MetadataFieldWriteRuleFactory
 import com.lonx.lyrico.data.model.ScoredSearchResult
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.repository.AppLogRepository
@@ -34,16 +34,17 @@ import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.data.repository.SettingsDefaults
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
+import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.utils.CoverSourceType
-import com.lonx.lyrico.utils.ExtraMetadataResolver
 import com.lonx.lyrico.utils.LyricDecoder
 import com.lonx.lyrico.utils.LyricEncoder
+import com.lonx.lyrico.utils.MetadataFieldResolver
 import com.lonx.lyrico.utils.ReplayGainCalculateState
 import com.lonx.lyrico.utils.ReplayGainError
 import com.lonx.lyrico.utils.ReplayGainScanner
 import com.lonx.lyrico.utils.UiMessage
 import com.lonx.lyrico.utils.getCoverSourceType
-import com.lonx.lyrics.model.SongSearchResult
+import com.lonx.lyrico.data.model.lyrics.SongSearchResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -100,20 +101,26 @@ class EditMetadataViewModel(
     private val replayGainScanner: ReplayGainScanner,
     private val appLogRepository: AppLogRepository,
     private val editFieldVisibilityRepository: EditFieldVisibilityRepository,
+    private val searchSourceProvider: SearchSourceProvider
 ) : ViewModel() {
 
     private val TAG = "EditMetadataVM"
-    private val extraMetadataResolver = ExtraMetadataResolver()
+    private val metadataFieldResolver = MetadataFieldResolver()
 
     val limitLyricsInputLines = settingsRepository.limitLyricsInputLines.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         SettingsDefaults.LIMIT_LYRICS_INPUT_LINES
     )
-    private val extraMetadataWriteRules = settingsRepository.extraMetadataWriteRules.stateIn(
+    private val metadataFieldWriteRules = settingsRepository.metadataFieldWriteRules.stateIn(
         viewModelScope,
         SharingStarted.Eagerly,
-        ExtraMetadataWriteDefaults.DEFAULT_RULES
+        emptyList()
+    )
+    private val searchSources = searchSourceProvider.observeAllSources().stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        emptyList()
     )
     private var currentSong: SongEntity? = null
 
@@ -249,7 +256,7 @@ class EditMetadataViewModel(
                     )
                 )
             }
-            // 从 extras 解析 ReplayGain
+            // Resolve plugin-declared metadata fields.
             val standardTagData = current.copy(
                 title = result.title?.takeIf { it.isNotBlank() } ?: current.title,
                 artist = result.artist?.takeIf { it.isNotBlank() } ?: current.artist,
@@ -259,40 +266,43 @@ class EditMetadataViewModel(
                 trackNumber = result.trackerNumber?.takeIf { it.isNotBlank() }
                     ?: current.trackNumber,
                 picUrl = result.picUrl?.takeIf { it.isNotBlank() } ?: current.picUrl,
-                comment = result.extras["subtitle"]?.takeIf { it.isNotBlank() } ?: current.comment,
+                comment = result.normalizedFields()["subtitle"]?.takeIf { it.isNotBlank() } ?: current.comment,
             )
-            val extraTagData = currentSong?.let { song ->
-                val source = result.source
-                if (source == null) {
+            val metadataTagData = currentSong?.let { song ->
+                if (result.pluginId.isBlank()) {
                     AudioTagData()
                 } else {
-                    extraMetadataResolver.resolve(
+                    metadataFieldResolver.resolve(
                         currentSong = song,
                         scoredResults = listOf(
                             ScoredSearchResult(
                                 result = SongSearchResult(
                                     id = "",
+                                    pluginId = result.pluginId,
+                                    pluginName = result.pluginName,
                                     title = result.title.orEmpty(),
                                     artist = result.artist.orEmpty(),
                                     album = result.album.orEmpty(),
                                     duration = 0L,
-                                    source = source,
                                     date = result.date.orEmpty(),
-                                    trackerNumber = result.trackerNumber.orEmpty(),
+                                    trackNumber = result.trackerNumber.orEmpty(),
                                     picUrl = result.picUrl.orEmpty(),
-                                    extras = result.extras
+                                    fields = result.fields
                                 ),
                                 score = 1.0
                             )
                         ),
-                        rules = extraMetadataWriteRules.value,
+                        rules = MetadataFieldWriteRuleFactory.mergeWithDeclaredFields(
+                            savedRules = metadataFieldWriteRules.value,
+                            searchSources = searchSources.value
+                        ),
                         currentTagData = current
                     )
                 }
             } ?: AudioTagData()
             state.copy(
                 isEditing = true,
-                editingTagData = extraMetadataResolver.mergeNonNull(standardTagData, extraTagData),
+                editingTagData = metadataFieldResolver.mergeNonNull(standardTagData, metadataTagData),
                 coverUri = result.picUrl?.takeIf { it.isNotBlank() }
             )
         }

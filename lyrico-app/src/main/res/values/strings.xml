@@ -1,8 +1,13 @@
 <resources>
+    <string name="kg_source_name">Kugou Music</string>
+    <string name="qm_source_name">QQ Music</string>
+    <string name="ne_source_name">NetEase Cloud Music</string>
+    <string name="soda_source_name">Soda Music</string>
+    <string name="am_source_name">Apple Music</string>
     <string name="app_name" translatable="false">Lyrico</string>
     <string name="search_settings">Search Settings</string>
-    <string name="search_source_priority">Search Source Priority</string>
-    <string name="search_source_priority_tip">Long press and drag to reorder search source priority. This affects the source order used in batch matching and the default source for single searches.</string>
+    <string name="plugin_manager_title">Plugins Manager</string>
+    <string name="search_source_priority_tip">Plugin order affects search and batch matching priority. Drag plugins to reorder them. Disabled plugins will not be used.</string>
 
 
     <!-- Search -->
@@ -219,6 +224,22 @@
     <string name="label_year">Year</string>
     <string name="label_language">Language</string>
     <string name="label_genre">Genre</string>
+    <string name="label_date">Date</string>
+    <string name="label_subtitle">Subtitle</string>
+    <string name="plugin_config_title">Plugin Configuration</string>
+    <string name="source_config_basic">Basic settings</string>
+    <string name="source_config_extra_metadata">Metadata write rules</string>
+    <string name="source_config_metadata_rules">Metadata write rules</string>
+    <string name="source_config_write_mode">Write mode</string>
+    <string name="source_config_write_target">Write target</string>
+    <string name="source_config_custom_tag_key">Custom tag name</string>
+    <string name="source_config_required_error">This field is required</string>
+    <string name="source_config_save">Save</string>
+    <string name="source_config_saved">Saved</string>
+    <string name="source_config_invalid_source">Invalid plugin</string>
+    <string name="source_config_empty">No configurable items</string>
+    <string name="source_config_tab_config">Plugin Settings</string>
+    <string name="source_config_tab_metadata">Write Rules</string>
     <string name="label_track_number">Track Number</string>
     <string name="label_duration">Duration</string>
     <string name="label_bitrate">Bitrate</string>
@@ -228,6 +249,7 @@
     <string name="label_date_modified">Date Modified</string>
     <string name="label_file_path">File Path</string>
     <string name="label_cover">Cover</string>
+    <string name="label_custom">Custom</string>
     <string name="label_extension">Extension</string>
     <!-- Screen Titles -->
     <string name="folder_manager_title">Folder Management</string>
@@ -291,9 +313,6 @@
     <string name="label_replaygain_track_gain_summary">Writes ReplayGain track gain from QQ Music.</string>
     <string name="label_replaygain_track_peak_summary">Writes ReplayGain track peak from QQ Music.</string>
     <string name="label_replaygain_reference_loudness_summary">Writes ReplayGain reference loudness from QQ Music.</string>
-    <string name="extra_metadata_writes_title">Extra Metadata Writes</string>
-    <string name="extra_metadata_writes_entry_summary">Control source-specific fields such as NetEase 163 key and QQ ReplayGain.</string>
-    <string name="extra_metadata_writes_summary">Control whether source-specific metadata is written to audio tags. Disabled keeps matching behavior unchanged.</string>
     <string name="extra_metadata_comment_warning">Supplement mode writes only when the comment is empty or already contains a 163 key. Overwrite replaces the comment.</string>
     <string name="extra_write_mode_disabled">Disabled</string>
     <string name="extra_write_mode_supplement">Supplement</string>
@@ -659,4 +678,46 @@
     <string name="artist_split_delete_rule_title">Delete rule?</string>
     <string name="artist_split_delete_rule_message">Delete \"%1$s\"? This change takes effect after rebuilding the artist index.</string>
     <string name="album_grid_columns_format">%1$d columns</string>
+
+    <!-- QuickJS Test -->
+    <string name="quickjs_test_title">QuickJS Test</string>
+    <string name="quickjs_test_description">Test Description</string>
+    <string name="quickjs_test_description_summary">Run tests to verify QuickJS runtime functionality including eval, function calls, timeout handling, and memory limits.</string>
+    <string name="quickjs_test_run">Run Test</string>
+    
+    <string name="quickjs_test_eval_title">Eval Test</string>
+    <string name="quickjs_test_eval_desc">Test basic JavaScript evaluation: \"hello\".toUpperCase()</string>
+    
+    <string name="quickjs_test_call_title">Function Call Test</string>
+    <string name="quickjs_test_call_desc">Test calling JavaScript functions with JSON parameters</string>
+    
+    <string name="quickjs_test_timeout_title">Timeout Test</string>
+    <string name="quickjs_test_timeout_desc">Test infinite loop interruption (while(true){}) - should timeout in 2 seconds</string>
+    
+    <string name="quickjs_test_memory_title">Memory Limit Test</string>
+    <string name="quickjs_test_memory_desc">Test memory limit enforcement with large array allocation (4MB limit)</string>
+    <string name="plugin_empty">No Plugin Installed</string>
+    <string name="plugin_import_archive">Import Plugin</string>
+
+    <string name="plugin_config">Configure</string>
+    <string name="plugin_uninstall">Uninstall</string>
+    <string name="plugin_uninstall_confirm_message">Are you sure you want to uninstall "%1$s"? This action cannot be undone.</string>
+    <string name="plugin_update_source_configured">Update source</string>
+    <string name="plugin_version_with_value">Version: %1$s</string>
+    <string name="plugin_author_with_value">Author: %1$s</string>
+    <string name="plugin_import_found_title">Plugin package found</string>
+    <string name="plugin_import_install">Install</string>
+    <string name="plugin_import_installable_title">Installable plugins (%1$d)</string>
+    <string name="plugin_import_failed_title">Failed plugins (%1$d)</string>
+    <string name="plugin_import_version">Version</string>
+    <string name="plugin_import_path">Path</string>
+    <string name="plugin_import_include_dirs">Include dirs</string>
+    <string name="plugin_import_none">None</string>
+    <string name="plugin_import_unknown_path">Unknown path</string>
+    <string name="plugin_import_conflict_new">New</string>
+    <string name="plugin_import_conflict_update">Update</string>
+    <string name="plugin_import_conflict_overwrite">Overwrite</string>
+    <string name="plugin_import_conflict_downgrade">Downgrade</string>
+    <string name="plugin_import_expand">Expand</string>
+    <string name="plugin_import_collapse">Collapse</string>
 </resources>

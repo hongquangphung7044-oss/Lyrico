@@ -39,7 +39,6 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ArtistSeparator
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.LyricFormat
-import com.lonx.lyrico.data.model.LogRetentionOption
 import com.lonx.lyrico.data.model.ThemeMode
 import com.lonx.lyrico.ui.components.RoundedRectanglePainter
 import com.lonx.lyrico.ui.components.getSystemWallpaperColor
@@ -54,9 +53,9 @@ import com.ramcosta.composedestinations.generated.destinations.AppLogsDestinatio
 import com.ramcosta.composedestinations.generated.destinations.ArtistSplitSettingsDestination
 import com.ramcosta.composedestinations.generated.destinations.BatchTaskListDestination
 import com.ramcosta.composedestinations.generated.destinations.EditFieldVisibilityDestination
-import com.ramcosta.composedestinations.generated.destinations.ExtraMetadataWritesDestination
 import com.ramcosta.composedestinations.generated.destinations.FolderManagerDestination
-import com.ramcosta.composedestinations.generated.destinations.SearchSourcePriorityDestination
+import com.ramcosta.composedestinations.generated.destinations.PluginManagerDestination
+import com.ramcosta.composedestinations.generated.destinations.QuickjsTestDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -413,13 +412,9 @@ fun SettingsScreen(
             item(key = "search"){
                 SmallTitle(text = stringResource(R.string.section_search))
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                    val searchSourceSummary = settingsUiState.filteredSearchSources
-                        .map { stringResource(it.labelRes) }
-                        .joinToString(" > ")
                     ArrowPreference(
-                        title = stringResource(R.string.search_source_priority),
-                        summary = searchSourceSummary,
-                        onClick = { navigator.navigate(SearchSourcePriorityDestination()) }
+                        title = stringResource(R.string.plugin_manager_title),
+                        onClick = { navigator.navigate(PluginManagerDestination()) }
                     )
                     ArrowPreference(
                         title = stringResource(R.string.search_limit),
@@ -524,11 +519,6 @@ fun SettingsScreen(
                         onClick = { navigator.navigate(ArtistSplitSettingsDestination()) }
                     )
                     ArrowPreference(
-                        title = stringResource(R.string.extra_metadata_writes_title),
-                        summary = stringResource(R.string.extra_metadata_writes_entry_summary),
-                        onClick = { navigator.navigate(ExtraMetadataWritesDestination()) }
-                    )
-                    ArrowPreference(
                         title = stringResource(R.string.edit_field_visibility_settings),
                         onClick = { navigator.navigate(EditFieldVisibilityDestination()) }
                     )
@@ -568,6 +558,13 @@ fun SettingsScreen(
                         summary = stringResource(R.string.app_log_summary),
                         onClick = { navigator.navigate(AppLogsDestination()) }
                     )
+                    if (BuildConfig.DEBUG) {
+                        ArrowPreference(
+                            title = stringResource(R.string.quickjs_test_title),
+                            summary = stringResource(R.string.quickjs_test_description_summary),
+                            onClick = { navigator.navigate(QuickjsTestDestination()) }
+                        )
+                    }
 
                     val cacheSummary = stringResource(
                         R.string.cache_size_label,
