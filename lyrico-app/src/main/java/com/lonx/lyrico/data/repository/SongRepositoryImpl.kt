@@ -20,9 +20,9 @@ import com.lonx.audiotag.rw.AudioTagReader
 import com.lonx.audiotag.rw.AudioTagWriter
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.exception.RequiresUserPermissionException
-import com.lonx.lyrico.data.model.AppLogLevel
-import com.lonx.lyrico.data.model.AppLogType
-import com.lonx.lyrico.data.model.LocalSearchType
+import com.lonx.lyrico.data.model.log.AppLogLevel
+import com.lonx.lyrico.data.model.log.AppLogType
+import com.lonx.lyrico.data.model.search.LocalSearchType
 import com.lonx.lyrico.data.model.SongFile
 import com.lonx.lyrico.data.model.dao.AlbumSearchRow
 import com.lonx.lyrico.data.model.dao.ArtistSearchRow

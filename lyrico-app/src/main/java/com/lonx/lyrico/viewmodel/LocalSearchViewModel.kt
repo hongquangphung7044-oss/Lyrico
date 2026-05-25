@@ -2,9 +2,9 @@ package com.lonx.lyrico.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lonx.lyrico.data.model.LocalSearchUiState
-import com.lonx.lyrico.data.model.toAlbumSearchResult
-import com.lonx.lyrico.data.model.toArtistSearchResult
+import com.lonx.lyrico.data.model.search.LocalSearchUiState
+import com.lonx.lyrico.data.model.search.toAlbumSearchResult
+import com.lonx.lyrico.data.model.search.toArtistSearchResult
 import com.lonx.lyrico.data.repository.LibraryIndexRepository
 import com.lonx.lyrico.data.repository.SongRepository
 import kotlinx.coroutines.FlowPreview

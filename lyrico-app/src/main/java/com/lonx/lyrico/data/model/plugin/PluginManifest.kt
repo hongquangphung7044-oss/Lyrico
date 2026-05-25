@@ -66,7 +66,9 @@ enum class PluginConfigFieldType {
     @SerialName("switch")
     SWITCH,
     @SerialName("dropdown")
-    DROPDOWN
+    DROPDOWN,
+    @SerialName("textarea")
+    TEXTAREA
 }
 
 @Serializable

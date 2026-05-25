@@ -3,8 +3,8 @@ package com.lonx.lyrico.worker.processor
 import com.lonx.audiotag.model.AudioTagData
 import com.lonx.lyrico.data.model.BatchTaskType
 import com.lonx.lyrico.data.model.ConversionMode
-import com.lonx.lyrico.data.model.LyricFormat
-import com.lonx.lyrico.data.model.LyricRenderConfig
+import com.lonx.lyrico.data.model.lyrics.LyricFormat
+import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
 import com.lonx.lyrico.data.model.entity.BatchTaskEntity
 import com.lonx.lyrico.data.model.entity.BatchTaskItemEntity
 import com.lonx.lyrico.data.repository.SongRepository

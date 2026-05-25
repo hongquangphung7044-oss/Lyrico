@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.data.model.BatchTaskStatus
 import com.lonx.lyrico.data.model.BatchTaskType
-import com.lonx.lyrico.data.model.LyricFormat
+import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.repository.BatchTaskRepository
 import com.lonx.lyrico.data.repository.SongRepository
 import com.lonx.lyrico.worker.BatchTaskScheduler

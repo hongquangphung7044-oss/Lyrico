@@ -1,4 +1,4 @@
-package com.lonx.lyrico.data.model
+package com.lonx.lyrico.data.model.lyrics
 
 import androidx.annotation.StringRes
 import com.lonx.lyrico.R

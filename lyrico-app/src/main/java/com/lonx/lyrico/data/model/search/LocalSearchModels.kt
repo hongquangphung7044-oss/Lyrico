@@ -1,4 +1,4 @@
-package com.lonx.lyrico.data.model
+package com.lonx.lyrico.data.model.search
 
 import com.lonx.lyrico.data.model.dao.AlbumSearchRow
 import com.lonx.lyrico.data.model.dao.ArtistListItem

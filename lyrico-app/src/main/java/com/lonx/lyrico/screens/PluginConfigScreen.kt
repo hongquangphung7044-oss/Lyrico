@@ -749,6 +749,7 @@ private fun PluginConfigFormItem(
         }
 
         PluginConfigFieldType.TEXT,
+        PluginConfigFieldType.TEXTAREA,
         PluginConfigFieldType.PASSWORD,
         PluginConfigFieldType.NUMBER -> {
             Column(
@@ -760,7 +761,9 @@ private fun PluginConfigFormItem(
                     modifier = Modifier.fillMaxWidth(),
                     value = value,
                     label = field.title,
-                    maxLines = 1,
+                    singleLine = field.type != PluginConfigFieldType.TEXTAREA,
+                    minLines = if (field.type != PluginConfigFieldType.TEXTAREA) 1 else 2,
+                    maxLines = if (field.type != PluginConfigFieldType.TEXTAREA) 1 else 8,
                     visualTransformation = if (field.type == PluginConfigFieldType.PASSWORD) {
                         PasswordVisualTransformation()
                     } else {

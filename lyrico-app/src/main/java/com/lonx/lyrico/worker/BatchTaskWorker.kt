@@ -9,8 +9,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.lonx.lyrico.R
-import com.lonx.lyrico.data.model.AppLogLevel
-import com.lonx.lyrico.data.model.AppLogType
+import com.lonx.lyrico.data.model.log.AppLogLevel
+import com.lonx.lyrico.data.model.log.AppLogType
 import com.lonx.lyrico.data.model.BatchTaskType
 import com.lonx.lyrico.data.model.MetadataWriteMode
 import com.lonx.lyrico.data.repository.AppLogRepository

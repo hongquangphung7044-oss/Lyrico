@@ -1,4 +1,4 @@
-package com.lonx.lyrico.data.model
+package com.lonx.lyrico.data.model.search
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize

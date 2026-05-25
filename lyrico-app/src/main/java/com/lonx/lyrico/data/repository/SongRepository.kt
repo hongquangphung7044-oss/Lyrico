@@ -1,7 +1,7 @@
 package com.lonx.lyrico.data.repository
 
 import com.lonx.audiotag.model.AudioTagData
-import com.lonx.lyrico.data.model.LocalSearchType
+import com.lonx.lyrico.data.model.search.LocalSearchType
 import com.lonx.lyrico.data.model.dao.AlbumSearchRow
 import com.lonx.lyrico.data.model.dao.ArtistSearchRow
 import com.lonx.lyrico.data.model.dao.SongFieldValue

@@ -12,7 +12,7 @@ import com.lonx.lyrico.data.SharedSelectionManager
 import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
-import com.lonx.lyrico.data.model.LocalSearchType
+import com.lonx.lyrico.data.model.search.LocalSearchType
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.model.entity.getUri
 import com.lonx.lyrico.data.repository.PlaybackRepository

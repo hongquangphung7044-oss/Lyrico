@@ -1,6 +1,6 @@
 package com.lonx.lyrico.utils
 
-import com.lonx.lyrico.data.model.LyricFormat
+import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricsLine
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
 import com.lonx.lyrico.data.model.lyrics.LyricsWord
