@@ -409,6 +409,8 @@
     <string name="action_batch_rename">Rename</string>
     <string name="no_tag_data">Failed to load tag data for selected songs</string>
     <string name="batch_rename_title">Batch Rename</string>
+    <string name="batch_rename_tab_config">Config</string>
+    <string name="batch_rename_tab_preview">Preview(%1$d)</string>
     <string name="rename_format">Rename Format</string>
     <string name="format_hint">Enter the naming format, for example @1 - @2</string>
     <string name="format_placeholder">\@1 - @2</string>
@@ -420,6 +422,8 @@
     <string name="preview_empty_tip">No files available for preview</string>
     <string name="label_old_name">Old: %1$s</string>
     <string name="label_new_name">New: %1$s</string>
+    <string name="label_old_path">Old path: %1$s</string>
+    <string name="label_new_path">New path: %1$s</string>
 
     <string name="rename_conflict_warning">⚠️ Name conflict, numeric suffix will be added automatically</string>
 
