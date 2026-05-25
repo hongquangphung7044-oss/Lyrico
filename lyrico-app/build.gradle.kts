@@ -14,7 +14,14 @@ android {
         version = release(37)
     }
 
-
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
+    }
     defaultConfig {
         applicationId = "com.lonx.lyrico"
         minSdk = 28
