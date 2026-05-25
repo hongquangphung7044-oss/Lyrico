@@ -1,6 +1,8 @@
-# 完整示例
+# 从零编写插件
 
-本文档从零开始构建一个完整的 Lyrico 插件。假设插件名为 **"MusicLib"**，对接一个虚构的 `https://api.musiclib.example.com` 音乐 API。
+这是开发者编写插件的第一站。本文从零开始构建一个完整的 Lyrico 插件，展示 manifest、插件函数、配置项、元数据字段、辅助脚本和打包方式如何配合工作。
+
+示例插件名为 **"MusicLib"**，对接一个虚构的 `https://api.musiclib.example.com` 音乐 API。
 
 ## 插件目标
 

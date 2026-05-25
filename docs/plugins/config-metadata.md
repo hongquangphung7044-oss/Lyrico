@@ -1,4 +1,6 @@
-# 配置与元数据
+# 配置项与元数据写入
+
+本文说明插件如何声明用户配置项，以及如何声明可写入音频文件的元数据字段。普通用户可以通过本页理解配置和写入规则的含义；开发者可以按示例编写 `configFields` 和 `metadataFields`。
 
 ## 用户配置（configFields）
 
@@ -185,7 +187,7 @@ var enabled = request.config.my_switch === "true";
 
 ## 元数据字段（metadataFields）
 
-`metadataFields` 声明插件可以写入音频文件的元数据。各字段的定义和可选值详见 [Manifest 字段参考](./manifest.md) 中的 `metadataFields` 章节。
+`metadataFields` 声明插件可以写入音频文件的元数据。各字段的定义和可选值详见 [Manifest 参考](./manifest.md) 中的 `metadataFields` 章节。
 
 ### 写入流程
 

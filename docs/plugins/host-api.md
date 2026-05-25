@@ -1,5 +1,7 @@
 # 宿主 API 参考
 
+本文是 `globalThis.Platform` 的 API 参考，适合在插件需要访问网络、加密、编码、压缩或日志能力时查阅。
+
 插件通过 `globalThis.Platform` 对象访问宿主暴露的原生能力。该对象在 JS 运行时初始化时由 bootstrap 脚本注入。
 
 ## 访问方式
