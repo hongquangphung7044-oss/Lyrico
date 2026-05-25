@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.animateDp
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
@@ -37,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
@@ -184,7 +182,6 @@ private fun MorphExpandableFabMenu(
                     contentAlignment = Alignment.Center
                 ) {
                     CollapsedFabIcon(
-                        expanded = false,
                         style = style
                     )
                 }
@@ -195,21 +192,14 @@ private fun MorphExpandableFabMenu(
 
 @Composable
 private fun CollapsedFabIcon(
-    expanded: Boolean,
     style: ExpandableFabMenuStyle
 ) {
-    val rotation by animateFloatAsState(
-        targetValue = if (expanded) style.mainIconRotationWhenExpanded else 0f,
-        label = "expandableFabRotation"
-    )
-
     Icon(
         imageVector = style.mainIcon,
         contentDescription = "Actions",
         tint = style.mainContentColor,
         modifier = Modifier
             .size(style.mainIconSize)
-            .rotate(rotation)
     )
 }
 
