@@ -59,6 +59,7 @@ import com.lonx.lyrico.data.model.plugin.PluginFieldValueType
 import com.lonx.lyrico.data.model.plugin.PluginMetadataField
 import com.lonx.lyrico.data.model.plugin.valueType
 import com.lonx.lyrico.plugin.source.toMetadataFieldTarget
+import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.utils.isSatisfied
 import com.lonx.lyrico.viewmodel.SearchSourceConfigViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -224,7 +225,7 @@ fun PluginConfigScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
-                .padding(paddingValues)
+                .padding(scaffoldTopHorizontalPadding(paddingValues))
         ) {
             if (uiState.errorMessage != null) {
                 Text(

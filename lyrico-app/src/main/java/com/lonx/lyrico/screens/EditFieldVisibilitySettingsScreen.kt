@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.editfield.EditFieldScope
+import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.viewmodel.EditFieldVisibilityGroupUiState
 import com.lonx.lyrico.viewmodel.EditFieldVisibilitySettingsViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -87,7 +88,7 @@ fun EditFieldVisibilitySettingsScreen(
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
-                .padding(paddingValues)
+                .padding(scaffoldTopHorizontalPadding(paddingValues))
                 .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
                 .overScrollVertical()
                 .scrollEndHaptic(),

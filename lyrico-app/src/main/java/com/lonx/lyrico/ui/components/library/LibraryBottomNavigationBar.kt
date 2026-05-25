@@ -7,6 +7,8 @@ import androidx.compose.ui.res.stringResource
 import com.lonx.lyrico.screens.library.LibraryTab
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.NavigationRail
+import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.icon.extended.Contacts
@@ -24,6 +26,27 @@ fun LibraryBottomNavigationBar(
     ) {
         tabs.forEach { tab ->
             NavigationBarItem(
+                selected = tab == selectedTab,
+                onClick = { onTabSelected(tab) },
+                icon = tab.icon,
+                label = stringResource(tab.titleRes)
+            )
+        }
+    }
+}
+
+@Composable
+fun LibraryNavigationRail(
+    tabs: List<LibraryTab>,
+    selectedTab: LibraryTab,
+    onTabSelected: (LibraryTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    NavigationRail(
+        modifier = modifier
+    ) {
+        tabs.forEach { tab ->
+            NavigationRailItem(
                 selected = tab == selectedTab,
                 onClick = { onTabSelected(tab) },
                 icon = tab.icon,

@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.RenamePreview
+import com.lonx.lyrico.ui.components.scaffoldBottomPadding
+import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.ramcosta.composedestinations.generated.destinations.CharacterMappingDestination
 import com.lonx.lyrico.utils.TagField
 import com.lonx.lyrico.viewmodel.BatchRenameViewModel
@@ -136,7 +138,7 @@ fun BatchRenameScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding())
+                .padding(scaffoldTopHorizontalPadding(paddingValues))
         ) {
             Card(
                 modifier = Modifier
@@ -166,7 +168,7 @@ fun BatchRenameScreen(
             ) { page ->
                 when (tabs[page]) {
                     BatchRenameTab.Config -> BatchRenameConfigTab(
-                        bottomPadding = paddingValues.calculateBottomPadding(),
+                        bottomPadding = scaffoldBottomPadding(paddingValues),
                         topAppBarNestedScrollConnection = topAppBarScrollBehavior.nestedScrollConnection,
                         renameFormat = renameFormat,
                         uiState = uiState,
@@ -180,7 +182,7 @@ fun BatchRenameScreen(
                     )
 
                     BatchRenameTab.Preview -> BatchRenamePreviewTab(
-                        bottomPadding = paddingValues.calculateBottomPadding(),
+                        bottomPadding = scaffoldBottomPadding(paddingValues),
                         topAppBarNestedScrollConnection = topAppBarScrollBehavior.nestedScrollConnection,
                         uiState = uiState
                     )

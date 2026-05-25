@@ -66,6 +66,8 @@ import com.lonx.lyrico.ui.components.CoverRequest
 import com.lonx.lyrico.ui.components.fab.ExpandableFabMenu
 import com.lonx.lyrico.ui.components.fab.ExpandableFabMenuStyle
 import com.lonx.lyrico.ui.components.fab.FabMenuItem
+import com.lonx.lyrico.ui.components.scaffoldBottomPadding
+import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.viewmodel.BatchEditField
 import com.lonx.lyrico.viewmodel.BatchEditPreview
 import com.lonx.lyrico.viewmodel.BatchEditSelectableCover
@@ -281,7 +283,7 @@ fun BatchEditScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = paddingValues.calculateTopPadding())
+                        .padding(scaffoldTopHorizontalPadding(paddingValues))
                 ) {
                     Card(
                         modifier = Modifier
@@ -325,7 +327,7 @@ fun BatchEditScreen(
                                         .fillMaxHeight()
                                         .imePadding(),
                                     contentPadding = PaddingValues(
-                                        bottom = paddingValues.calculateBottomPadding() + 80.dp,
+                                        bottom = scaffoldBottomPadding(paddingValues, bottomExtra = 80.dp),
                                     ),
                                     overscrollEffect = null,
                                 ) {
@@ -843,7 +845,7 @@ fun BatchEditScreen(
 
                             BatchEditTab.Preview -> BatchEditPreviewTab(
                                 previews = editPreviews,
-                                bottomPadding = paddingValues.calculateBottomPadding(),
+                                bottomPadding = scaffoldBottomPadding(paddingValues),
                                 topAppBarNestedScrollConnection = topAppBarScrollBehavior.nestedScrollConnection
                             )
                         }

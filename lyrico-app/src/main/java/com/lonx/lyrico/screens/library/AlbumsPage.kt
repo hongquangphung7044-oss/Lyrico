@@ -6,8 +6,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,6 +37,7 @@ import com.lonx.lyrico.ui.components.fab.ScrollToTopButton
 import com.lonx.lyrico.ui.components.library.AlbumGridItem
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.library.rememberAlbumGridTextStyle
+import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.viewmodel.AlbumLibraryViewModel
 import com.lonx.lyrico.viewmodel.SortOrder
@@ -92,7 +90,6 @@ fun AlbumsPage(
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    val layoutDirection = LocalLayoutDirection.current
     val showFab by remember {
         derivedStateOf {
             showScrollTopButton && gridState.firstVisibleItemIndex > 0
@@ -170,11 +167,7 @@ fun AlbumsPage(
         ) { paddingValues ->
             Box(
                 modifier = Modifier
-                    .padding(
-                        start = paddingValues.calculateStartPadding(layoutDirection),
-                        top = paddingValues.calculateTopPadding(),
-                        end = paddingValues.calculateEndPadding(layoutDirection)
-                    )
+                    .padding(scaffoldTopHorizontalPadding(paddingValues))
                     .fillMaxSize()
             ) {
                 if (albums.isEmpty()) {
@@ -216,12 +209,7 @@ fun AlbumsPage(
                                     .overScrollVertical()
                                     .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
                                     .fillMaxSize(),
-                                contentPadding = PaddingValues(
-                                    start = paddingValues.calculateStartPadding(layoutDirection) + 12.dp,
-                                    top = 12.dp,
-                                    end = paddingValues.calculateEndPadding(layoutDirection) + 12.dp,
-                                    bottom = 12.dp
-                                ),
+                                contentPadding = PaddingValues(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                                 overscrollEffect = null

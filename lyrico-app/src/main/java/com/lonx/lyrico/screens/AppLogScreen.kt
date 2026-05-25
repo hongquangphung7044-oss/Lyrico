@@ -43,6 +43,7 @@ import com.lonx.lyrico.data.model.log.AppLogLevel
 import com.lonx.lyrico.data.model.log.AppLogType
 import com.lonx.lyrico.data.model.log.LogRetentionOption
 import com.lonx.lyrico.data.model.entity.AppLogEntity
+import com.lonx.lyrico.ui.components.scaffoldContentPadding
 import com.lonx.lyrico.viewmodel.AppLogEvent
 import com.lonx.lyrico.viewmodel.AppLogViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -192,9 +193,10 @@ fun AppLogScreen(
             modifier = Modifier
                 .scrollEndHaptic()
                 .overScrollVertical(),
-            contentPadding = PaddingValues(
-                top = paddingValues.calculateTopPadding() + 8.dp,
-                bottom = paddingValues.calculateBottomPadding() + 12.dp
+            contentPadding = scaffoldContentPadding(
+                paddingValues = paddingValues,
+                topExtra = 8.dp,
+                bottomExtra = 12.dp
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
