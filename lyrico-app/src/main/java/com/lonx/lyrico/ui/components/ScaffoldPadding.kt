@@ -1,15 +1,35 @@
 package com.lonx.lyrico.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 val LocalScaffoldIncludesStartPadding = compositionLocalOf { true }
+
+@Composable
+fun scaffoldTopAppBarWindowInsets(): WindowInsets {
+    val sides = if (LocalScaffoldIncludesStartPadding.current) {
+        WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+    } else {
+        WindowInsetsSides.Top + WindowInsetsSides.End
+    }
+    return WindowInsets.safeDrawing.only(sides)
+}
+
+@Composable
+fun Modifier.scaffoldTopAppBarInsetsPadding(): Modifier =
+    windowInsetsPadding(scaffoldTopAppBarWindowInsets())
 
 @Composable
 fun scaffoldContentPadding(

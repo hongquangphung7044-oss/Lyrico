@@ -37,6 +37,7 @@ import com.lonx.lyrico.data.model.ArtistSortInfo
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
+import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.ui.components.search.ArtistSongItem
 import com.lonx.lyrico.viewmodel.ArtistLibraryViewModel
@@ -117,7 +118,9 @@ fun ArtistsPage(
         topBar = {
             SmallTopAppBar(
                 title = stringResource(R.string.artist_list_title, artists.size),
+                modifier = Modifier.scaffoldTopAppBarInsetsPadding(),
                 scrollBehavior = topAppBarScrollBehavior,
+                defaultWindowInsetsPadding = false,
                 navigationIcon = {
                     IconButton(onClick = { navigator.navigate(SettingsDestination()) }) {
                         Icon(

@@ -46,6 +46,7 @@ import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.selection.dragSelection
+import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.ui.components.song.LibraryScanProgressText
 import com.lonx.lyrico.ui.components.song.SongActionSheets
@@ -215,7 +216,9 @@ fun SongsPage(
                     TopBarState.Default -> {
                         SmallTopAppBar(
                             title = stringResource(R.string.song_list_title, songs.size),
+                            modifier = Modifier.scaffoldTopAppBarInsetsPadding(),
                             scrollBehavior = topAppBarScrollBehavior,
+                            defaultWindowInsetsPadding = false,
                             navigationIcon = {
                                 IconButton(
                                     onClick = { navigator.navigate(SettingsDestination()) }

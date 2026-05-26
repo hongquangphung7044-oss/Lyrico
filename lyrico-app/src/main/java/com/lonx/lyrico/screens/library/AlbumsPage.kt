@@ -32,6 +32,7 @@ import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.AlbumGridItem
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.library.rememberAlbumGridTextStyle
+import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.viewmodel.AlbumLibraryViewModel
 import com.lonx.lyrico.viewmodel.SortOrder
@@ -111,7 +112,9 @@ fun AlbumsPage(
         topBar = {
             SmallTopAppBar(
                 title = stringResource(R.string.album_list_title, albums.size),
+                modifier = Modifier.scaffoldTopAppBarInsetsPadding(),
                 scrollBehavior = topAppBarScrollBehavior,
+                defaultWindowInsetsPadding = false,
                 navigationIcon = {
                     IconButton(onClick = { navigator.navigate(SettingsDestination()) }) {
                         Icon(
@@ -304,5 +307,3 @@ private fun albumSortDropdownEntry(
         }
     )
 }
-
-

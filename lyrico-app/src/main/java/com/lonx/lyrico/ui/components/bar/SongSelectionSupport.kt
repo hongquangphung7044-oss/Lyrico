@@ -31,6 +31,7 @@ import com.lonx.lyrico.ui.components.batch.BatchRGConfigBottomSheet
 import com.lonx.lyrico.ui.components.fab.ExpandableFabMenu
 import com.lonx.lyrico.ui.components.fab.ExpandableFabMenuStyle
 import com.lonx.lyrico.ui.components.fab.FabMenuItem
+import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.viewmodel.BatchExportViewModel
 import com.lonx.lyrico.viewmodel.BatchLyricsFormatViewModel
 import com.lonx.lyrico.viewmodel.BatchMatchViewModel
@@ -66,7 +67,9 @@ fun SongSelectionTopAppBar(
 
         SmallTopAppBar(
             title = "",
+            modifier = Modifier.scaffoldTopAppBarInsetsPadding(),
             scrollBehavior = scrollBehavior,
+            defaultWindowInsetsPadding = false,
             navigationIcon = {
                 Text(
                     text = stringResource(
