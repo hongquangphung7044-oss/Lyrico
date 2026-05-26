@@ -401,10 +401,6 @@
     <string name="unknown_error_simple">Unknown error</string>
     <string name="clear_songs">Clear All Songs</string>
 
-
-
-
-    <string name="show_scroll_top_button">Back to top Btn</string>
     <string name="action_reset">Reset</string>
     <string name="action_batch_rename">Rename</string>
     <string name="no_tag_data">Failed to load tag data for selected songs</string>
@@ -519,7 +515,6 @@
     <string name="search_type_artist">Artist</string>
     <string name="search_type_album">Album</string>
     <string name="search_type_filename">File name</string>
-    <string name="action_scroll_to_top">Scroll to top</string>
     <string name="label_search_cover">Search cover</string>
     <string name="action_lyrics_options">Lyrics options</string>
     <string name="limit_lyrics_input_lines">Limit editor lines</string>

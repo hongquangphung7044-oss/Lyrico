@@ -22,8 +22,6 @@ class ArtistLibraryViewModel(
     val sortInfo: StateFlow<ArtistSortInfo> = settingsRepository.artistSortInfo
         .stateIn(viewModelScope, SharingStarted.Eagerly, ArtistSortInfo())
 
-    val showScrollTopButton = settingsRepository.showScrollTopButton
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val scanState = libraryScanManager.state
     val artists: StateFlow<List<ArtistListItem>> =
@@ -52,11 +50,6 @@ class ArtistLibraryViewModel(
         }
     }
 
-    fun setScrollToTopButtonEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.saveShowScrollTopButton(enabled)
-        }
-    }
 
     fun refreshSongs() {
         libraryScanManager.scanAll {

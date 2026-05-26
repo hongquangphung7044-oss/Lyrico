@@ -1,5 +1,6 @@
 package com.lonx.lyrico.ui.components.search
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,7 +36,8 @@ fun ArtistSongItem(
             .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         BasicComponent(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth()
+                .background(MiuixTheme.colorScheme.surfaceVariant),
             onClick = {
                 onClick()
             },

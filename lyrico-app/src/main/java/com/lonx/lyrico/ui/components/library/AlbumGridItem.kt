@@ -1,5 +1,6 @@
 package com.lonx.lyrico.ui.components.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -68,7 +69,7 @@ fun AlbumGridItem(
         modifier = modifier.fillMaxWidth()
     ) {
         BasicComponent(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().background(MiuixTheme.colorScheme.surfaceVariant),
             insideMargin = PaddingValues(8.dp),
             onClick = onClick
         ) {

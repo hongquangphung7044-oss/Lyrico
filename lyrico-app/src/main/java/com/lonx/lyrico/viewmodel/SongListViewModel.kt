@@ -49,7 +49,6 @@ data class SongListUiState(
     val successCount: Int = 0,
     val failureCount: Int = 0,
     val skippedCount: Int = 0,
-    val showScrollTopButton: Boolean = false,
     val currentFile: String = "",
     val batchHistoryId: Long = 0,
     val batchTimeMillis: Long = 0,
@@ -77,8 +76,6 @@ class SongListViewModel(
     val sortInfo: StateFlow<SortInfo> = settingsRepository.sortInfo
         .stateIn(viewModelScope, SharingStarted.Eagerly, SortInfo())
 
-    val showScrollTopButton = settingsRepository.showScrollTopButton
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val hasFolders: StateFlow<Boolean> = folderDao.getAllFolders()
         .map { it.isNotEmpty() }
@@ -164,11 +161,6 @@ class SongListViewModel(
     }
 
 
-    fun setScrollToTopButtonEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.saveShowScrollTopButton(enabled)
-        }
-    }
 
     fun onSortChange(newSortInfo: SortInfo) {
         viewModelScope.launch {

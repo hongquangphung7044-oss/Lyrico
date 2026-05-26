@@ -19,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,8 +26,7 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ArtistSortBy
 import com.lonx.lyrico.data.model.ArtistSortInfo
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
-import com.lonx.lyrico.ui.components.bar.findScrollIndex
-import com.lonx.lyrico.ui.components.fab.ScrollToTopButton
+import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.ui.components.search.ArtistSongItem
@@ -38,7 +36,6 @@ import com.ramcosta.composedestinations.generated.destinations.ArtistDetailDesti
 import com.ramcosta.composedestinations.generated.destinations.LocalSearchDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingsDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
-import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
@@ -76,20 +73,10 @@ fun ArtistsPage(
 
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val sortInfo by viewModel.sortInfo.collectAsStateWithLifecycle()
-    val showScrollTopButton by viewModel.showScrollTopButton.collectAsStateWithLifecycle()
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val showFab by remember {
-        derivedStateOf {
-            showScrollTopButton && listState.firstVisibleItemIndex > 0
-        }
-    }
-    val topPadding by animateDpAsState(
-        targetValue = TopAppBarDefaults.SmallTopAppBarCenterHeight + 12.dp,
-        animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
-        label = "backToTopPadding"
-    )
+    val alphabetScrollController = rememberAlphabetSideBarScrollController(listState)
+
     val sections = remember(sortInfo.order) {
         if (sortInfo.order == SortOrder.ASC) SECTIONS_ASC else SECTIONS_DESC
     }
@@ -136,10 +123,6 @@ fun ArtistsPage(
                         OverlayIconDropdownMenu(
                             entries = listOf(
                                 artistSortDropdownEntry(sortInfo, viewModel::onSortChange),
-                                scrollTopButtonDropdownEntry(
-                                    showScrollTopButton = showScrollTopButton,
-                                    onShowScrollTopButtonChange = viewModel::setScrollToTopButtonEnabled
-                                )
                             )
                         ) {
                             Icon(
@@ -221,31 +204,22 @@ fun ArtistsPage(
                     if (enableIndex) {
                         AlphabetSideBar(
                             sections = sections,
-                            onSectionSelected = { section ->
-                                val index = findScrollIndex(
-                                    section = section,
-                                    sectionIndexMap = sectionIndexMap,
-                                    order = sortInfo.order
+                            sectionIndexMap = sectionIndexMap,
+                            order = sortInfo.order,
+                            scrollController = alphabetScrollController,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
+                                .padding(
+                                    top = 24.dp,
+                                    bottom = 24.dp
                                 )
-                                scope.launch { listState.scrollToItem(index) }
-                            },
-                            modifier = Modifier.align(Alignment.CenterEnd)
                         )
                     }
                 }
             }
         }
-        ScrollToTopButton(
-            visible = showFab,
-            topPadding = topPadding,
-            text = stringResource(R.string.action_scroll_to_top),
-            icon = painterResource(R.drawable.ic_arrow_up_24dp),
-            onClick = {
-                scope.launch {
-                    listState.animateScrollToItem(0)
-                }
-            }
-        )
+
     }
 }
 
@@ -285,21 +259,5 @@ private fun artistSortDropdownEntry(
                 }
             )
         }
-    )
-}
-
-@Composable
-private fun scrollTopButtonDropdownEntry(
-    showScrollTopButton: Boolean,
-    onShowScrollTopButtonChange: (Boolean) -> Unit
-): DropdownEntry {
-    return DropdownEntry(
-        items = listOf(
-            DropdownItem(
-                text = stringResource(R.string.show_scroll_top_button),
-                selected = showScrollTopButton,
-                onClick = { onShowScrollTopButtonChange(!showScrollTopButton) }
-            )
-        )
     )
 }

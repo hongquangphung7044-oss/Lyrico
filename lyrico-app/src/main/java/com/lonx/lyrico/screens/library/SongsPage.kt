@@ -7,7 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,25 +18,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,8 +43,7 @@ import com.lonx.lyrico.screens.SECTIONS_DESC
 import com.lonx.lyrico.screens.TopBarState
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
-import com.lonx.lyrico.ui.components.bar.findScrollIndex
-import com.lonx.lyrico.ui.components.fab.ScrollToTopButton
+import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
@@ -67,7 +61,6 @@ import com.ramcosta.composedestinations.generated.destinations.EditMetadataDesti
 import com.ramcosta.composedestinations.generated.destinations.LocalSearchDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingsDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
-import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
@@ -81,7 +74,6 @@ import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Search
@@ -105,8 +97,8 @@ fun SongsPage(
     val isSelectionMode by viewModel.isSelectionMode.collectAsState(initial = false)
     val selectedSongUris by viewModel.selectedSongUris.collectAsState()
     val hasFolders by viewModel.hasFolders.collectAsStateWithLifecycle()
-    val showScrollTopButton by viewModel.showScrollTopButton.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val alphabetScrollController = rememberAlphabetSideBarScrollController(listState)
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showMenuSheet by remember { mutableStateOf(false) }
@@ -117,12 +109,6 @@ fun SongsPage(
         viewModel.clearSearch()
     }
 
-    val showFab by remember {
-        derivedStateOf {
-            showScrollTopButton && listState.firstVisibleItemIndex > 0
-        }
-    }
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -165,11 +151,7 @@ fun SongsPage(
         }
     }
     val enableIndex = sections.isNotEmpty() && sortInfo.sortBy.supportsIndex
-    val topPadding by animateDpAsState(
-        targetValue = TopAppBarDefaults.SmallTopAppBarCenterHeight + 12.dp,
-        animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
-        label = "backToTopPadding"
-    )
+
     BackHandler(enabled = isSelectionMode) {
         viewModel.exitSelectionMode()
     }
@@ -287,21 +269,8 @@ fun SongsPage(
                                             )
                                         }
                                     )
-                                    val buttonEntry = DropdownEntry(
-                                        items = listOf(
-                                            DropdownItem(
-                                                text = stringResource(R.string.show_scroll_top_button),
-                                                selected = showScrollTopButton,
-                                                onClick = {
-                                                    viewModel.setScrollToTopButtonEnabled(
-                                                        !showScrollTopButton
-                                                    )
-                                                }
-                                            )
-                                        )
-                                    )
                                     OverlayIconDropdownMenu(
-                                        entries = listOf(sortEntries, buttonEntry),
+                                        entries = listOf(sortEntries),
                                     ) {
                                         Icon(
                                             imageVector = MiuixIcons.Sort,
@@ -440,15 +409,16 @@ fun SongsPage(
                 if (enableIndex && songs.isNotEmpty()) {
                     AlphabetSideBar(
                         sections = sections,
-                        onSectionSelected = { section ->
-                            val index = findScrollIndex(
-                                section = section,
-                                sectionIndexMap = sectionIndexMap,
-                                order = sortInfo.order
+                        sectionIndexMap = sectionIndexMap,
+                        order = sortInfo.order,
+                        scrollController = alphabetScrollController,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .padding(
+                                top = 24.dp,
+                                bottom = 24.dp
                             )
-                            scope.launch { listState.scrollToItem(index) }
-                        },
-                        modifier = Modifier.align(Alignment.CenterEnd)
                     )
                 }
 
@@ -478,16 +448,6 @@ fun SongsPage(
                 )
             }
         }
-        ScrollToTopButton(
-            visible = showFab,
-            topPadding = topPadding,
-            text = stringResource(R.string.action_scroll_to_top),
-            icon = painterResource(R.drawable.ic_arrow_up_24dp),
-            onClick = {
-                scope.launch {
-                    listState.animateScrollToItem(0)
-                }
-            }
-        )
+
     }
 }

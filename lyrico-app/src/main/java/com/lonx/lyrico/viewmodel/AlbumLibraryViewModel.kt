@@ -22,8 +22,6 @@ class AlbumLibraryViewModel(
     val sortInfo: StateFlow<AlbumSortInfo> = settingsRepository.albumSortInfo
         .stateIn(viewModelScope, SharingStarted.Eagerly, AlbumSortInfo())
 
-    val showScrollTopButton = settingsRepository.showScrollTopButton
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val gridColumns = settingsRepository.albumGridColumns
         .stateIn(viewModelScope, SharingStarted.Eagerly, 2)
@@ -74,11 +72,6 @@ class AlbumLibraryViewModel(
         }
     }
 
-    fun setScrollToTopButtonEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.saveShowScrollTopButton(enabled)
-        }
-    }
 
     fun setGridColumns(columns: Int) {
         viewModelScope.launch {

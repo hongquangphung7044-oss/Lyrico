@@ -54,7 +54,6 @@ interface SettingsRepository {
     val lyricRenderConfigFlow: Flow<LyricRenderConfig>
     val searchConfigFlow: Flow<SearchConfig>
     val themeConfigFlow: Flow<ThemeConfig>
-    val showScrollTopButton : Flow<Boolean>
 
     val characterMappingConfig: Flow<CharacterMappingConfig>
     val artistSplitConfigFlow: Flow<ArtistSplitConfig>
@@ -84,7 +83,6 @@ interface SettingsRepository {
     suspend fun saveRemoveEmptyLines(enabled: Boolean)
     suspend fun saveLimitLyricsInputLines(enabled: Boolean)
     suspend fun saveLogRetentionOption(option: LogRetentionOption)
-    suspend fun saveShowScrollTopButton(enabled: Boolean)
     suspend fun getLyricRenderConfig(): LyricRenderConfig
     suspend fun exportSettings(): String
     suspend fun importSettings(jsonString: String): Boolean

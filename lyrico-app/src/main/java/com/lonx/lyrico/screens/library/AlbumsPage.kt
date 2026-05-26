@@ -9,13 +9,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -24,7 +21,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,21 +28,17 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.AlbumSortBy
 import com.lonx.lyrico.data.model.AlbumSortInfo
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
-import com.lonx.lyrico.ui.components.bar.findScrollIndex
-import com.lonx.lyrico.ui.components.fab.ScrollToTopButton
+import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.AlbumGridItem
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.library.rememberAlbumGridTextStyle
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
-import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.viewmodel.AlbumLibraryViewModel
 import com.lonx.lyrico.viewmodel.SortOrder
 import com.ramcosta.composedestinations.generated.destinations.AlbumDetailDestination
 import com.ramcosta.composedestinations.generated.destinations.LocalSearchDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingsDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
-import kotlinx.coroutines.launch
-import my.nanihadesuka.compose.LazyColumnScrollbar
 import my.nanihadesuka.compose.LazyVerticalGridScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
@@ -84,15 +76,15 @@ fun AlbumsPage(
 
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val sortInfo by viewModel.sortInfo.collectAsStateWithLifecycle()
-    val showScrollTopButton by viewModel.showScrollTopButton.collectAsStateWithLifecycle()
     val albumGridColumns by viewModel.gridColumns.collectAsStateWithLifecycle()
     val albumTextStyle = rememberAlbumGridTextStyle(albumGridColumns)
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val gridState = rememberLazyGridState()
+    val alphabetScrollController = rememberAlphabetSideBarScrollController(gridState)
     val scope = rememberCoroutineScope()
     val showFab by remember {
         derivedStateOf {
-            showScrollTopButton && gridState.firstVisibleItemIndex > 0
+            gridState.firstVisibleItemIndex > 0
         }
     }
     val topPadding by animateDpAsState(
@@ -150,10 +142,6 @@ fun AlbumsPage(
                                     onColumnsChange = viewModel::setGridColumns
                                 ),
                                 albumSortDropdownEntry(sortInfo, viewModel::onSortChange),
-                                scrollTopButtonDropdownEntry(
-                                    showScrollTopButton = showScrollTopButton,
-                                    onShowScrollTopButtonChange = viewModel::setScrollToTopButtonEnabled
-                                )
                             )
                         ) {
                             Icon(
@@ -240,33 +228,21 @@ fun AlbumsPage(
                     if (enableIndex) {
                         AlphabetSideBar(
                             sections = sections,
-                            onSectionSelected = { section ->
-                                val index = findScrollIndex(
-                                    section = section,
-                                    sectionIndexMap = sectionIndexMap,
-                                    order = sortInfo.order
+                            sectionIndexMap = sectionIndexMap,
+                            order = sortInfo.order,
+                            scrollController = alphabetScrollController,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
+                                .padding(
+                                    top = 24.dp,
+                                    bottom = 24.dp
                                 )
-                                scope.launch {
-                                    gridState.scrollToItem(index)
-                                }
-                            },
-                            modifier = Modifier.align(Alignment.CenterEnd)
                         )
                     }
                 }
             }
         }
-        ScrollToTopButton(
-            visible = showFab,
-            topPadding = topPadding,
-            text = stringResource(R.string.action_scroll_to_top),
-            icon = painterResource(R.drawable.ic_arrow_up_24dp),
-            onClick = {
-                scope.launch {
-                    gridState.animateScrollToItem(0)
-                }
-            }
-        )
     }
 }
 private fun buildAlbumSummary(
@@ -332,18 +308,4 @@ private fun albumSortDropdownEntry(
     )
 }
 
-@Composable
-private fun scrollTopButtonDropdownEntry(
-    showScrollTopButton: Boolean,
-    onShowScrollTopButtonChange: (Boolean) -> Unit
-): DropdownEntry {
-    return DropdownEntry(
-        items = listOf(
-            DropdownItem(
-                text = stringResource(R.string.show_scroll_top_button),
-                selected = showScrollTopButton,
-                onClick = { onShowScrollTopButtonChange(!showScrollTopButton) }
-            )
-        )
-    )
-}
+

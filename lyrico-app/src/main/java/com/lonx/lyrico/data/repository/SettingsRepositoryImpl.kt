@@ -55,7 +55,7 @@ object SettingsDefaults {
     val KEY_THEME_COLOR = null
     val CONVERSION_MODE = ConversionMode.NONE
     const val RENAME_FORMAT = "@1 - @2"
-    const val SHOW_SCROLL_TOP_BUTTON = true
+
     val LYRIC_FORMAT = LyricFormat.VERBATIM_LRC
     val SORT_BY = SortBy.TITLE
     val SORT_ORDER = SortOrder.ASC
@@ -92,7 +92,6 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val RENAME_FORMAT = stringPreferencesKey("rename_format")
         val REMOVE_EMPTY_LINES = booleanPreferencesKey("remove_empty_lines")
         val LIMIT_LYRICS_INPUT_LINES = booleanPreferencesKey("limit_lyrics_input_lines")
-        val SHOW_SCROLL_TOP_BUTTON = booleanPreferencesKey("show_scroll_top_button")
         val LYRIC_FORMAT = stringPreferencesKey("lyric_display_mode")
         val LAST_SCAN_TIME = longPreferencesKey("last_scan_time")
         val SORT_BY = stringPreferencesKey("sort_by")
@@ -311,10 +310,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                     .getOrDefault(SettingsDefaults.LOG_RETENTION_OPTION)
             }
         }
-    override val showScrollTopButton: Flow<Boolean>
-        get() = context.settingsDataStore.data.map { preferences ->
-            preferences[PreferencesKeys.SHOW_SCROLL_TOP_BUTTON] ?: SettingsDefaults.SHOW_SCROLL_TOP_BUTTON
-        }
+
 
     override val renameFormat: Flow<String>
         get() = context.settingsDataStore.data.map { preferences ->
@@ -524,12 +520,6 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         }
     }
 
-    override suspend fun saveShowScrollTopButton(enabled: Boolean) {
-        context.settingsDataStore.edit { preferences ->
-            preferences[PreferencesKeys.SHOW_SCROLL_TOP_BUTTON] = enabled
-        }
-    }
-
     override suspend fun getLyricRenderConfig(): LyricRenderConfig {
         val prefs = context.settingsDataStore.data.first()
 
@@ -622,8 +612,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             onlyTranslationIfAvailable = prefs[PreferencesKeys.ONLY_TRANSLATION_IF_AVAILABLE]
                 ?: SettingsDefaults.ONLY_TRANSLATION_IF_AVAILABLE,
 
-            showScrollTopButton = prefs[PreferencesKeys.SHOW_SCROLL_TOP_BUTTON]
-                ?: SettingsDefaults.SHOW_SCROLL_TOP_BUTTON,
+
             limitLyricsInputLines = prefs[PreferencesKeys.LIMIT_LYRICS_INPUT_LINES]
                 ?: SettingsDefaults.LIMIT_LYRICS_INPUT_LINES,
             characterMappingConfig = charMapping,
@@ -691,9 +680,6 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 backup.keyThemeColor?.let { prefs[PreferencesKeys.KEY_THEME_COLOR] = it }
                 backup.onlyTranslationIfAvailable?.let {
                     prefs[PreferencesKeys.ONLY_TRANSLATION_IF_AVAILABLE] = it
-                }
-                backup.showScrollTopButton?.let {
-                    prefs[PreferencesKeys.SHOW_SCROLL_TOP_BUTTON] = it
                 }
                 backup.limitLyricsInputLines?.let {
                     prefs[PreferencesKeys.LIMIT_LYRICS_INPUT_LINES] = it
