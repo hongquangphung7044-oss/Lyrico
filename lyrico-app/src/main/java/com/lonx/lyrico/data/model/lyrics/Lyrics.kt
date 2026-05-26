@@ -32,6 +32,7 @@ data class LyricsResult(
     val original: List<LyricsLine>,
     val translated: List<LyricsLine>?,
     val romanization: List<LyricsLine>?,
+    val payloadType: LyricsPayloadType = LyricsPayloadType.STRUCTURED,
     val isWordByWord: Boolean = true,
     val rawPlainLrc: String = "",
     val rawVerbatimLrc: String = "",
@@ -39,6 +40,19 @@ data class LyricsResult(
     val rawTtml: String = "",
     val rawMultiPersonEnhancedLrc: String = ""
 ) : Parcelable
+
+enum class LyricsPayloadType {
+    STRUCTURED,
+    RAW_PLAIN_LRC,
+    RAW_VERBATIM_LRC,
+    RAW_ENHANCED_LRC,
+    RAW_TTML,
+    RAW_MULTI_PERSON_ENHANCED_LRC
+}
+
+fun LyricsPayloadType.isRaw(): Boolean {
+    return this != LyricsPayloadType.STRUCTURED
+}
 
 fun List<LyricsLine>.isWordByWord(): Boolean {
     return this.any { it.words.size > 1 }

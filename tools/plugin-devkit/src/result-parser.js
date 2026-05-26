@@ -36,26 +36,80 @@ export function parseLyricsResult(rawJson) {
   if (root.notFound === true) return null;
 
   const tags = stringMap(root.tags ?? {});
+  const type = normalizeLyricsType(root.type);
+  const rawPlainLrc = firstString(root, ['rawPlainLrc', 'raw_plain_lrc', 'plainLrc', 'plain_lrc', 'lrc', 'originalLrc', 'original_lrc']) ?? firstPrimitiveString(root, ['original']) ?? '';
+  const rawVerbatimLrc = firstString(root, ['rawVerbatimLrc', 'raw_verbatim_lrc']) ?? '';
+  const rawEnhancedLrc = firstString(root, ['rawEnhancedLrc', 'raw_enhanced_lrc']) ?? '';
+  const rawTtml = firstString(root, ['rawTtml', 'raw_ttml']) ?? '';
+  const rawMultiPersonEnhancedLrc = firstString(root, ['rawMultiPersonEnhancedLrc', 'raw_multi_person_enhanced_lrc']) ?? '';
+
+  if (type !== 'structured') {
+    const declaredRaw = {
+      rawPlainLrc,
+      rawVerbatimLrc,
+      rawEnhancedLrc,
+      rawTtml,
+      rawMultiPersonEnhancedLrc
+    }[type];
+    if (!declaredRaw) return null;
+
+    return {
+      tags,
+      original: [],
+      translated: null,
+      romanization: null,
+      type,
+      isWordByWord: false,
+      rawPlainLrc,
+      rawVerbatimLrc,
+      rawEnhancedLrc,
+      rawTtml,
+      rawMultiPersonEnhancedLrc
+    };
+  }
+
   const original = parseCompactWordLines(firstArray(root, ['original', 'lines']) ?? []);
   const translated = parseCompactTextLines(firstArray(root, ['translated', 'translation', 'translations']) ?? []);
   const romanization = parseCompactTextLines(firstArray(root, ['romanization', 'romanized', 'roma']) ?? []);
-  const rawPlainLrc = firstString(root, ['rawPlainLrc', 'raw_plain_lrc', 'plainLrc', 'plain_lrc', 'lrc', 'originalLrc', 'original_lrc']) ?? firstPrimitiveString(root, ['original']) ?? '';
+  if (!original.length) return null;
+
   const result = {
     tags,
     original,
     translated: translated.length ? translated : null,
     romanization: romanization.length ? romanization : null,
+    type,
     isWordByWord: original.some(line => line.words.length > 1),
-    rawPlainLrc,
-    rawVerbatimLrc: firstString(root, ['rawVerbatimLrc', 'raw_verbatim_lrc']) ?? '',
-    rawEnhancedLrc: firstString(root, ['rawEnhancedLrc', 'raw_enhanced_lrc']) ?? '',
-    rawTtml: firstString(root, ['rawTtml', 'raw_ttml']) ?? '',
-    rawMultiPersonEnhancedLrc: firstString(root, ['rawMultiPersonEnhancedLrc', 'raw_multi_person_enhanced_lrc']) ?? ''
   };
 
-  const hasContent = result.rawPlainLrc || result.rawVerbatimLrc || result.rawEnhancedLrc || result.rawTtml ||
-    result.rawMultiPersonEnhancedLrc || result.original.length || result.translated?.length || result.romanization?.length;
-  return hasContent ? result : null;
+  return result;
+}
+
+function normalizeLyricsType(value) {
+  switch (String(value ?? 'structured').trim()) {
+    case 'rawPlainLrc':
+    case 'raw_plain_lrc':
+    case 'plainLrc':
+    case 'plain_lrc':
+    case 'lrc':
+      return 'rawPlainLrc';
+    case 'rawVerbatimLrc':
+    case 'raw_verbatim_lrc':
+      return 'rawVerbatimLrc';
+    case 'rawEnhancedLrc':
+    case 'raw_enhanced_lrc':
+      return 'rawEnhancedLrc';
+    case 'rawTtml':
+    case 'raw_ttml':
+    case 'ttml':
+      return 'rawTtml';
+    case 'rawMultiPersonEnhancedLrc':
+    case 'raw_multi_person_enhanced_lrc':
+      return 'rawMultiPersonEnhancedLrc';
+    case 'structured':
+    default:
+      return 'structured';
+  }
 }
 
 export function validateFunctionResult(functionName, rawJson, plugin) {

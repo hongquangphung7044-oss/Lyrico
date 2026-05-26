@@ -1,6 +1,7 @@
 package com.lonx.lyrico.plugin.source
 
 import com.lonx.lyrico.data.model.lyrics.LyricsLine
+import com.lonx.lyrico.data.model.lyrics.LyricsPayloadType
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
 import com.lonx.lyrico.data.model.lyrics.LyricsWord
 import com.lonx.lyrico.data.model.lyrics.SongSearchResult
@@ -67,6 +68,9 @@ class PluginJsonParser(
         if (obj.boolean("notFound") == true) return null
 
         val tags = obj.stringMap("tags").orEmpty()
+        val payloadType = obj.primitiveString("type")
+            ?.toLyricsPayloadType()
+            ?: LyricsPayloadType.STRUCTURED
 
         val rawPlain = obj.primitiveString(
             "rawPlainLrc",
@@ -87,6 +91,19 @@ class PluginJsonParser(
             "raw_multi_person_enhanced_lrc"
         ).orEmpty()
 
+        if (payloadType != LyricsPayloadType.STRUCTURED) {
+            return obj.toRawLyricsResult(
+                type = payloadType,
+                tags = tags,
+                rawPlain = rawPlain,
+                rawOriginal = rawOriginal,
+                rawVerbatim = verbatim,
+                rawEnhanced = enhanced,
+                rawTtml = ttml,
+                rawMultiPerson = multiPerson
+            )
+        }
+
         val originalLines = obj.array("original", "lines").parseCompactWordLines()
 
         val translatedLines = obj.array(
@@ -101,18 +118,7 @@ class PluginJsonParser(
             "roma"
         ).parseCompactTextLines().takeIf { it.isNotEmpty() }
 
-        val plain = rawPlain.ifBlank { rawOriginal }
-
-        if (
-            plain.isBlank() &&
-            verbatim.isBlank() &&
-            enhanced.isBlank() &&
-            ttml.isBlank() &&
-            multiPerson.isBlank() &&
-            originalLines.isEmpty() &&
-            translatedLines.isNullOrEmpty() &&
-            romanizationLines.isNullOrEmpty()
-        ) {
+        if (originalLines.isEmpty()) {
             return null
         }
 
@@ -123,12 +129,8 @@ class PluginJsonParser(
             original = originalLines,
             translated = translatedLines,
             romanization = romanizationLines,
+            payloadType = LyricsPayloadType.STRUCTURED,
             isWordByWord = isWordByWord,
-            rawPlainLrc = plain,
-            rawVerbatimLrc = verbatim,
-            rawEnhancedLrc = enhanced,
-            rawTtml = ttml,
-            rawMultiPersonEnhancedLrc = multiPerson
         )
     }
 
@@ -138,9 +140,64 @@ class PluginJsonParser(
             original = emptyList(),
             translated = null,
             romanization = null,
+            payloadType = LyricsPayloadType.RAW_PLAIN_LRC,
             isWordByWord = false,
             rawPlainLrc = this
         )
+    }
+}
+
+private fun JsonObject.toRawLyricsResult(
+    type: LyricsPayloadType,
+    tags: Map<String, String>,
+    rawPlain: String,
+    rawOriginal: String,
+    rawVerbatim: String,
+    rawEnhanced: String,
+    rawTtml: String,
+    rawMultiPerson: String
+): LyricsResult? {
+    val plain = rawPlain.ifBlank { rawOriginal }
+    val hasDeclaredRaw = when (type) {
+        LyricsPayloadType.RAW_PLAIN_LRC -> plain.isNotBlank()
+        LyricsPayloadType.RAW_VERBATIM_LRC -> rawVerbatim.isNotBlank()
+        LyricsPayloadType.RAW_ENHANCED_LRC -> rawEnhanced.isNotBlank()
+        LyricsPayloadType.RAW_TTML -> rawTtml.isNotBlank()
+        LyricsPayloadType.RAW_MULTI_PERSON_ENHANCED_LRC -> rawMultiPerson.isNotBlank()
+        LyricsPayloadType.STRUCTURED -> false
+    }
+
+    if (!hasDeclaredRaw) return null
+
+    return LyricsResult(
+        tags = tags,
+        original = emptyList(),
+        translated = null,
+        romanization = null,
+        payloadType = type,
+        isWordByWord = false,
+        rawPlainLrc = plain,
+        rawVerbatimLrc = rawVerbatim,
+        rawEnhancedLrc = rawEnhanced,
+        rawTtml = rawTtml,
+        rawMultiPersonEnhancedLrc = rawMultiPerson
+    )
+}
+
+private fun String.toLyricsPayloadType(): LyricsPayloadType? {
+    return when (trim()) {
+        "structured", "STRUCTURED" -> LyricsPayloadType.STRUCTURED
+        "rawPlainLrc", "raw_plain_lrc", "RAW_PLAIN_LRC", "plainLrc", "plain_lrc", "lrc" ->
+            LyricsPayloadType.RAW_PLAIN_LRC
+        "rawVerbatimLrc", "raw_verbatim_lrc", "RAW_VERBATIM_LRC" ->
+            LyricsPayloadType.RAW_VERBATIM_LRC
+        "rawEnhancedLrc", "raw_enhanced_lrc", "RAW_ENHANCED_LRC" ->
+            LyricsPayloadType.RAW_ENHANCED_LRC
+        "rawTtml", "raw_ttml", "RAW_TTML", "ttml" ->
+            LyricsPayloadType.RAW_TTML
+        "rawMultiPersonEnhancedLrc", "raw_multi_person_enhanced_lrc", "RAW_MULTI_PERSON_ENHANCED_LRC" ->
+            LyricsPayloadType.RAW_MULTI_PERSON_ENHANCED_LRC
+        else -> null
     }
 }
 

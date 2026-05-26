@@ -7,6 +7,7 @@ import com.lonx.lyrico.data.model.lyrics.LyricFormat.*
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
 import com.lonx.lyrico.data.model.lyrics.LyricsLine
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
+import com.lonx.lyrico.data.model.lyrics.isRaw
 
 object LyricEncoder {
     // 匹配 TTML 格式: begin="00:01:23.456" 或 end="00:01:23.456"
@@ -201,11 +202,23 @@ object LyricEncoder {
         config: LyricRenderConfig,
         offset: Long = 0L,
     ): String {
-        if (!shouldPreferStructured(result, config)) {
+        if (result.payloadType.isRaw()) {
             selectRawLyrics(result, config)?.let { raw ->
                 val converted = convertLyricsText(raw, config.conversionMode)
                 return shiftLyricsOffset(converted, offset).trim()
             }
+
+            encodeFallbackRawLyrics(result, config, offset)?.let {
+                return it
+            }
+        }
+
+        if (result.original.isEmpty()) {
+            selectRawLyrics(result, config)?.let { raw ->
+                val converted = convertLyricsText(raw, config.conversionMode)
+                return shiftLyricsOffset(converted, offset).trim()
+            }
+
             encodeFallbackRawLyrics(result, config, offset)?.let {
                 return it
             }
@@ -309,23 +322,30 @@ object LyricEncoder {
         return raw.takeIf { it.isNotBlank() }
     }
 
-    private fun shouldPreferStructured(
-        result: LyricsResult,
-        config: LyricRenderConfig
-    ): Boolean {
-        return (config.showTranslation && !result.translated.isNullOrEmpty()) ||
-                (config.showRomanization && !result.romanization.isNullOrEmpty())
-    }
-
     private fun encodeFallbackRawLyrics(
         result: LyricsResult,
         config: LyricRenderConfig,
         offset: Long
     ): String? {
         val fallbackRaw = when (config.format) {
-            PLAIN_LRC -> listOf(result.rawVerbatimLrc, result.rawEnhancedLrc, result.rawTtml)
-            VERBATIM_LRC -> listOf(result.rawEnhancedLrc, result.rawPlainLrc, result.rawTtml)
-            ENHANCED_LRC -> listOf(result.rawVerbatimLrc, result.rawPlainLrc, result.rawTtml)
+            PLAIN_LRC -> listOf(
+                result.rawVerbatimLrc,
+                result.rawEnhancedLrc,
+                result.rawMultiPersonEnhancedLrc,
+                result.rawTtml
+            )
+            VERBATIM_LRC -> listOf(
+                result.rawEnhancedLrc,
+                result.rawMultiPersonEnhancedLrc,
+                result.rawTtml,
+                result.rawPlainLrc
+            )
+            ENHANCED_LRC -> listOf(
+                result.rawVerbatimLrc,
+                result.rawMultiPersonEnhancedLrc,
+                result.rawTtml,
+                result.rawPlainLrc
+            )
             TTML -> listOf(result.rawEnhancedLrc, result.rawVerbatimLrc, result.rawPlainLrc)
         }
 

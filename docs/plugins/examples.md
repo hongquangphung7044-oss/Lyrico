@@ -296,6 +296,7 @@ MusicLib.mapLyrics = function (apiResponse) {
   var romanization = roma ? MusicLib.parsePlainLrc(roma) : null;
 
   return {
+    type: "structured",
     tags: {
       ti: lyrics.title || "",
       ar: lyrics.artist || "",
@@ -303,10 +304,7 @@ MusicLib.mapLyrics = function (apiResponse) {
     },
     original: original,
     translated: translated,
-    romanization: romanization,
-    rawPlainLrc: rawLrc,
-    rawVerbatimLrc: lyrics.verbatim || "",
-    rawEnhancedLrc: ""
+    romanization: romanization
   };
 };
 ```

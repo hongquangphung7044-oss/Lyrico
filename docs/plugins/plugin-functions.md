@@ -177,7 +177,7 @@ function searchSongs(request) {
 
 ### 返回值
 
-返回结构化的歌词数据，或 `null` 表示未找到歌词。支持三种返回格式：
+返回结构化的歌词数据、完整原始歌词文本，或 `null` 表示未找到歌词。宿主先读取 `type` 判断载荷类型；当 `type` 为 `structured` 时解析 `original` / `translated` / `romanization` 列表，当 `type` 为 raw 类型时直接使用对应 raw 字段。
 
 **格式 1：结构化逐词歌词（推荐）**
 
@@ -215,29 +215,33 @@ function getLyrics(request) {
 [lineStartMs, lineEndMs, "text"]
 ```
 
-**格式 2：原始 LRC 文本**
+**格式 2：完整原始歌词文本**
 
 ```javascript
 function getLyrics(request) {
   return JSON.stringify({
-    rawPlainLrc: "[00:00.00]第一句歌词\n[00:05.00]第二句歌词",
-    rawVerbatimLrc: "",
-    rawEnhancedLrc: "",
-    rawTtml: "",
-    rawMultiPersonEnhancedLrc: ""
+    type: "rawPlainLrc",
+    tags: {
+      ti: "歌曲标题",
+      ar: "艺术家",
+      al: "专辑名"
+    },
+    rawPlainLrc: "[00:00.00]第一句歌词\n[00:05.00]第二句歌词"
   });
 }
 ```
 
-支持的原始格式键名（按解析优先级）：
+支持的 raw `type` 值与对应内容字段：
 
-| 键名 | 说明 |
+| `type` | 内容字段 | 说明 |
 |------|------|
-| `rawPlainLrc` / `raw_plain_lrc` / `plainLrc` / `lrc` / `originalLrc` | 普通 LRC |
-| `rawVerbatimLrc` / `raw_verbatim_lrc` | 逐词 LRC |
-| `rawEnhancedLrc` / `raw_enhanced_lrc` | 增强 LRC |
-| `rawTtml` / `raw_ttml` | TTML 格式 |
-| `rawMultiPersonEnhancedLrc` | 多人增强 LRC |
+| `rawPlainLrc` | `rawPlainLrc` | 普通 LRC |
+| `rawVerbatimLrc` | `rawVerbatimLrc` | 逐字 LRC |
+| `rawEnhancedLrc` | `rawEnhancedLrc` | 增强型逐字 LRC |
+| `rawTtml` | `rawTtml` | TTML |
+| `rawMultiPersonEnhancedLrc` | `rawMultiPersonEnhancedLrc` | 多人增强 LRC |
+
+若插件没有显式提供 `type`，宿主会按 `structured` 处理；这只用于兼容旧插件，新插件应显式声明。
 
 **格式 3：返回 `null` 表示无歌词**
 
@@ -251,19 +255,20 @@ function getLyrics(request) {
 }
 ```
 
-### LyricsResult 完整字段
+### LyricsResult 字段
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| `type` | `string` | `structured` 或 raw 类型 |
 | `tags` | `object` | 歌曲元信息标签 |
-| `original` | `Line[]` | 原文歌词（逐词或整行） |
-| `translated` | `Line[] \| null` | 翻译歌词 |
-| `romanization` | `Line[] \| null` | 音译歌词（罗马音等） |
-| `rawPlainLrc` | `string` | 原始普通 LRC |
-| `rawVerbatimLrc` | `string` | 原始逐词 LRC |
-| `rawEnhancedLrc` | `string` | 原始增强 LRC |
-| `rawTtml` | `string` | 原始 TTML |
-| `rawMultiPersonEnhancedLrc` | `string` | 原始多人增强 LRC |
+| `original` | `Line[]` | 仅 `type: "structured"` 使用，原文歌词（逐词或整行） |
+| `translated` | `Line[] \| null` | 仅 `type: "structured"` 使用，翻译歌词 |
+| `romanization` | `Line[] \| null` | 仅 `type: "structured"` 使用，音译歌词（罗马音等） |
+| `rawPlainLrc` | `string` | 仅 `type: "rawPlainLrc"` 使用 |
+| `rawVerbatimLrc` | `string` | 仅 `type: "rawVerbatimLrc"` 使用 |
+| `rawEnhancedLrc` | `string` | 仅 `type: "rawEnhancedLrc"` 使用 |
+| `rawTtml` | `string` | 仅 `type: "rawTtml"` 使用 |
+| `rawMultiPersonEnhancedLrc` | `string` | 仅 `type: "rawMultiPersonEnhancedLrc"` 使用 |
 
 ---
 

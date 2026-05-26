@@ -1,5 +1,6 @@
 package com.lonx.lyrico.utils
 
+import android.util.Log
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricsLine
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
@@ -10,10 +11,6 @@ import org.xmlpull.v1.XmlPullParserFactory
 import java.io.StringReader
 
 object LyricDecoder {
-    private val TTML_P_PATTERN = Regex("""<p\s+begin="([^"]+)"\s+end="([^"]+)".*?>(.*?)</p>""", RegexOption.DOT_MATCHES_ALL)
-    private val TTML_SPAN_PATTERN = Regex("""<span\s+begin="([^"]+)"\s+end="([^"]+)".*?>(.*?)</span>""", RegexOption.DOT_MATCHES_ALL)
-    private val TTML_ROLE_PATTERN = Regex("""ttm:role="([^"]+)"""")
-
     fun detectFormat(lyricsText: String): LyricFormat? {
         if (lyricsText.isBlank()) return null
 
@@ -219,8 +216,11 @@ object LyricDecoder {
 
         fun attr(name: String): String? {
             for (i in 0 until parser.attributeCount) {
-                if (parser.getAttributeName(i) == name) {
-                    return parser.getAttributeValue(i)
+                val attrName = parser.getAttributeName(i)
+                val attrValue = parser.getAttributeValue(i)
+
+                if (attrName == name || attrName.endsWith(":$name")) {
+                    return attrValue
                 }
             }
             return null
@@ -392,6 +392,10 @@ object LyricDecoder {
 
                         if (currentSpanTextBuilder != null) {
                             currentSpanTextBuilder.append(text)
+                        } else if (originalWords.isNotEmpty()) {
+                            val lastIndex = originalWords.lastIndex
+                            val lastWord = originalWords[lastIndex]
+                            originalWords[lastIndex] = lastWord.copy(text = lastWord.text + text)
                         } else if (text.isNotBlank()) {
                             plainTextBuilder.append(text)
                         }
@@ -454,7 +458,13 @@ object LyricDecoder {
 
             eventType = parser.next()
         }
+        val wordLineCount = originalLines.count { it.words.size > 1 }
+        val totalWordCount = originalLines.sumOf { it.words.size }
 
+        Log.d(
+            "LyricDecoder",
+            "parseTtmlToResult: lines=${originalLines.size}, wordLineCount=$wordLineCount, totalWordCount=$totalWordCount"
+        )
         return LyricsResult(
             tags = emptyMap(),
             original = originalLines,
@@ -472,12 +482,42 @@ object LyricDecoder {
     }
 
     private fun parseTtmlTimeMs(timeStr: String): Long {
-        val parts = timeStr.split(":", ".")
-        if (parts.size < 4) return 0L
-        val h = parts[0].toLong()
-        val m = parts[1].toLong()
-        val s = parts[2].toLong()
-        val ms = parts[3].padEnd(3, '0').toLong()
-        return (h * 3600 + m * 60 + s) * 1000 + ms
+        val text = timeStr.trim()
+        if (text.isBlank()) return 0L
+
+        Regex("""^(\d+(?:\.\d+)?)ms$""")
+            .matchEntire(text)
+            ?.let { return it.groupValues[1].toDouble().toLong() }
+
+        Regex("""^(\d+(?:\.\d+)?)s$""")
+            .matchEntire(text)
+            ?.let { return (it.groupValues[1].toDouble() * 1000).toLong() }
+
+        Regex("""^(\d+(?:\.\d+)?)$""")
+            .matchEntire(text)
+            ?.let { return (it.groupValues[1].toDouble() * 1000).toLong() }
+
+        Regex("""^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$""")
+            .matchEntire(text)
+            ?.let { match ->
+                val h = match.groupValues[1].toLong()
+                val m = match.groupValues[2].toLong()
+                val s = match.groupValues[3].toLong()
+                val fraction = match.groupValues[4]
+                val ms = if (fraction.isBlank()) 0L else fraction.padEnd(3, '0').take(3).toLong()
+                return (h * 3600 + m * 60 + s) * 1000 + ms
+            }
+
+        Regex("""^(\d+):(\d{2})(?:\.(\d+))?$""")
+            .matchEntire(text)
+            ?.let { match ->
+                val m = match.groupValues[1].toLong()
+                val s = match.groupValues[2].toLong()
+                val fraction = match.groupValues[3]
+                val ms = if (fraction.isBlank()) 0L else fraction.padEnd(3, '0').take(3).toLong()
+                return (m * 60 + s) * 1000 + ms
+            }
+
+        return 0L
     }
 }
