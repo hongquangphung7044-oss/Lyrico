@@ -70,6 +70,8 @@ import org.koin.androidx.compose.koinViewModel
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -734,18 +736,27 @@ private fun PluginConfigFormItem(
             val selectedIndex = field.options
                 .indexOfFirst { it.value == value }
                 .coerceAtLeast(0)
+            val entry = remember(field.options, selectedIndex, onValueChange) {
+                DropdownEntry(
+                    items = field.options.mapIndexed { index, option ->
+                        DropdownItem(
+                            text = option.label,
+                            summary = option.summary.takeIf { it.isNotBlank() },
+                            selected = index == selectedIndex,
+                            onClick = {
+                                onValueChange(option.value)
+                            }
+                        )
+                    }
+                )
+            }
 
             WindowDropdownPreference(
                 title = field.title,
                 summary = helperText(field, error),
-                items = field.options.map { it.label },
-                selectedIndex = selectedIndex,
+                entry = entry,
                 enabled = field.options.isNotEmpty(),
-                onSelectedIndexChange = { index ->
-                    field.options.getOrNull(index)?.let { option ->
-                        onValueChange(option.value)
-                    }
-                }
+                collapseOnSelection = true
             )
         }
 
