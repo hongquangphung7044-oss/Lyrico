@@ -1,10 +1,7 @@
 package com.lonx.lyrico.viewmodel
 
-import android.content.Context
-import android.content.Intent
 import android.os.Parcelable
 import android.util.Log
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.audiotag.model.AudioTagData
@@ -14,8 +11,6 @@ import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SongRepository
 import com.lonx.lyrico.data.model.search.LocalSearchType
 import com.lonx.lyrico.data.model.entity.SongEntity
-import com.lonx.lyrico.data.model.entity.getUri
-import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.utils.LibraryScanManager
 import com.lonx.lyrico.utils.UpdateManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -61,7 +56,6 @@ data class SongListUiState(
 class SongListViewModel(
     private val songRepository: SongRepository,
     private val settingsRepository: SettingsRepository,
-    private val playbackRepository: PlaybackRepository,
     private val updateManager: UpdateManager,
     private val libraryScanManager: LibraryScanManager,
     private val selectionManager: SharedSelectionManager,
@@ -88,10 +82,9 @@ class SongListViewModel(
 
     private var preDragSelectedUris = emptySet<String>()
 
-    val selectedSongUris = selectionManager.selectedUris
+    private val selectedSongUris = selectionManager.selectedUris
     private val _searchType = MutableStateFlow(LocalSearchType.ALL)
     val searchType = _searchType.asStateFlow()
-    val isSelectionMode = selectionManager.isSelectionMode
     val songs: StateFlow<List<SongEntity>> = combine(
         sortInfo,
         _uiState.map { it.searchQuery }.distinctUntilChanged(),
@@ -108,11 +101,6 @@ class SongListViewModel(
         _uiState.update { it.copy(isSearching = false) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun renameSong(song: SongEntity, newFileName: String) {
-        viewModelScope.launch {
-            songRepository.renameSong(song, newFileName)
-        }
-    }
     fun clearSearch() {
         _uiState.update { it.copy(searchQuery = "") }
         _searchType.value = LocalSearchType.ALL
@@ -150,75 +138,10 @@ class SongListViewModel(
         }
     }
 
-    fun play(context: Context, song: SongEntity) {
-        val uri = song.getUri
-        playbackRepository.play(context, uri)
-    }
-    fun delete(song: SongEntity) {
-        viewModelScope.launch {
-            songRepository.deleteSong(song)
-        }
-    }
-
-
-
     fun onSortChange(newSortInfo: SortInfo) {
         viewModelScope.launch {
             settingsRepository.saveSortInfo(newSortInfo)
         }
-    }
-
-    fun toggleSelection(uri: String) {
-        selectionManager.toggle(uri)
-    }
-
-    fun exitSelectionMode() {
-        selectionManager.exitSelectionMode()
-    }
-
-    fun deselectAll() {
-        selectionManager.deselectAll()
-    }
-    fun selectAll(songs: List<SongEntity>) {
-        selectionManager.selectAll(songs.map { it.uri }.toSet())
-    }
-
-
-
-    fun batchDelete(songs: List<SongEntity>) {
-        val selectedUris = selectedSongUris.value
-        val toDelete = songs.filter { it.uri in selectedUris }
-
-        viewModelScope.launch {
-            songRepository.deleteSongs(toDelete)
-            exitSelectionMode()
-        }
-    }
-
-    fun batchShare(context: Context, songs: List<SongEntity>) {
-        val selectedUris = selectedSongUris.value
-        val toShare = songs.filter { it.uri in selectedUris }
-        if (toShare.isEmpty()) return
-
-        val uris = toShare.map { it.uri.toUri() }.toCollection(ArrayList())
-
-        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "audio/*"
-            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-
-        context.startActivity(
-            Intent.createChooser(intent, context.getString(com.lonx.lyrico.R.string.share_chooser_title))
-        )
-    }
-
-    fun setSelectionUris(): Boolean {
-        val selectedUris = selectedSongUris.value
-        if (selectedUris.isEmpty()) return false
-
-        selectionManager.setUris(selectedUris)
-        return true
     }
     fun refreshSongs() {
         Log.d(TAG, "用户手动刷新歌曲列表")

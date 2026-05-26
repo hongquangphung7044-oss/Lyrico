@@ -32,10 +32,12 @@ import com.lonx.lyrico.ui.components.LocalScaffoldIncludesStartPadding
 import com.lonx.lyrico.ui.components.scaffoldBottomPadding
 import com.lonx.lyrico.ui.components.scaffoldHorizontalBottomPadding
 import com.lonx.lyrico.viewmodel.SongListViewModel
+import com.lonx.lyrico.viewmodel.SongSelectionViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.viewmodel.koinActivityViewModel
 import top.yukonga.miuix.kmp.basic.Scaffold
 
@@ -59,24 +61,29 @@ fun LibraryHomeScreen(
     val tabs = remember { LibraryTab.entries.toList() }
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
-    val songListViewModel: SongListViewModel = koinActivityViewModel()
-    val songs by songListViewModel.songs.collectAsState()
-    val isSelectionMode by songListViewModel.isSelectionMode.collectAsState(initial = false)
-    val selectedSongUris by songListViewModel.selectedSongUris.collectAsState()
-    var isBatchFabMenuExpanded by remember { mutableStateOf(false) }
+    val viewModel: SongListViewModel = koinActivityViewModel()
+    val selectionViewModel: SongSelectionViewModel = koinViewModel()
+    val songs by viewModel.songs.collectAsState()
+    val isSelectionMode by selectionViewModel.isSelectionMode.collectAsState(initial = false)
+    val selectedSongUris by selectionViewModel.selectedSongUris.collectAsState()
+    var isFabMenuExpanded by remember { mutableStateOf(false) }
     var bottomBarPadding by remember { mutableStateOf(0.dp) }
-
-    BackHandler(enabled = isBatchFabMenuExpanded) {
-        isBatchFabMenuExpanded = false
-    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val useNavigationRail = maxHeight < 520.dp
         val selectedTab = tabs[pagerState.currentPage]
 
+        BackHandler(enabled = isFabMenuExpanded || (isSelectionMode && selectedTab == LibraryTab.Songs)) {
+            if (isFabMenuExpanded) {
+                isFabMenuExpanded = false
+            } else {
+                selectionViewModel.exitSelectionMode()
+            }
+        }
+
         fun selectTab(tab: LibraryTab) {
             scope.launch {
-                isBatchFabMenuExpanded = false
+                isFabMenuExpanded = false
                 pagerState.animateScrollToPage(tab.ordinal)
             }
         }
@@ -131,13 +138,13 @@ fun LibraryHomeScreen(
                 navigator = navigator,
                 songs = songs,
                 show = isSelectionMode && selectedTab == LibraryTab.Songs,
-                expanded = isBatchFabMenuExpanded,
+                expanded = isFabMenuExpanded,
                 selectedSongUris = selectedSongUris,
                 modifier = Modifier.padding(bottom = bottomBarPadding),
-                onExpandedChange = { isBatchFabMenuExpanded = it },
-                onSetSelectionUris = songListViewModel::setSelectionUris,
-                onBatchDelete = songListViewModel::batchDelete,
-                onBatchShare = songListViewModel::batchShare
+                onExpandedChange = { isFabMenuExpanded = it },
+                onSetSelectionUris = selectionViewModel::setSelectionUris,
+                onBatchDelete = selectionViewModel::batchDelete,
+                onBatchShare = selectionViewModel::batchShare
             )
         }
     }

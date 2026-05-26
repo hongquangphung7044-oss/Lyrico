@@ -1,7 +1,6 @@
 package com.lonx.lyrico.screens.library
 
 import android.content.Intent
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -55,6 +54,7 @@ import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
 import com.lonx.lyrico.utils.UriUtils
 import com.lonx.lyrico.viewmodel.SongListViewModel
+import com.lonx.lyrico.viewmodel.SongSelectionViewModel
 import com.lonx.lyrico.viewmodel.SortBy
 import com.lonx.lyrico.viewmodel.SortInfo
 import com.lonx.lyrico.viewmodel.SortOrder
@@ -65,6 +65,7 @@ import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import my.nanihadesuka.compose.LazyColumnScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.viewmodel.koinActivityViewModel
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -91,12 +92,13 @@ fun SongsPage(
     modifier: Modifier = Modifier
 ) {
     val viewModel: SongListViewModel = koinActivityViewModel()
+    val selectionViewModel: SongSelectionViewModel = koinViewModel()
     val scanState by viewModel.scanState.collectAsStateWithLifecycle()
 
     val sortInfo by viewModel.sortInfo.collectAsState()
     val songs by viewModel.songs.collectAsState()
-    val isSelectionMode by viewModel.isSelectionMode.collectAsState(initial = false)
-    val selectedSongUris by viewModel.selectedSongUris.collectAsState()
+    val isSelectionMode by selectionViewModel.isSelectionMode.collectAsState(initial = false)
+    val selectedSongUris by selectionViewModel.selectedSongUris.collectAsState()
     val hasFolders by viewModel.hasFolders.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val alphabetScrollController = rememberAlphabetSideBarScrollController(listState)
@@ -153,9 +155,6 @@ fun SongsPage(
     }
     val enableIndex = sections.isNotEmpty() && sortInfo.sortBy.supportsIndex
 
-    BackHandler(enabled = isSelectionMode) {
-        viewModel.exitSelectionMode()
-    }
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val refreshTexts = listOf(
         stringResource(R.string.pull_to_refresh),
@@ -207,9 +206,9 @@ fun SongsPage(
                             songs = songs,
                             selectedSongUris = selectedSongUris,
                             scrollBehavior = topAppBarScrollBehavior,
-                            onSelectAll = viewModel::selectAll,
-                            onDeselectAll = viewModel::deselectAll,
-                            onClose = viewModel::exitSelectionMode
+                            onSelectAll = selectionViewModel::selectAll,
+                            onDeselectAll = selectionViewModel::deselectAll,
+                            onClose = selectionViewModel::exitSelectionMode
                         )
                     }
 
@@ -385,7 +384,7 @@ fun SongsPage(
                                         navigator.navigate(EditMetadataDestination(songFileUri = song.uri))
                                     },
                                     onToggleSelection = {
-                                        viewModel.toggleSelection(song.uri)
+                                        selectionViewModel.toggleSelection(song.uri)
                                     },
                                     trailingContent = {
                                         Box(modifier = Modifier.padding(end = 8.dp)) {
@@ -393,7 +392,7 @@ fun SongsPage(
                                                 isSelectionMode = isSelectionMode,
                                                 isSelected = selectedSongUris.contains(song.uri),
                                                 onToggleSelection = {
-                                                    viewModel.toggleSelection(song.uri)
+                                                    selectionViewModel.toggleSelection(song.uri)
                                                 },
                                                 onShowMenu = {
                                                     showMenuSheet = true
@@ -439,13 +438,13 @@ fun SongsPage(
                 onShowDelete = { showDeleteDialog = true },
                 onShowRename = { showRenameDialog = true },
                 onPlay = { song ->
-                    viewModel.play(context, song)
+                    selectionViewModel.play(context, song)
                 },
                 onDelete = { song ->
-                    viewModel.delete(song)
+                    selectionViewModel.delete(song)
                 },
                 onRename = { song, newFileName ->
-                    viewModel.renameSong(song, newFileName)
+                    selectionViewModel.renameSong(song, newFileName)
                 }
             )
         }
