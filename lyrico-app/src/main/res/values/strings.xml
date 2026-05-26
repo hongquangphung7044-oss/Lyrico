@@ -750,4 +750,7 @@
     <string name="plugin_import_conflict_downgrade">Downgrade</string>
     <string name="plugin_import_expand">Expand</string>
     <string name="plugin_import_collapse">Collapse</string>
+
+    <string name="password_show">Show password</string>
+    <string name="password_hide">Hide password</string>
 </resources>

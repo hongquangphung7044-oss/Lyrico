@@ -761,4 +761,7 @@
     <string name="plugin_import_conflict_downgrade">降级</string>
     <string name="plugin_import_expand">展开</string>
     <string name="plugin_import_collapse">收起</string>
+
+    <string name="password_show">显示密码</string>
+    <string name="password_hide">隐藏密码</string>
 </resources>
