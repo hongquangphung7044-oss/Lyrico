@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +48,7 @@ import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.cover.CoverImage
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
+import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
@@ -218,6 +220,13 @@ fun ArtistDetailScreen(
                                 onToggleSelection = { song ->
                                     selectionViewModel.toggleSelection(song.uri)
                                 },
+                                onDragSelectionStart = { index ->
+                                    selectionViewModel.startDragSelection(index, songs)
+                                },
+                                onDragSelectionChange = { startIndex, endIndex ->
+                                    selectionViewModel.updateDragSelection(startIndex, endIndex, songs)
+                                },
+                                onDragSelectionEnd = selectionViewModel::endDragSelection,
                                 onShowSongMenu = { song ->
                                     selectedSong = song
                                     showMenuSheet = true
@@ -282,14 +291,28 @@ private fun ArtistSongsPage(
     topAppBarScrollBehavior: ScrollBehavior,
     onSongClick: (SongEntity) -> Unit,
     onToggleSelection: (SongEntity) -> Unit,
+    onDragSelectionStart: (Int) -> Unit,
+    onDragSelectionChange: (Int, Int) -> Unit,
+    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit
 ) {
+    val listState = rememberLazyListState()
+
     LazyColumn(
         modifier = Modifier
             .scrollEndHaptic()
             .overScrollVertical()
             .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
+            .dragSelection(
+                listState = listState,
+                itemCount = songs.size,
+                isSelectionMode = isSelectionMode,
+                onDragSelectionStart = onDragSelectionStart,
+                onDragSelectionChange = onDragSelectionChange,
+                onDragSelectionEnd = onDragSelectionEnd
+            )
             .fillMaxHeight(),
+        state = listState,
         contentPadding = PaddingValues(bottom = 12.dp),
         overscrollEffect = null
     ) {

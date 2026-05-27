@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -62,6 +63,7 @@ import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
+import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
@@ -481,6 +483,13 @@ fun FolderManagerScreen(
                     },
                     onRefreshFolder = viewModel::refreshFolder,
                     onIgnoredChange = viewModel::setFolderIgnored,
+                    onDragSelectionStart = { index, songs ->
+                        selectionViewModel.startDragSelection(index, songs)
+                    },
+                    onDragSelectionChange = { startIndex, endIndex, songs ->
+                        selectionViewModel.updateDragSelection(startIndex, endIndex, songs)
+                    },
+                    onDragSelectionEnd = selectionViewModel::endDragSelection,
                     onShowSongMenu = { song ->
                         selectedSong = song
                         showMenuSheet = true
@@ -573,6 +582,9 @@ private fun FolderPagerSlideContent(
     onDeleteFolder: (FolderEntity) -> Unit,
     onRefreshFolder: (FolderEntity) -> Unit,
     onIgnoredChange: (FolderEntity, Boolean) -> Unit,
+    onDragSelectionStart: (index: Int, songs: List<SongEntity>) -> Unit,
+    onDragSelectionChange: (startIndex: Int, endIndex: Int, songs: List<SongEntity>) -> Unit,
+    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
     onTransitionFinished: () -> Unit,
     modifier: Modifier = Modifier
@@ -674,6 +686,9 @@ private fun FolderPagerSlideContent(
             onDeleteFolder = onDeleteFolder,
             onRefreshFolder = onRefreshFolder,
             onIgnoredChange = onIgnoredChange,
+            onDragSelectionStart = onDragSelectionStart,
+            onDragSelectionChange = onDragSelectionChange,
+            onDragSelectionEnd = onDragSelectionEnd,
             onShowSongMenu = onShowSongMenu,
             modifier = Modifier.fillMaxSize()
         )
@@ -700,6 +715,9 @@ private fun FolderPageSlideContent(
     onDeleteFolder: (FolderEntity) -> Unit,
     onRefreshFolder: (FolderEntity) -> Unit,
     onIgnoredChange: (FolderEntity, Boolean) -> Unit,
+    onDragSelectionStart: (index: Int, songs: List<SongEntity>) -> Unit,
+    onDragSelectionChange: (startIndex: Int, endIndex: Int, songs: List<SongEntity>) -> Unit,
+    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -725,6 +743,9 @@ private fun FolderPageSlideContent(
                 onDeleteFolder = onDeleteFolder,
                 onRefreshFolder = onRefreshFolder,
                 onIgnoredChange = onIgnoredChange,
+                onDragSelectionStart = onDragSelectionStart,
+                onDragSelectionChange = onDragSelectionChange,
+                onDragSelectionEnd = onDragSelectionEnd,
                 onShowSongMenu = onShowSongMenu,
                 modifier = Modifier.fillMaxSize()
             )
@@ -759,6 +780,9 @@ private fun FolderPageSlideContent(
                     onDeleteFolder = onDeleteFolder,
                     onRefreshFolder = onRefreshFolder,
                     onIgnoredChange = onIgnoredChange,
+                    onDragSelectionStart = onDragSelectionStart,
+                    onDragSelectionChange = onDragSelectionChange,
+                    onDragSelectionEnd = onDragSelectionEnd,
                     onShowSongMenu = onShowSongMenu,
                     modifier = Modifier
                         .fillMaxSize()
@@ -783,6 +807,9 @@ private fun FolderPageSlideContent(
                     onDeleteFolder = onDeleteFolder,
                     onRefreshFolder = onRefreshFolder,
                     onIgnoredChange = onIgnoredChange,
+                    onDragSelectionStart = onDragSelectionStart,
+                    onDragSelectionChange = onDragSelectionChange,
+                    onDragSelectionEnd = onDragSelectionEnd,
                     onShowSongMenu = onShowSongMenu,
                     modifier = Modifier
                         .fillMaxSize()
@@ -812,6 +839,9 @@ private fun FolderPage(
     onDeleteFolder: (FolderEntity) -> Unit,
     onRefreshFolder: (FolderEntity) -> Unit,
     onIgnoredChange: (FolderEntity, Boolean) -> Unit,
+    onDragSelectionStart: (index: Int, songs: List<SongEntity>) -> Unit,
+    onDragSelectionChange: (startIndex: Int, endIndex: Int, songs: List<SongEntity>) -> Unit,
+    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -847,6 +877,13 @@ private fun FolderPage(
                     selectionViewModel.toggleSelection(song.uri)
                 },
                 onShowSongMenu = onShowSongMenu,
+                onDragSelectionStart = { index ->
+                    onDragSelectionStart(index, snapshot.songs)
+                },
+                onDragSelectionChange = { startIndex, endIndex ->
+                    onDragSelectionChange(startIndex, endIndex, snapshot.songs)
+                },
+                onDragSelectionEnd = onDragSelectionEnd,
                 modifier = modifier
             )
         }
@@ -939,14 +976,28 @@ private fun FolderCurrentSongsPage(
     onSongClick: (SongEntity) -> Unit,
     onToggleSelection: (SongEntity) -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
+    onDragSelectionStart: (Int) -> Unit,
+    onDragSelectionChange: (Int, Int) -> Unit,
+    onDragSelectionEnd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
+
     LazyColumn(
         modifier = modifier
             .scrollEndHaptic()
             .overScrollVertical()
             .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
+            .dragSelection(
+                listState = listState,
+                itemCount = songs.size,
+                isSelectionMode = isSelectionMode,
+                onDragSelectionStart = onDragSelectionStart,
+                onDragSelectionChange = onDragSelectionChange,
+                onDragSelectionEnd = onDragSelectionEnd
+            )
             .fillMaxHeight(),
+        state = listState,
         contentPadding = PaddingValues(bottom = 12.dp),
         overscrollEffect = null
     ) {
