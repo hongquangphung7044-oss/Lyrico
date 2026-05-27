@@ -369,7 +369,12 @@ private fun AlphabetSideBarCell(
         size < 24.dp -> 10.sp
         else -> 12.sp
     }
-
+    val iconSize = when {
+        size < 15.dp -> size * 0.78f
+        size < 20.dp -> size * 0.70f
+        size < 24.dp -> size * 0.66f
+        else -> size * 0.62f
+    }
     Box(
         modifier = Modifier
             .size(size)
@@ -392,7 +397,7 @@ private fun AlphabetSideBarCell(
                     } else {
                         MiuixTheme.colorScheme.onSurfaceContainer
                     },
-                    modifier = Modifier.size(size * 0.62f)
+                    modifier = Modifier.size(iconSize)
                 )
             }
 
