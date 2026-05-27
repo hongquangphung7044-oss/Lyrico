@@ -124,8 +124,8 @@ fun FolderManagerScreen(
     val selectedSongUris by selectionViewModel.selectedSongUris.collectAsState()
 
     val folders = uiState.folders
-    val folderTree = remember(folders, uiState.songs) {
-        buildFolderTree(folders, uiState.songs)
+    val folderTree = remember(folders) {
+        buildFolderTree(folders)
     }
     val context = LocalContext.current
 
@@ -167,7 +167,10 @@ fun FolderManagerScreen(
     val currentChildFolders = remember(currentNode, folderTree) {
         currentNode?.childFolders ?: folderTree.rootFolders
     }
-    val currentSongs = if (currentFolder != null) {
+    val currentSongs = if (
+        currentFolder != null &&
+        currentFolderSongs.all { song -> song.folderId == currentFolder.id }
+    ) {
         currentFolderSongs
     } else {
         emptyList()
@@ -475,8 +478,7 @@ fun FolderManagerScreen(
                     transition = folderContentTransition,
                     folders = folders,
                     folderTree = folderTree,
-                    allSongs = uiState.songs,
-                    currentFolderSongs = currentFolderSongs,
+                    currentFolderSongs = currentSongs,
                     pagerState = pagerState,
                     scanningFolderIds = uiState.scanningFolderIds,
                     queuedFolderIds = uiState.queuedFolderIds,
@@ -579,7 +581,6 @@ private fun FolderPagerSlideContent(
     transition: FolderContentTransition?,
     folders: List<FolderEntity>,
     folderTree: FolderTree,
-    allSongs: List<SongEntity>,
     currentFolderSongs: List<SongEntity>,
     pagerState: androidx.compose.foundation.pager.PagerState,
     scanningFolderIds: Set<Long>,
@@ -622,14 +623,12 @@ private fun FolderPagerSlideContent(
         currentFolderId,
         folders,
         folderTree,
-        allSongs,
         currentFolderSongs
     ) {
         buildFolderContentSnapshot(
             folderId = currentFolderId,
             folders = folders,
             folderTree = folderTree,
-            allSongs = allSongs,
             currentFolderId = currentFolderId,
             currentFolderSongs = currentFolderSongs,
             useCurrentFolderSongs = true
@@ -640,15 +639,13 @@ private fun FolderPagerSlideContent(
     val fromSnapshot = remember(
         activeTransition?.fromFolderId,
         folders,
-        folderTree,
-        allSongs
+        folderTree
     ) {
         activeTransition?.let {
             buildFolderContentSnapshot(
                 folderId = it.fromFolderId,
                 folders = folders,
                 folderTree = folderTree,
-                allSongs = allSongs,
                 currentFolderId = currentFolderId,
                 currentFolderSongs = currentFolderSongs,
                 useCurrentFolderSongs = false
@@ -657,19 +654,19 @@ private fun FolderPagerSlideContent(
     }
     val toSnapshot = remember(
         activeTransition?.toFolderId,
+        currentFolderId,
         folders,
         folderTree,
-        allSongs
+        currentFolderSongs
     ) {
         activeTransition?.let {
             buildFolderContentSnapshot(
                 folderId = it.toFolderId,
                 folders = folders,
                 folderTree = folderTree,
-                allSongs = allSongs,
                 currentFolderId = currentFolderId,
                 currentFolderSongs = currentFolderSongs,
-                useCurrentFolderSongs = false
+                useCurrentFolderSongs = it.toFolderId == currentFolderId
             )
         }
     }
@@ -905,7 +902,6 @@ private fun buildFolderContentSnapshot(
     folderId: Long,
     folders: List<FolderEntity>,
     folderTree: FolderTree,
-    allSongs: List<SongEntity>,
     currentFolderId: Long,
     currentFolderSongs: List<SongEntity>,
     useCurrentFolderSongs: Boolean
@@ -915,7 +911,7 @@ private fun buildFolderContentSnapshot(
     val songs = when {
         folderId == ROOT_FOLDER_ID -> emptyList()
         useCurrentFolderSongs && folderId == currentFolderId -> currentFolderSongs
-        else -> allSongs.filter { it.folderId == folderId }
+        else -> emptyList()
     }
 
     return FolderContentSnapshot(
@@ -1293,16 +1289,15 @@ private fun buildFolderBreadcrumbs(
 }
 
 private fun buildFolderTree(
-    folders: List<FolderEntity>,
-    songs: List<SongEntity>
+    folders: List<FolderEntity>
 ): FolderTree {
     val normalizedPaths = folders.associate { folder ->
         folder.id to folder.path.normalizeFolderPath()
     }
 
-    val directSongCounts = songs.groupingBy { song ->
-        song.folderId
-    }.eachCount()
+    val directSongCounts = folders.associate { folder ->
+        folder.id to folder.songCount
+    }
 
     val parentIds = folders.associate { folder ->
         val path = normalizedPaths.getValue(folder.id)

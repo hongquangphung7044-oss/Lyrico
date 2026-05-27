@@ -137,7 +137,11 @@ interface SongRepository {
      * @param order 排序顺序 (升序或降序)
      * @return 返回排序后的 [SongEntity] 列表 Flow 流。
      */
-    fun observeSongs(sortBy: SortBy, order: SortOrder): Flow<List<SongEntity>>
+    fun observeSongs(
+        sortBy: SortBy,
+        order: SortOrder,
+        folderId: Long? = null
+    ): Flow<List<SongEntity>>
 
     /**
      * 获取文件显示名称

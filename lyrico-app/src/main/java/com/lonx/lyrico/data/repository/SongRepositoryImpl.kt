@@ -1262,9 +1262,13 @@ class SongRepositoryImpl(
         )
     }
 
-    override fun observeSongs(sortBy: SortBy, order: SortOrder): Flow<List<SongEntity>> {
+    override fun observeSongs(
+        sortBy: SortBy,
+        order: SortOrder,
+        folderId: Long?
+    ): Flow<List<SongEntity>> {
         val sortInfo = SortInfo(sortBy, order)
-        val query = songQueryBuilder.build(sortInfo)
+        val query = songQueryBuilder.build(sortInfo, folderId)
         return songDao.getSongs(query)
     }
 

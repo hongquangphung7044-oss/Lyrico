@@ -68,7 +68,6 @@ import com.lonx.lyrico.viewmodel.CharacterMappingViewModel
 import com.lonx.lyrico.viewmodel.EditFieldVisibilitySettingsViewModel
 import com.lonx.lyrico.viewmodel.EditMetadataViewModel
 import com.lonx.lyrico.viewmodel.FolderManagerViewModel
-import com.lonx.lyrico.viewmodel.FolderSongsViewModel
 import com.lonx.lyrico.viewmodel.LocalSearchViewModel
 import com.lonx.lyrico.viewmodel.PluginViewModel
 import com.lonx.lyrico.viewmodel.SearchViewModel
@@ -227,13 +226,7 @@ val appModule = module {
     viewModel { AppLogViewModel(get(),get()) }
     viewModel { PluginViewModel(get(), get(), get(), get(), get(), get()) }
 
-    viewModel { FolderManagerViewModel(get(), get(), get(), get(), get()) }
-    viewModel { (folderId: Long) ->
-        FolderSongsViewModel(
-            folderId = folderId,
-            database = get()
-        )
-    }
+    viewModel { FolderManagerViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { BatchRenameViewModel(get(), get(), get(), get(), get()) }
     viewModel { CharacterMappingViewModel(get()) }
     viewModel { BatchExportViewModel(get(), get(), get()) }

@@ -8,7 +8,7 @@ import com.lonx.lyrico.data.LyricoDatabase
 import com.lonx.lyrico.data.model.entity.FolderEntity
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.data.repository.LibraryIndexRepository
-import com.lonx.lyrico.data.utils.SongQueryBuilder
+import com.lonx.lyrico.data.repository.SongRepository
 import com.lonx.lyrico.utils.LibraryScanManager
 import com.lonx.lyrico.utils.UriUtils
 import kotlinx.coroutines.CoroutineScope
@@ -24,7 +24,6 @@ import kotlinx.coroutines.launch
 
 data class FolderManagerUiState(
     val folders: List<FolderEntity> = emptyList(),
-    val songs: List<SongEntity> = emptyList(),
     val scanningFolderIds: Set<Long> = emptySet(),
     val queuedFolderIds: Set<Long> = emptySet(),
     val error: String? = null
@@ -36,7 +35,8 @@ class FolderManagerViewModel(
     private val libraryScanManager: LibraryScanManager,
     private val application: Application,
     private val appScope: CoroutineScope,
-    private val libraryIndexRepository: LibraryIndexRepository
+    private val libraryIndexRepository: LibraryIndexRepository,
+    private val songRepository: SongRepository
 ) : ViewModel() {
 
     private companion object {
@@ -44,7 +44,6 @@ class FolderManagerViewModel(
     }
 
     private val folderDao = database.folderDao()
-    private val songDao = database.songDao()
     private val contentResolver = application.contentResolver
 
     private val _sortInfo = MutableStateFlow(SortInfo())
@@ -62,8 +61,7 @@ class FolderManagerViewModel(
             if (folderId == null) {
                 kotlinx.coroutines.flow.flowOf(emptyList())
             } else {
-                val query = SongQueryBuilder.build(sortInfo, folderId)
-                songDao.getSongs(query)
+                songRepository.observeSongs(sortInfo.sortBy, sortInfo.order, folderId)
             }
         }.stateIn(
             viewModelScope,
@@ -74,12 +72,10 @@ class FolderManagerViewModel(
     val uiState: StateFlow<FolderManagerUiState> =
         combine(
             folderDao.getAllFolders(),
-            songDao.getAllSongs(),
             libraryScanManager.state
-        ) { folders, songs, scanState ->
+        ) { folders, scanState ->
             FolderManagerUiState(
                 folders = folders,
-                songs = songs,
                 scanningFolderIds = scanState.scanningFolderIds,
                 queuedFolderIds = scanState.queuedFolderIds,
                 error = scanState.error

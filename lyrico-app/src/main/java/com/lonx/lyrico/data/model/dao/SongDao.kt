@@ -73,12 +73,6 @@ interface SongDao {
     suspend fun deleteByUris(uris: List<String>)
 
     /**
-     * 批量删除指定路径的歌曲 (保留作为兼容或清理手段)
-     */
-    @Query("DELETE FROM songs WHERE filePath IN (:paths)")
-    suspend fun deleteByFilePaths(paths: List<String>)
-
-    /**
      * 根据 URI 删除单条 (可选，但在 Repository deleteSong 中很有用)
      */
     @Query("DELETE FROM songs WHERE uri = :uri")
@@ -97,12 +91,6 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE uri IN (:uris)")
     suspend fun getSongsByUris(uris: List<String>): List<SongEntity>
-
-    /**
-     * 根据路径查询 (辅助查询方式)
-     */
-    @Query("SELECT * FROM songs WHERE filePath = :filePath LIMIT 1")
-    suspend fun getSongByPath(filePath: String): SongEntity?
 
     // ================= 查询操作 (同步与元数据) =================
     /**
@@ -326,19 +314,6 @@ interface SongDao {
     """)
     fun observeAlbumsByArtistForSearch(artist: String): Flow<List<AlbumSearchRow>>
 
-    /**
-     * 获取所有歌曲 (默认排序)
-     */
-    @Query("""
-        SELECT s.* FROM songs AS s
-        INNER JOIN folders AS f ON s.folderId = f.id
-        WHERE f.isIgnored = 0
-    """)
-    fun getAllSongs(): Flow<List<SongEntity>>
-
-    @Query("SELECT * FROM songs")
-    suspend fun getAllSongsSnapshot(): List<SongEntity>
-
     @Query("""
         SELECT id, artist, albumArtist, album
         FROM songs
@@ -346,17 +321,6 @@ interface SongDao {
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getLibraryIndexSongs(limit: Int, offset: Int): List<LibraryIndexSong>
-
-    /**
-     * 按文件夹 ID 获取歌曲
-     */
-    @Query("""
-        SELECT s.* FROM songs AS s
-        INNER JOIN folders AS f ON s.folderId = f.id
-        WHERE s.folderId = :folderId AND f.isIgnored = 0
-    """)
-    fun getSongsByFolderId(folderId: Long): Flow<List<SongEntity>>
-
 
     /**
      * 使用指定的查询来获取歌曲列表
@@ -379,7 +343,4 @@ interface SongDao {
         ORDER BY CASE WHEN s.artist = :artist THEN 0 ELSE 1 END, s.trackerNumber ASC
     """)
     suspend fun getSongsByAlbum(album: String, artist: String): List<SongEntity>
-
-    @Query("DELETE FROM songs WHERE folderId IN (:folderIds)")
-    suspend fun deleteByFolderIds(folderIds: List<Long>)
 }

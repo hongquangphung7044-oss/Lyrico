@@ -17,18 +17,6 @@ interface FolderDao {
     @Query("SELECT * FROM folders ORDER BY path")
     fun getAllFolders(): Flow<List<FolderEntity>>
 
-    /** 所有未忽略的文件夹路径 (扫描器用于构建显示列表) */
-    @Query("SELECT path FROM folders WHERE isIgnored = 0")
-    suspend fun getNotIgnoredFolderPaths(): List<String>
-
-    /** 所有已忽略的文件夹路径 (可用于扫描时标记，但根据新逻辑建议扫描全量) */
-    @Query("SELECT path FROM folders WHERE isIgnored = 1")
-    suspend fun getIgnoredFolderPaths(): List<String>
-
-    /** 根据路径查找 */
-    @Query("SELECT * FROM folders WHERE path = :path LIMIT 1")
-    suspend fun findByPath(path: String): FolderEntity?
-
     @Query("SELECT * FROM folders")
     suspend fun getAllFoldersOnce(): List<FolderEntity>
 
@@ -42,11 +30,6 @@ interface FolderDao {
 
     @Query("SELECT * FROM folders WHERE addedBySaf = 1")
     suspend fun getSafFoldersForPermissionCheck(): List<FolderEntity>
-
-    /** 文件夹是否被忽略 */
-    @Query("SELECT isIgnored FROM folders WHERE path = :path LIMIT 1")
-    suspend fun isIgnored(path: String): Boolean?
-
 
     @Insert(onConflict = OnConflictStrategy.Companion.IGNORE)
     suspend fun insert(folder: FolderEntity): Long
@@ -282,12 +265,6 @@ interface FolderDao {
         refreshAllSongCounts()
         deleteEmptyFolders()
     }
-
-    /**
-     * 彻底删除文件夹记录 (用于用户在 UI 上点击“彻底移除”按钮)
-     */
-    @Query("DELETE FROM folders WHERE id = :folderId")
-    suspend fun deleteFolderPermanently(folderId: Long)
 
     @Query("DELETE FROM folders WHERE id IN (:folderIds)")
     suspend fun deleteFoldersPermanently(folderIds: List<Long>)
