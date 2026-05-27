@@ -22,6 +22,13 @@ data class SongSyncInfo(
     val source: String
 )
 
+data class LibraryIndexSong(
+    val id: Long,
+    val artist: String?,
+    val albumArtist: String?,
+    val album: String?
+)
+
 data class SongFieldValue(
     val sourceUri: String,
     val value: String
@@ -331,6 +338,14 @@ interface SongDao {
 
     @Query("SELECT * FROM songs")
     suspend fun getAllSongsSnapshot(): List<SongEntity>
+
+    @Query("""
+        SELECT id, artist, albumArtist, album
+        FROM songs
+        ORDER BY id ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getLibraryIndexSongs(limit: Int, offset: Int): List<LibraryIndexSong>
 
     /**
      * 按文件夹 ID 获取歌曲
