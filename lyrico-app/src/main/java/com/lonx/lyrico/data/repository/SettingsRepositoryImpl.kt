@@ -41,8 +41,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.collections.first
@@ -898,10 +900,13 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
 
     private fun decodeMetadataFieldWriteRules(raw: String): List<PluginMetadataFieldWriteRule> {
         if (raw.isBlank()) return emptyList()
+        val normalizedRaw = raw.replace("\"sourceId\"", "\"pluginId\"")
         return runCatching {
-            jsonFormatter.decodeFromString<List<PluginMetadataFieldWriteRule>>(
-                raw.replace("\"sourceId\"", "\"pluginId\"")
-            )
+            jsonFormatter.parseToJsonElement(normalizedRaw).jsonArray.mapNotNull { element ->
+                runCatching {
+                    jsonFormatter.decodeFromJsonElement<PluginMetadataFieldWriteRule?>(element)
+                }.getOrNull()
+            }
         }.getOrDefault(emptyList())
     }
 
