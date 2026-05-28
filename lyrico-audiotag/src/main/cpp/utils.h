@@ -44,6 +44,21 @@ jclass mapEntryClass = nullptr;
 jmethodID getKeyMethod = nullptr;
 jmethodID getValueMethod = nullptr;
 
+inline TagLib::String JStringToTagString(JNIEnv *env, jstring value) {
+    if (!value) {
+        return {};
+    }
+
+    const char *chars = env->GetStringUTFChars(value, nullptr);
+    if (!chars) {
+        return {};
+    }
+
+    TagLib::String result(chars, TagLib::String::UTF8);
+    env->ReleaseStringUTFChars(value, chars);
+    return result;
+}
+
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
@@ -288,9 +303,9 @@ JniPictureArrayToPictureList(JNIEnv *env, jobjectArray pictures) {
 
         TagLib::Map<TagLib::String, TagLib::Variant> picture;
         picture["data"] = pictureDataVector;
-        picture["description"] = TagLib::String(env->GetStringUTFChars(description, nullptr));
-        picture["pictureType"] = TagLib::String(env->GetStringUTFChars(pictureType, nullptr));
-        picture["mimeType"] = TagLib::String(env->GetStringUTFChars(mimeType, nullptr));
+        picture["description"] = JStringToTagString(env, description);
+        picture["pictureType"] = JStringToTagString(env, pictureType);
+        picture["mimeType"] = JStringToTagString(env, mimeType);
         pictureList.append(picture);
     }
 

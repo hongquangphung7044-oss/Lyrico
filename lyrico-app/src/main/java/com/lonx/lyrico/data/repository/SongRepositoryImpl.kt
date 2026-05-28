@@ -14,9 +14,12 @@ import androidx.core.net.toUri
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.lonx.audiotag.model.AudioPicture
+import com.lonx.audiotag.model.AudioPictureType
 import com.lonx.audiotag.model.AudioTagData
 import com.lonx.audiotag.model.AudioTagKeys
 import com.lonx.audiotag.model.CustomTagField
+import com.lonx.audiotag.model.removePictureType
+import com.lonx.audiotag.model.replacePicture
 import com.lonx.audiotag.rw.AudioTagReader
 import com.lonx.audiotag.rw.AudioTagWriter
 import com.lonx.lyrico.data.LyricoDatabase
@@ -1084,8 +1087,13 @@ class SongRepositoryImpl(
     }
 
     private suspend fun writeInternal(uriString: String, audioTagData: AudioTagData): Boolean {
-        openWritableDescriptor(uriString)?.use { pfdDescriptor ->
+        val oldPicturesForMerge = if (audioTagData.picUrl != null) {
+            readPicturesForMerge(uriString)
+        } else {
+            null
+        }
 
+        openWritableDescriptor(uriString)?.use { pfdDescriptor ->
             val updates = mutableMapOf<String, String>()
 
             fun updateTag(standardKey: String, value: String?, aliases: List<String>) {
@@ -1106,7 +1114,11 @@ class SongRepositoryImpl(
             updateTag("LANGUAGE", audioTagData.language, listOf("TLAN"))
             updateTag("TRACKNUMBER", audioTagData.trackNumber, listOf("TRACK", "TRCK"))
 
-            updateTag("ALBUMARTIST", audioTagData.albumArtist, listOf("TPE2", "ALBUM ARTIST", "aART", "ALBUMARTISTSORT"))
+            updateTag(
+                "ALBUMARTIST",
+                audioTagData.albumArtist,
+                listOf("TPE2", "ALBUM ARTIST", "aART", "ALBUMARTISTSORT")
+            )
             updateTag("DISCNUMBER", audioTagData.discNumber?.toString(), listOf("DISC", "TPOS", "DISKNUMBER"))
             updateTag("COMPOSER", audioTagData.composer, listOf("TCOM", "©wrt"))
             updateTag("COMMENT", audioTagData.comment, listOf("COMM", "DESCRIPTION"))
@@ -1123,7 +1135,14 @@ class SongRepositoryImpl(
             val star = audioTagData.rating ?: 0
             if (star in 1..5) {
                 if (ext == "MP3") {
-                    val popmVal = when(star) { 1->1; 2->64; 3->128; 4->196; 5->255; else->0 }
+                    val popmVal = when (star) {
+                        1 -> 1
+                        2 -> 64
+                        3 -> 128
+                        4 -> 196
+                        5 -> 255
+                        else -> 0
+                    }
                     updateTag("POPM", "no@email|$popmVal|0", listOf("RATING", "RATE"))
                 } else if (ext == "FLAC" || ext == "OGG") {
                     updateTag("RATING", (star * 20).toString(), listOf("POPM", "RATE"))
@@ -1150,29 +1169,30 @@ class SongRepositoryImpl(
 
             AudioTagWriter.writeTags(pfdDescriptor, updates)
 
-            val picUrl = audioTagData.picUrl
-            if (picUrl != null) {
-                if (picUrl.isEmpty()) {
-                    AudioTagWriter.writePictures(pfdDescriptor, emptyList())
-                } else {
-                    val imageBytes = fetchImageBytes(picUrl)
-                    if (imageBytes != null) {
-                        val picture = AudioPicture(data = imageBytes)
-                        AudioTagWriter.writePictures(pfdDescriptor, listOf(picture))
-                    }
-                }
-            } else if (audioTagData.pictures.isNotEmpty()) {
-                AudioTagWriter.writePictures(pfdDescriptor, audioTagData.pictures)
+            val picturesToWrite = buildPicturesForWrite(
+                oldPictures = oldPicturesForMerge,
+                audioTagData = audioTagData,
+                writeEmbeddedPicturesWhenPicUrlIsNull = true
+            )
+
+            if (picturesToWrite != null) {
+                AudioTagWriter.writePictures(pfdDescriptor, picturesToWrite)
             }
 
             return true
         }
+
         return false
     }
 
     private suspend fun writeIncremental(uriString: String, audioTagData: AudioTagData): Boolean {
-        openWritableDescriptor(uriString)?.use { pfdDescriptor ->
+        val oldPicturesForMerge = if (audioTagData.picUrl != null) {
+            readPicturesForMerge(uriString)
+        } else {
+            null
+        }
 
+        openWritableDescriptor(uriString)?.use { pfdDescriptor ->
             val updates = mutableMapOf<String, String>()
 
             fun updateTagIfPresent(standardKey: String, value: String?, aliases: List<String>) {
@@ -1192,7 +1212,11 @@ class SongRepositoryImpl(
             updateTagIfPresent("LANGUAGE", audioTagData.language, listOf("TLAN"))
             updateTagIfPresent("TRACKNUMBER", audioTagData.trackNumber, listOf("TRACK", "TRCK"))
 
-            updateTagIfPresent("ALBUMARTIST", audioTagData.albumArtist, listOf("TPE2", "ALBUM ARTIST", "aART", "ALBUMARTISTSORT"))
+            updateTagIfPresent(
+                "ALBUMARTIST",
+                audioTagData.albumArtist,
+                listOf("TPE2", "ALBUM ARTIST", "aART", "ALBUMARTISTSORT")
+            )
             updateTagIfPresent("DISCNUMBER", audioTagData.discNumber?.toString(), listOf("DISC", "TPOS", "DISKNUMBER"))
             updateTagIfPresent("COMPOSER", audioTagData.composer, listOf("TCOM", "©wrt"))
             updateTagIfPresent("COMMENT", audioTagData.comment, listOf("COMM", "DESCRIPTION"))
@@ -1210,7 +1234,14 @@ class SongRepositoryImpl(
                 val ext = uriString.substringAfterLast(".").uppercase()
                 if (star in 1..5) {
                     if (ext == "MP3") {
-                        val popmVal = when(star) { 1->1; 2->64; 3->128; 4->196; 5->255; else->0 }
+                        val popmVal = when (star) {
+                            1 -> 1
+                            2 -> 64
+                            3 -> 128
+                            4 -> 196
+                            5 -> 255
+                            else -> 0
+                        }
                         updateTagIfPresent("POPM", "no@email|$popmVal|0", listOf("RATING", "RATE"))
                     } else if (ext == "FLAC" || ext == "OGG") {
                         updateTagIfPresent("RATING", (star * 20).toString(), listOf("POPM", "RATE"))
@@ -1232,21 +1263,19 @@ class SongRepositoryImpl(
                 AudioTagWriter.writeTags(pfdDescriptor, updates)
             }
 
-            val picUrl = audioTagData.picUrl
-            if (picUrl != null) {
-                if (picUrl.isEmpty()) {
-                    AudioTagWriter.writePictures(pfdDescriptor, emptyList())
-                } else {
-                    val imageBytes = fetchImageBytes(picUrl)
-                    if (imageBytes != null) {
-                        val picture = AudioPicture(data = imageBytes)
-                        AudioTagWriter.writePictures(pfdDescriptor, listOf(picture))
-                    }
-                }
+            val picturesToWrite = buildPicturesForWrite(
+                oldPictures = oldPicturesForMerge,
+                audioTagData = audioTagData,
+                writeEmbeddedPicturesWhenPicUrlIsNull = false
+            )
+
+            if (picturesToWrite != null) {
+                AudioTagWriter.writePictures(pfdDescriptor, picturesToWrite)
             }
 
             return true
         }
+
         return false
     }
 
@@ -1266,7 +1295,108 @@ class SongRepositoryImpl(
             }
         }
     }
+    private suspend fun readPicturesForMerge(uriString: String): List<AudioPicture>? {
+        return try {
+            openReadableDescriptor(uriString)?.use { descriptor ->
+                AudioTagReader.read(descriptor, readPictures = true).pictures
+            } ?: emptyList()
+        } catch (e: Exception) {
+            Log.w(TAG, "读取旧图片失败，跳过图片合并写入: $uriString", e)
+            null
+        }
+    }
+    private suspend fun buildPicturesForWrite(
+        oldPictures: List<AudioPicture>?,
+        audioTagData: AudioTagData,
+        writeEmbeddedPicturesWhenPicUrlIsNull: Boolean
+    ): List<AudioPicture>? {
+        val picUrl = audioTagData.picUrl
 
+        if (picUrl == null) {
+            return if (writeEmbeddedPicturesWhenPicUrlIsNull && audioTagData.pictures.isNotEmpty()) {
+                audioTagData.pictures
+            } else {
+                null
+            }
+        }
+
+        if (oldPictures == null) {
+            Log.w(TAG, "旧图片不可用，跳过 picUrl 图片写入，避免丢失非封面图片")
+            return null
+        }
+
+        val normalizedPicUrl = picUrl.trim()
+
+        if (normalizedPicUrl.isEmpty()) {
+            return oldPictures.removePictureType(AudioPictureType.FrontCover)
+        }
+
+        val imageBytes = fetchImageBytes(normalizedPicUrl)
+        if (imageBytes == null) {
+            Log.w(TAG, "封面图片读取失败，跳过图片写入: $normalizedPicUrl")
+            return null
+        }
+
+        val frontCover = AudioPicture(
+            data = imageBytes,
+            mimeType = detectImageMimeType(imageBytes),
+            description = "",
+            pictureType = AudioPictureType.FrontCover.tagLibName
+        )
+
+        return oldPictures.replacePicture(
+            picture = frontCover,
+            type = AudioPictureType.FrontCover
+        )
+    }
+    private fun detectImageMimeType(bytes: ByteArray): String {
+        return when {
+            bytes.size >= 3 &&
+                    bytes[0] == 0xFF.toByte() &&
+                    bytes[1] == 0xD8.toByte() &&
+                    bytes[2] == 0xFF.toByte() -> {
+                "image/jpeg"
+            }
+
+            bytes.size >= 8 &&
+                    bytes[0] == 0x89.toByte() &&
+                    bytes[1] == 0x50.toByte() &&
+                    bytes[2] == 0x4E.toByte() &&
+                    bytes[3] == 0x47.toByte() &&
+                    bytes[4] == 0x0D.toByte() &&
+                    bytes[5] == 0x0A.toByte() &&
+                    bytes[6] == 0x1A.toByte() &&
+                    bytes[7] == 0x0A.toByte() -> {
+                "image/png"
+            }
+
+            bytes.size >= 12 &&
+                    bytes[0] == 0x52.toByte() &&
+                    bytes[1] == 0x49.toByte() &&
+                    bytes[2] == 0x46.toByte() &&
+                    bytes[3] == 0x46.toByte() &&
+                    bytes[8] == 0x57.toByte() &&
+                    bytes[9] == 0x45.toByte() &&
+                    bytes[10] == 0x42.toByte() &&
+                    bytes[11] == 0x50.toByte() -> {
+                "image/webp"
+            }
+
+            bytes.size >= 6 &&
+                    bytes[0] == 0x47.toByte() &&
+                    bytes[1] == 0x49.toByte() &&
+                    bytes[2] == 0x46.toByte() &&
+                    bytes[3] == 0x38.toByte() &&
+                    (bytes[4] == 0x37.toByte() || bytes[4] == 0x39.toByte()) &&
+                    bytes[5] == 0x61.toByte() -> {
+                "image/gif"
+            }
+
+            else -> {
+                "image/jpeg"
+            }
+        }
+    }
     override suspend fun getSongCount(): Int = withContext(Dispatchers.IO) {
         songDao.getSongCount()
     }

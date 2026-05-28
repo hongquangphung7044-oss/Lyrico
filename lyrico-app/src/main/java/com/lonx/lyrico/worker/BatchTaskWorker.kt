@@ -421,7 +421,7 @@ class BatchTaskWorker(
             if (config.lyrics != keep) add("lyrics")
             if (config.ratingModified) add("rating")
             if (config.coverUri != null) add("cover")
-            if (config.removeCover) add("removeCover")
+            if (config.removeCover) add("removeFrontCover")
             if (config.lyricsOffset.isNotBlank()) add("lyricsOffset")
             if (config.replayGainTrackGain != keep) add("replayGainTrackGain")
             if (config.replayGainTrackPeak != keep) add("replayGainTrackPeak")
@@ -456,7 +456,7 @@ class BatchTaskWorker(
             appendSanitizedValue("replayGainReferenceLoudness", config.replayGainReferenceLoudness, keep)
             if (config.lyrics != keep) appendLine("lyrics=(modified, ${config.lyrics.length} chars)")
             if (config.coverUri != null) appendLine("coverUri=(set)")
-            if (config.removeCover) appendLine("removeCover=true")
+            if (config.removeCover) appendLine("removeFrontCover=true")
         }.trimEnd()
     }
 

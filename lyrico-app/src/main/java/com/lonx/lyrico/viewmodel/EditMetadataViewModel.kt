@@ -14,8 +14,12 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.audiotag.model.AudioPicture
+import com.lonx.audiotag.model.AudioPictureType
 import com.lonx.audiotag.model.AudioTagData
 import com.lonx.audiotag.model.CustomTagField
+import com.lonx.audiotag.model.frontCoverOrFallback
+import com.lonx.audiotag.model.removePictureType
+import com.lonx.audiotag.model.replacePicture
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.editfield.EditFieldScene
 import com.lonx.lyrico.data.editfield.EditFieldVisibilityRepository
@@ -193,8 +197,9 @@ class EditMetadataViewModel(
 
                 // 2. 读取文件标签
                 val audioTagData = songRepository.readAudioTagData(uriString)
-                val firstPicture = audioTagData.pictures.firstOrNull()?.data
                 val displayFileName = song?.fileName ?: audioTagData.fileName
+                val displayPicture = audioTagData.pictures.frontCoverOrFallback()
+                val displayCover = displayPicture?.data
 
                 _uiState.update { state ->
                     state.copy(
@@ -203,17 +208,15 @@ class EditMetadataViewModel(
                             tagData = audioTagData
                         ),
                         originalTagData = audioTagData,
-
                         fileName = displayFileName.substringBeforeLast(
                             ".",
                             missingDelimiterValue = displayFileName
                         ),
                         // 如果当前没有在编辑，才重置 editingTagData
                         editingTagData = if (state.isEditing) state.editingTagData else audioTagData,
-
-                        picture = audioTagData.pictures.firstOrNull(),
-                        originalCover = if (state.isEditing) state.originalCover else firstPicture,
-                        coverUri = if (state.isEditing) state.coverUri else firstPicture
+                        picture = displayPicture,
+                        originalCover = if (state.isEditing) state.originalCover else displayCover,
+                        coverUri = if (state.isEditing) state.coverUri else displayCover
                     )
                 }
             } catch (e: Exception) {
@@ -461,27 +464,31 @@ class EditMetadataViewModel(
         }
     }
     fun updateCover(bitmap: Bitmap) {
-        // 将 Bitmap 压缩为 JPEG 格式的 ByteArray
         val byteArray = java.io.ByteArrayOutputStream().use { stream ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
             stream.toByteArray()
         }
-        
-        // 创建 AudioPicture 对象
+
         val audioPicture = AudioPicture(
             data = byteArray,
             mimeType = "image/jpeg",
             description = "",
-            pictureType = "Front Cover"
+            pictureType = AudioPictureType.FrontCover.tagLibName
         )
-        
+
         _uiState.update { state ->
+            val current = state.editingTagData ?: AudioTagData()
+            val newPictures = current.pictures.replacePicture(
+                picture = audioPicture,
+                type = AudioPictureType.FrontCover
+            )
+
             state.copy(
                 coverUri = byteArray,
                 picture = audioPicture,
                 isEditing = true,
-                editingTagData = state.editingTagData?.copy(
-                    pictures = listOf(audioPicture),
+                editingTagData = current.copy(
+                    pictures = newPictures,
                     picUrl = null
                 )
             )
@@ -491,12 +498,20 @@ class EditMetadataViewModel(
     /**
      * 移除封面
      */
-    fun removeCover() {
+    fun removeFrontCover() {
         _uiState.update { state ->
+            val current = state.editingTagData ?: return@update state
+            val newPictures = current.pictures.removePictureType(AudioPictureType.FrontCover)
+            val displayPicture = newPictures.frontCoverOrFallback()
+
             state.copy(
-                coverUri = null, // 清空 coverUri 表示被移除
+                coverUri = displayPicture?.data,
+                picture = displayPicture,
                 isEditing = true,
-                editingTagData = state.editingTagData?.copy(picUrl = "")
+                editingTagData = current.copy(
+                    pictures = newPictures,
+                    picUrl = ""
+                )
             )
         }
     }
@@ -656,6 +671,10 @@ class EditMetadataViewModel(
                     }
 
                     if (updateSuccess) {
+                        val savedDisplayPicture = audioTagData.pictures.frontCoverOrFallback()
+                        val savedDisplayCover = savedDisplayPicture?.data
+                            ?: audioTagData.picUrl?.takeIf { picUrl -> picUrl.isNotBlank() }
+
                         _uiState.update {
                             it.copy(
                                 isSaving = false,
@@ -663,11 +682,9 @@ class EditMetadataViewModel(
                                 isEditing = false,
                                 originalTagData = audioTagData,
                                 editingTagData = audioTagData,
-                                originalCover = audioTagData.pictures.firstOrNull()?.data
-                                    ?: audioTagData.picUrl?.takeIf { picUrl -> picUrl.isNotBlank() },
-                                coverUri = audioTagData.pictures.firstOrNull()?.data
-                                    ?: audioTagData.picUrl?.takeIf { picUrl -> picUrl.isNotBlank() },
-                                picture = audioTagData.pictures.firstOrNull(),
+                                originalCover = savedDisplayCover,
+                                coverUri = savedDisplayCover,
+                                picture = savedDisplayPicture,
                             )
                         }
                     } else {

@@ -1175,7 +1175,7 @@ fun EditMetadataScreen(
                     title = stringResource(R.string.label_remove_cover),
                     onClick = {
                         showCoverOptionsSheet = false
-                        viewModel.removeCover()
+                        viewModel.removeFrontCover()
                     }
                 )
                 if (uiState.coverUri != null || uiState.originalCover != null) {
