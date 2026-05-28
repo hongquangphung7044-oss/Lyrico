@@ -84,12 +84,25 @@ class LyricsDocumentPipelineTest {
     @Test
     fun ttmlCanDowngradeToEnhancedLrcWithFinalWordEndTime() {
         val output = LyricsDocumentPipeline.process(
-            raw = sampleTtml(),
+            raw = sampleWordLevelTtml(),
             sourceFormat = LyricFormat.TTML,
             targetFormat = LyricFormat.ENHANCED_LRC
         ).orEmpty()
 
         assertTrue(output.contains("[00:01.000]<00:01.000>A<00:02.000>"))
+    }
+
+    @Test
+    fun lineLevelTtmlDowngradesToPlainLinesWhenTargetIsEnhancedLrc() {
+        val output = LyricsDocumentPipeline.process(
+            raw = sampleTtml(text = "在亿万人海相遇 有同样默契", secondText = "是多幺不容易"),
+            sourceFormat = LyricFormat.TTML,
+            targetFormat = LyricFormat.ENHANCED_LRC
+        ).orEmpty()
+
+        assertTrue(output.contains("[00:01.000]在亿万人海相遇 有同样默契"))
+        assertTrue(output.contains("[00:03.000]是多幺不容易"))
+        assertFalse(output.contains("<00:01.000>在亿万人海相遇 有同样默契"))
     }
 
     @Test
@@ -144,6 +157,24 @@ class LyricsDocumentPipelineTest {
                 <div>
                   <p begin="1.000" end="2.000" itunes:key="L1" ttm:agent="v1">$text</p>
                   <p begin="3.000" end="4.000" itunes:key="L2" ttm:agent="v1">$secondText</p>
+                </div>
+              </body>
+            </tt>
+        """.trimIndent()
+    }
+
+    private fun sampleWordLevelTtml(): String {
+        return """
+            <?xml version="1.0" encoding="utf-8"?>
+            <tt xmlns="http://www.w3.org/ns/ttml"
+                xmlns:itunes="http://music.apple.com/lyric-ttml-internal"
+                xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+              <body>
+                <div>
+                  <p begin="1.000" end="2.000" itunes:key="L1" ttm:agent="v1">
+                    <span begin="1.000" end="2.000">A</span>
+                    <span begin="2.000" end="3.000">B</span>
+                  </p>
                 </div>
               </body>
             </tt>
