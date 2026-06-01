@@ -13,4 +13,8 @@ class SearchSourceProvider(
     suspend fun getAllSources(): List<SearchSource> {
         return pluginManager.getEnabledSources()
     }
+
+    suspend fun getSourceWithState(pluginId: String): SearchSourceWithState? {
+        return pluginManager.getSourceWithState(pluginId)
+    }
 }

@@ -238,6 +238,7 @@
     <string name="source_config_saved">Saved</string>
     <string name="source_config_invalid_source">Invalid plugin</string>
     <string name="source_config_empty">No configurable items</string>
+    <string name="source_config_plugin_disabled_hint">This plugin is currently disabled. You can edit its settings here, but it will not be used for search or batch matching until it is enabled.</string>
     <string name="config_follow_global">Follow global</string>
     <string name="config_enabled">Enabled</string>
     <string name="config_disabled">Disabled</string>

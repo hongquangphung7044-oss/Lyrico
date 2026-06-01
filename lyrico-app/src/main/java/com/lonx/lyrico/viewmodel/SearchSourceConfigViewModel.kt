@@ -7,7 +7,6 @@ import com.lonx.lyrico.data.model.plugin.PluginConfigFieldType
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.utils.isSatisfied
-import com.lonx.lyrico.data.model.lyrics.SearchSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +18,7 @@ data class SearchSourceConfigUiState(
     val title: String = "",
     val configFields: List<PluginConfigField> = emptyList(),
     val values: Map<String, String> = emptyMap(),
+    val pluginEnabled: Boolean = true,
     val validationErrors: Map<String, String> = emptyMap(),
     val isLoading: Boolean = true,
     val saved: Boolean = false,
@@ -34,14 +34,14 @@ class SearchSourceConfigViewModel(
 
     fun load(pluginId: String) {
         viewModelScope.launch {
-            val allSources = searchSourceProvider.getAllSources()
-            val sourceImpl = findSource(pluginId, allSources)
-            if (sourceImpl == null) {
+            val sourceWithState = searchSourceProvider.getSourceWithState(pluginId)
+            if (sourceWithState == null) {
                 _uiState.update {
                     it.copy(isLoading = false, errorMessage = "无效的搜索源")
                 }
                 return@launch
             }
+            val sourceImpl = sourceWithState.source
             val fields = sourceImpl.configFields
             val valueFields = fields.filter { it.type != PluginConfigFieldType.MARKDOWN }
             val defaults = valueFields.associate { it.key to it.defaultValue }
@@ -53,6 +53,7 @@ class SearchSourceConfigViewModel(
                     title = sourceImpl.name,
                     configFields = fields,
                     values = defaults + saved,
+                    pluginEnabled = sourceWithState.enabled,
                     validationErrors = emptyMap(),
                     isLoading = false,
                     saved = false,
@@ -100,9 +101,5 @@ class SearchSourceConfigViewModel(
             )
             _uiState.update { it.copy(saved = true, validationErrors = emptyMap()) }
         }
-    }
-
-    private fun findSource(pluginId: String, sources: List<SearchSource>): SearchSource? {
-        return sources.firstOrNull { searchSource -> searchSource.id == pluginId }
     }
 }

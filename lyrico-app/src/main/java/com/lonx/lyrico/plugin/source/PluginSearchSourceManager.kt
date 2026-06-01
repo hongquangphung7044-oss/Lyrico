@@ -8,6 +8,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+data class SearchSourceWithState(
+    val source: SearchSource,
+    val enabled: Boolean
+)
+
 class PluginSearchSourceManager(
     private val repository: SourcePluginRepository,
     private val factory: ScriptSearchSourceFactory
@@ -26,9 +31,21 @@ class PluginSearchSourceManager(
         return buildSources(repository.getPlugins().filter { it.enabled })
     }
 
-    private suspend fun buildSources(plugins: List<SourcePluginEntity>): List<SearchSource> {
+    suspend fun getSourceWithState(pluginId: String): SearchSourceWithState? {
+        val plugin = repository.getPlugin(pluginId) ?: return null
+        val source = buildSources(listOf(plugin), pruneMissing = false).firstOrNull() ?: return null
+        return SearchSourceWithState(
+            source = source,
+            enabled = plugin.enabled
+        )
+    }
+
+    private suspend fun buildSources(
+        plugins: List<SourcePluginEntity>,
+        pruneMissing: Boolean = true
+    ): List<SearchSource> {
         return mutex.withLock {
-            buildSourcesLocked(plugins)
+            buildSourcesLocked(plugins, pruneMissing)
         }
     }
 
@@ -39,12 +56,17 @@ class PluginSearchSourceManager(
         }
     }
 
-    private suspend fun buildSourcesLocked(plugins: List<SourcePluginEntity>): List<SearchSource> {
-        val activeIds = plugins.mapTo(mutableSetOf()) { it.id }
-        val removedIds = cache.keys - activeIds
-        removedIds.forEach { id ->
-            cache.remove(id)?.close()
-            cacheVersions.remove(id)
+    private suspend fun buildSourcesLocked(
+        plugins: List<SourcePluginEntity>,
+        pruneMissing: Boolean
+    ): List<SearchSource> {
+        if (pruneMissing) {
+            val activeIds = plugins.mapTo(mutableSetOf()) { it.id }
+            val removedIds = cache.keys - activeIds
+            removedIds.forEach { id ->
+                cache.remove(id)?.close()
+                cacheVersions.remove(id)
+            }
         }
 
         return plugins.mapNotNull { plugin ->

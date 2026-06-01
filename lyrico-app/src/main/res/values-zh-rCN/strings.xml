@@ -242,6 +242,7 @@
     <string name="source_config_saved">已保存</string>
     <string name="source_config_invalid_source">无效的插件</string>
     <string name="source_config_empty">暂无可配置项</string>
+    <string name="source_config_plugin_disabled_hint">当前插件未启用。你可以在这里编辑配置，但启用前它不会参与搜索或批量匹配</string>
     <string name="config_follow_global">跟随全局</string>
     <string name="config_enabled">启用</string>
     <string name="config_disabled">禁用</string>

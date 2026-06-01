@@ -47,7 +47,6 @@ import com.lonx.lyrico.data.model.plugin.PluginConfigField
 import com.lonx.lyrico.data.model.plugin.PluginConfigFieldType
 import com.lonx.lyrico.data.model.plugin.PluginMetadataField
 import com.lonx.lyrico.data.model.plugin.PluginMetadataFieldWriteRule
-import com.lonx.lyrico.data.model.plugin.valueType
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.utils.isSatisfied
 import com.lonx.lyrico.viewmodel.SearchSourceConfigViewModel
@@ -175,109 +174,41 @@ fun PluginConfigScreen(
                 return@Scaffold
             }
 
-            PluginBasicConfigTab(
-                fields = uiState.configFields,
-                values = uiState.values,
-                validationErrors = uiState.validationErrors,
-                hasContent = hasConfigContent,
-                topAppBarScrollBehavior = topAppBarScrollBehavior,
-                onValueChange = viewModel::updateValue,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
-}
-
-@Composable
-private fun PluginBasicConfigTab(
-    fields: List<PluginConfigField>,
-    values: Map<String, String>,
-    validationErrors: Map<String, String>,
-    hasContent: Boolean,
-    topAppBarScrollBehavior: ScrollBehavior,
-    onValueChange: (String, String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyColumn(
-        modifier = modifier
-            .scrollEndHaptic()
-            .overScrollVertical()
-            .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
-        contentPadding = PaddingValues(bottom = 12.dp),
-        overscrollEffect = null
-    ) {
-        if (!hasContent) {
-            item("empty_config") {
-                Text(
-                    text = stringResource(R.string.source_config_empty),
+            if (!uiState.pluginEnabled) {
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
-                    textAlign = TextAlign.Center,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantActions
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 8.dp),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.source_config_plugin_disabled_hint),
+                        modifier = Modifier.padding(16.dp),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .scrollEndHaptic()
+                    .overScrollVertical()
+                    .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(bottom = 12.dp),
+                overscrollEffect = null
+            ) {
+                pluginConfigFormItems(
+                    fields = uiState.configFields,
+                    values = uiState.values,
+                    validationErrors = uiState.validationErrors,
+                    onValueChange = viewModel::updateValue
                 )
             }
-            return@LazyColumn
         }
-
-        pluginConfigFormItems(
-            fields = fields,
-            values = values,
-            validationErrors = validationErrors,
-            onValueChange = onValueChange
-        )
-    }
-}
-
-@Composable
-private fun PluginMetadataTab(
-    pluginId: String,
-    metadataFields: List<PluginMetadataField>,
-    metadataRules: List<PluginMetadataFieldWriteRule>,
-    hasContent: Boolean,
-    topAppBarScrollBehavior: ScrollBehavior,
-    onDisableAll: () -> Unit,
-    onSupplementAll: () -> Unit,
-    onOverwriteAll: () -> Unit,
-    onEditField: (String) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .scrollEndHaptic()
-            .overScrollVertical()
-            .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
-        contentPadding = PaddingValues(bottom = 12.dp),
-        overscrollEffect = null
-    ) {
-        if (!hasContent) {
-            item("empty_metadata") {
-                Text(
-                    text = stringResource(R.string.source_config_empty),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    textAlign = TextAlign.Center,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantActions
-                )
-            }
-            return@LazyColumn
-        }
-
-        item("metadata_batch_actions") {
-            MetadataRuleBatchActions(
-                onDisableAll = onDisableAll,
-                onSupplementAll = onSupplementAll,
-                onOverwriteAll = onOverwriteAll
-            )
-        }
-
-        metadataRuleItems(
-            pluginId = pluginId,
-            metadataFields = metadataFields,
-            metadataRules = metadataRules,
-            onEditField = onEditField
-        )
     }
 }
 
@@ -508,294 +439,5 @@ private fun PluginConfigFormItem(
     }
 }
 
-private fun LazyListScope.metadataRuleItems(
-    pluginId: String,
-    metadataFields: List<PluginMetadataField>,
-    metadataRules: List<PluginMetadataFieldWriteRule>,
-    onEditField: (String) -> Unit
-) {
-    if (metadataFields.isEmpty()) return
-
-    val rulesByKey = metadataRules
-        .filter { it.pluginId == pluginId }
-        .associateBy { it.normalizedKey }
-
-    val grouped = metadataFields.groupBy { field ->
-        field.group.ifBlank { DEFAULT_METADATA_GROUP }
-    }
-
-    item("metadata_title") {
-        SmallTitle(text = stringResource(R.string.source_config_metadata_rules))
-    }
-
-    grouped.forEach { (group, fields) ->
-        val visibleFields = fields.filter { field ->
-            rulesByKey.containsKey(field.key)
-        }
-
-        if (visibleFields.isEmpty()) {
-            return@forEach
-        }
-
-        item("metadata_group_title_$group") {
-            SmallTitle(text = group)
-        }
-
-        item("metadata_card_$group") {
-            Card(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp)
-            ) {
-                Column {
-                    visibleFields.forEach { field ->
-                        val rule = rulesByKey[field.key] ?: return@forEach
-                        MetadataRulePreference(
-                            field = field,
-                            rule = rule,
-                            onClick = {
-                                onEditField(field.key)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetadataRuleBatchActions(
-    onDisableAll: () -> Unit,
-    onSupplementAll: () -> Unit,
-    onOverwriteAll: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.source_config_batch_actions_summary),
-                fontSize = 13.sp,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(
-                    text = stringResource(R.string.source_config_disable_all),
-                    onClick = onDisableAll,
-                    modifier = Modifier.weight(1f)
-                )
-
-                TextButton(
-                    text = stringResource(R.string.source_config_supplement_all),
-                    onClick = onSupplementAll,
-                    modifier = Modifier.weight(1f)
-                )
-
-                TextButton(
-                    text = stringResource(R.string.source_config_overwrite_all),
-                    onClick = onOverwriteAll,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetadataRulePreference(
-    field: PluginMetadataField,
-    rule: PluginMetadataFieldWriteRule,
-    onClick: () -> Unit
-) {
-    BasicComponent(
-        modifier = Modifier.fillMaxWidth(),
-        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        onClick = onClick,
-        endActions = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier.padding(start = 12.dp)
-            ) {
-                Text(
-                    text = stringResource(rule.mode.labelRes),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = when (rule.mode) {
-                        MetadataWriteMode.DISABLED ->
-                            MiuixTheme.colorScheme.onSurfaceVariantActions
-                        MetadataWriteMode.SUPPLEMENT,
-                        MetadataWriteMode.OVERWRITE ->
-                            MiuixTheme.colorScheme.primary
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(3.dp))
-
-                Text(
-                    text = stringResource(rule.target.labelRes),
-                    fontSize = 12.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    ) {
-        Column(
-            modifier = Modifier.padding(end = 8.dp)
-        ) {
-            Text(
-                text = field.title.ifBlank { field.key },
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(3.dp))
-
-            Text(
-                text = field.summary.ifBlank { field.key },
-                fontSize = 13.sp,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun MetadataRuleBottomSheet(
-    show: Boolean,
-    field: PluginMetadataField?,
-    rule: PluginMetadataFieldWriteRule?,
-    onDismissRequest: () -> Unit,
-    onDismissFinished: () -> Unit,
-    onRuleChanged: (PluginMetadataFieldWriteRule) -> Unit
-) {
-    WindowBottomSheet(
-        show = show,
-        onDismissRequest = onDismissRequest,
-        onDismissFinished = onDismissFinished
-    ) {
-        val currentField = field ?: return@WindowBottomSheet
-        val currentRule = rule ?: return@WindowBottomSheet
-
-        val targetCandidates = remember(currentField) {
-            currentField.targetOptions
-                .takeIf { it.isNotEmpty() }
-                ?: listOf(currentField.defaultTarget)
-        }
-
-        val selectedModeIndex = MetadataWriteMode.entries
-            .indexOf(currentRule.mode)
-            .coerceAtLeast(0)
-
-        val selectedTargetIndex = targetCandidates
-            .indexOf(currentRule.target)
-            .coerceAtLeast(0)
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            SmallTitle(
-                text = currentField.title,
-                insideMargin = PaddingValues(4.dp)
-            )
-            Card(
-                modifier = Modifier.padding(bottom = 12.dp),
-                colors = CardDefaults.defaultColors(
-                    color = MiuixTheme.colorScheme.secondaryContainer,
-                )
-            ) {
-                WindowDropdownPreference(
-                    title = stringResource(R.string.source_config_write_mode),
-                    items = MetadataWriteMode.entries.map { stringResource(it.labelRes) },
-                    selectedIndex = selectedModeIndex,
-                    onSelectedIndexChange = { index ->
-                        MetadataWriteMode.entries.getOrNull(index)?.let { mode ->
-                            onRuleChanged(
-                                currentRule.copy(
-                                    fieldKey = currentRule.normalizedKey,
-                                    mode = mode
-                                )
-                            )
-                        }
-                    }
-                )
-
-                WindowDropdownPreference(
-                    title = stringResource(R.string.source_config_write_target),
-                    items = targetCandidates.map { stringResource(it.labelRes) },
-                    selectedIndex = selectedTargetIndex,
-                    enabled = targetCandidates.isNotEmpty(),
-                    onSelectedIndexChange = { index ->
-                        targetCandidates.getOrNull(index)?.let { target ->
-                            onRuleChanged(
-                                currentRule.copy(
-                                    fieldKey = currentRule.normalizedKey,
-                                    target = target,
-                                    customTagKey = if (target == MetadataFieldTarget.CUSTOM) {
-                                        currentRule.customTagKey
-                                    } else {
-                                        null
-                                    }
-                                )
-                            )
-                        }
-                    }
-                )
-
-                AnimatedVisibility(visible = currentRule.target == MetadataFieldTarget.CUSTOM) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.source_config_custom_tag_key),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        TextField(
-                            modifier = Modifier.fillMaxWidth(),
-                            value = currentRule.customTagKey.orEmpty(),
-                            maxLines = 1,
-                            onValueChange = { value ->
-                                onRuleChanged(
-                                    currentRule.copy(
-                                        fieldKey = currentRule.normalizedKey,
-                                        customTagKey = value.takeIf { it.isNotBlank() }
-                                    )
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 private const val DEFAULT_CONFIG_GROUP = "__basic__"
-private const val DEFAULT_METADATA_GROUP = "extended"
