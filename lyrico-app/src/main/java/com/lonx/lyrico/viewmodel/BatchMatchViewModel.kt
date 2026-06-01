@@ -9,9 +9,7 @@ import com.lonx.lyrico.data.model.BatchTaskStatus
 import com.lonx.lyrico.data.model.BatchTaskType
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
 import com.lonx.lyrico.data.model.entity.SongEntity
-import com.lonx.lyrico.data.model.plugin.PluginFieldProcessConfig
 import com.lonx.lyrico.data.repository.BatchTaskRepository
-import com.lonx.lyrico.data.repository.PluginFieldProcessConfigRepository
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.worker.BatchTaskScheduler
@@ -47,7 +45,6 @@ class BatchMatchViewModel(
     private val selectionManager: SharedSelectionManager,
     private val batchTaskRepository: BatchTaskRepository,
     private val batchTaskScheduler: BatchTaskScheduler,
-    private val pluginFieldProcessConfigRepository: PluginFieldProcessConfigRepository,
     private val searchSourceProvider: SearchSourceProvider
 ) : ViewModel() {
 
@@ -61,10 +58,6 @@ class BatchMatchViewModel(
     private val sourceSettings: StateFlow<Map<String, SourceRuntimeConfig>> =
         settingsRepository.sourceSettingsByIdFlow
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
-    private val pluginFieldProcessConfigs: StateFlow<Map<String, PluginFieldProcessConfig>> =
-        pluginFieldProcessConfigRepository.configsFlow
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
-
     private val separator: StateFlow<String> = settingsRepository.separator
         .stateIn(viewModelScope, SharingStarted.Eagerly, "/")
     private val lyricRenderConfig: StateFlow<LyricRenderConfig?> = settingsRepository.lyricRenderConfigFlow
@@ -185,7 +178,6 @@ class BatchMatchViewModel(
                     separator = separator.value,
                     enabledSourceOrderIds = currentOrderIds,
                     sourceSettings = sourceSettings.value.mapValues { it.value.values },
-                    pluginFieldProcessConfigs = pluginFieldProcessConfigs.value,
                     lyricRenderConfig = lyricRenderConfig.value,
                     concurrency = matchConfig.concurrency
                 )

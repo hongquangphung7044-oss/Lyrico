@@ -9,7 +9,6 @@ import com.lonx.lyrico.data.model.log.AppLogLevel
 import com.lonx.lyrico.data.model.log.AppLogType
 import com.lonx.lyrico.data.model.entity.SourcePluginEntity
 import com.lonx.lyrico.data.repository.AppLogRepository
-import com.lonx.lyrico.data.repository.PluginFieldProcessConfigRepository
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SourcePluginRepository
 import com.lonx.lyrico.plugin.source.PluginSearchSourceManager
@@ -43,7 +42,6 @@ data class PluginUiState(
 class PluginViewModel(
     private val repository: SourcePluginRepository,
     private val settingsRepository: SettingsRepository,
-    private val pluginFieldProcessConfigRepository: PluginFieldProcessConfigRepository,
     private val installer: SourcePluginInstaller,
     private val pluginManager: PluginSearchSourceManager,
     private val appLogRepository: AppLogRepository
@@ -219,7 +217,6 @@ class PluginViewModel(
             if (plugin != null) {
                 pluginManager.invalidate(plugin.id)
                 settingsRepository.removePluginSettings(plugin.id)
-                pluginFieldProcessConfigRepository.removeConfig(plugin.id)
                 val pluginDir = File(plugin.pluginDir)
                 if (pluginDir.exists()) {
                     require(pluginDir.deleteRecursively()) {

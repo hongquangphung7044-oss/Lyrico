@@ -7,13 +7,13 @@ import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
 import com.lonx.lyrico.data.model.plugin.GlobalFieldProcessSettings
-import com.lonx.lyrico.data.repository.PluginFieldProcessConfigRepository
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.domain.SearchSourceConfigApplier
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.utils.LyricEncoder
 import com.lonx.lyrico.utils.PluginFieldPostProcessor
 import com.lonx.lyrico.utils.UiMessage
+import com.lonx.lyrico.data.model.plugin.defaultPluginFieldProcessConfig
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
 import com.lonx.lyrico.data.model.lyrics.SearchSource
 import com.lonx.lyrico.data.model.lyrics.SongSearchResult
@@ -67,7 +67,6 @@ private data class SearchSourceState(
 class SearchViewModel(
     private val searchSourceProvider: SearchSourceProvider,
     private val settingsRepository: SettingsRepository,
-    private val pluginFieldProcessConfigRepository: PluginFieldProcessConfigRepository,
     searchSourceConfigApplier: SearchSourceConfigApplier
 ) : ViewModel() {
 
@@ -88,29 +87,24 @@ class SearchViewModel(
                 SharingStarted.WhileSubscribed(5000),
                 null
             )
-    private val pluginFieldProcessConfigsFlow =
-        pluginFieldProcessConfigRepository.configsFlow
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                emptyMap()
-            )
     private val renderedLyricsFlow =
         combine(
             lyricsState,
-            lyricConfigFlow.filterNotNull(),
-            pluginFieldProcessConfigsFlow
-        ) { lyricsState, config, pluginConfigs ->
+            lyricConfigFlow.filterNotNull()
+        ) { lyricsState, config ->
 
             val raw = lyricsState.lyricsResult
-            val pluginConfig = lyricsState.song?.pluginId?.let { pluginConfigs[it] }
+            val pluginId = lyricsState.song?.pluginId
 
             val rendered = if (raw != null) {
                 val processor = PluginFieldPostProcessor(config.toGlobalFieldProcessSettings())
-                val processed = pluginConfig?.let { processor.processLyrics(raw, it) } ?: raw
+                val processed = processor.processLyrics(
+                    lyrics = raw,
+                    config = defaultPluginFieldProcessConfig(pluginId.orEmpty())
+                )
                 LyricEncoder.encode(
                     result = processed,
-                    config = if (pluginConfig == null) config else config.copy(conversionMode = ConversionMode.NONE)
+                    config = config.copy(conversionMode = ConversionMode.NONE)
                 )
             } else null
 
@@ -285,12 +279,30 @@ class SearchViewModel(
         val separator = settingsRepository.separator.first()
         val pageSize = settingsRepository.searchPageSize.first()
 
-        return sourceImpl.searchSongs(
+        val rawResults = sourceImpl.searchSongs(
             keyword = keyword,
             page = 1,
             separator = separator,
             pageSize = pageSize
         )
+
+        val renderConfig = settingsRepository.getLyricRenderConfig()
+        val processor = PluginFieldPostProcessor(renderConfig.toGlobalFieldProcessSettings())
+        return rawResults.map { result ->
+            val processedFields = processor.processFields(
+                pluginId = result.pluginId,
+                fields = result.normalizedFields(),
+                config = defaultPluginFieldProcessConfig(result.pluginId),
+                fieldDefinitions = emptyList(),
+                writeRules = emptyList()
+            )
+            result.copy(
+                title = processedFields["title"] ?: result.title,
+                artist = processedFields["artist"] ?: result.artist,
+                album = processedFields["album"] ?: result.album,
+                fields = processedFields
+            )
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -361,7 +373,7 @@ class SearchViewModel(
         val processor = PluginFieldPostProcessor(config.toGlobalFieldProcessSettings())
         val processed = processor.processLyrics(
             lyrics = lyricsResult,
-            config = pluginFieldProcessConfigRepository.getConfig(sourceImpl.id)
+            config = defaultPluginFieldProcessConfig(sourceImpl.id)
         )
 
         return LyricEncoder.encode(

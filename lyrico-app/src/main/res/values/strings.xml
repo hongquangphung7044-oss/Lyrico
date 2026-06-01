@@ -45,7 +45,7 @@
     <string name="section_scan">Scan Settings</string>
     <string name="section_search">Search</string>
     <string name="section_lyrics">Lyrics</string>
-    <string name="section_metadata">Metadata</string>
+    <string name="section_text_processing">Text Processing</string>
     <string name="section_other">Others</string>
 
     <!-- Appearance -->
@@ -238,28 +238,9 @@
     <string name="source_config_saved">Saved</string>
     <string name="source_config_invalid_source">Invalid plugin</string>
     <string name="source_config_empty">No configurable items</string>
-    <string name="source_config_tab_config">Plugin Settings</string>
-    <string name="source_config_tab_metadata">Write Rules</string>
-    <string name="plugin_config_tab_basic">Basic</string>
-    <string name="plugin_config_tab_field_process">Field processing</string>
-    <string name="plugin_config_tab_metadata">Field writing</string>
-    <string name="plugin_field_process_field_rules">Per-field rules</string>
-    <string name="plugin_field_process_initial">Initial values</string>
-    <string name="plugin_field_process_configured">Configured</string>
-    <string name="plugin_field_process_script_conversion">Script conversion</string>
-    <string name="plugin_field_process_trim">Trim whitespace</string>
-    <string name="plugin_field_process_normalize_whitespace">Normalize whitespace</string>
-    <string name="plugin_field_process_remove_empty_lines">Remove empty lines</string>
-    <string name="plugin_field_process_script_conversion_summary">Converts Chinese text for applicable text fields. IDs, dates, numbers, URLs, and covers are not converted.</string>
-    <string name="plugin_field_process_trim_summary">Removes leading and trailing whitespace from applicable text values.</string>
-    <string name="plugin_field_process_normalize_whitespace_summary">Compresses repeated spaces and tabs. For lyrics and multiline text, line breaks are preserved.</string>
-    <string name="plugin_field_process_remove_empty_lines_summary">Removes blank lines from lyrics and multiline text. Single-line metadata is not affected.</string>
     <string name="config_follow_global">Follow global</string>
     <string name="config_enabled">Enabled</string>
     <string name="config_disabled">Disabled</string>
-    <string name="script_conversion_disabled">Disabled</string>
-    <string name="script_conversion_simplified">Convert to Simplified Chinese</string>
-    <string name="script_conversion_traditional">Convert to Traditional Chinese</string>
     <string name="source_config_disable_all">Disable all</string>
     <string name="source_config_supplement_all">Supplement all</string>
     <string name="source_config_overwrite_all">Overwrite all</string>
@@ -400,7 +381,7 @@
     <string name="only_translation_if_available">Download Translated Lyrics Only</string>
     <string name="only_translation_if_available_hint">Downloads only translated lyrics when available. \nRequires translation download to be enabled.</string>
     <string name="remove_empty_lines">Remove Empty Lines</string>
-    <string name="remove_empty_lines_hint">Remove lines that are empty or contain only placeholders</string>
+    <string name="remove_empty_lines_hint">Remove blank lines from lyrics and other multiline text fields.</string>
 
     <string name="permission_denied_cannot_save">Permission denied. Unable to save changes.</string>
     <string name="import_config">Import Settings</string>
@@ -482,7 +463,8 @@
     <string name="chinese_conversion_mode_none">None</string>
     <string name="chinese_conversion_mode_traditional_to_simplified">CHT -> CHS</string>
     <string name="chinese_conversion_mode_simplified_to_traditional">CHS -> CHT</string>
-    <string name="conversion_mode">Lyric Conversion Mode</string>
+    <string name="conversion_mode">Chinese Text Conversion</string>
+    <string name="conversion_mode_hint">Applies to searchable text metadata and lyrics. IDs, dates, numbers, URLs, and covers are not converted.</string>
     <string name="offset_adjust_hint">Adjust Offset</string>
     <string name="label_lyrics_offset">Lyrics Offset (ms)</string>
     <string name="batch_edit_lyrics_offset_hint">Supports positive and negative values. If no sign is provided, positive is assumed.</string>

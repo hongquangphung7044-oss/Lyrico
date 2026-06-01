@@ -12,7 +12,6 @@ import com.lonx.lyrico.data.model.lyrics.SearchSource
 import com.lonx.lyrico.data.model.lyrics.SourceRuntimeConfig
 import com.lonx.lyrico.data.model.metadata.MetadataApplyPolicy
 import com.lonx.lyrico.data.model.plugin.GlobalFieldProcessSettings
-import com.lonx.lyrico.data.model.plugin.PluginFieldProcessConfig
 import com.lonx.lyrico.data.model.metadata.MetadataFieldTarget
 import com.lonx.lyrico.data.model.metadata.MetadataWriteMode
 import com.lonx.lyrico.data.model.metadata.SearchResultApplier
@@ -244,12 +243,10 @@ class MatchMetadataProcessor(
                     val deferred = async(Dispatchers.Default) {
                         finalMatch.source?.getLyrics(finalMatch.result)?.let { result ->
                             val sourceId = finalMatch.source.id
-                            val processConfig = config.pluginFieldProcessConfigs[sourceId]
-                                ?: defaultPluginFieldProcessConfig(sourceId)
 
                             val processed = fieldProcessor.processLyrics(
                                 lyrics = result,
-                                config = processConfig
+                                config = defaultPluginFieldProcessConfig(sourceId)
                             )
 
                             LyricEncoder.encode(
@@ -272,13 +269,11 @@ class MatchMetadataProcessor(
         onProgress(0.75f)
 
         val sourceId = finalMatch.source?.id.orEmpty()
-        val processConfig = config.pluginFieldProcessConfigs[sourceId]
-            ?: defaultPluginFieldProcessConfig(sourceId)
         val candidateFields = fieldProcessor.processFields(
             pluginId = sourceId,
             fields = finalMatch.result.normalizedFields() +
                     newLyrics?.takeIf { it.isNotBlank() }?.let { mapOf("lyrics" to it) }.orEmpty(),
-            config = processConfig,
+            config = defaultPluginFieldProcessConfig(sourceId),
             fieldDefinitions = emptyList(),
             writeRules = emptyList()
         )
@@ -366,7 +361,6 @@ data class MatchMetadataTaskConfig(
     val separator: String,
     val enabledSourceOrderIds: List<String>,
     val sourceSettings: Map<String, Map<String, String>> = emptyMap(),
-    val pluginFieldProcessConfigs: Map<String, PluginFieldProcessConfig> = emptyMap(),
     val lyricRenderConfig: LyricRenderConfig? = null,
     val concurrency: Int = 3
 )

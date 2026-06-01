@@ -7,13 +7,13 @@
     <string name="am_source_name">Apple Music</string>
     <string name="search_settings">搜索设置</string>
     <string name="plugin_manager_title">插件管理</string>
-    <string name="search_source_priority_tip">插件顺序会影响搜索和批量匹配时的源调用顺序。拖动插件可调整优先级，关闭插件后不会参与搜索。</string>
+    <string name="search_source_priority_tip">插件顺序会影响搜索和批量匹配时的源调用顺序。拖动插件可调整优先级，关闭插件后不会参与搜索</string>
 
     <!-- 搜索 -->
     <string name="search_lyrics_placeholder">搜索歌词…</string>
     <string name="search_cover_placeholder">搜索封面…</string>
     <string name="search_failed">搜索失败: %1$s</string>
-    <string name="soda_rate_limited">汽水音乐请求过于频繁，已被临时限制。请稍后再试，或降低批量匹配并发数。</string>
+    <string name="soda_rate_limited">汽水音乐请求过于频繁，已被临时限制。请稍后再试，或降低批量匹配并发数</string>
     <string name="search_no_results">未找到相关结果</string>
     <string name="fetch_lyrics_failed">获取歌词失败，请重试</string>
     <string name="apply_action">应用</string>
@@ -43,7 +43,7 @@
     <string name="section_scan">扫描设置</string>
     <string name="section_search">搜索设置</string>
     <string name="section_lyrics">歌词</string>
-    <string name="section_metadata">元数据</string>
+    <string name="section_text_processing">元数据处理</string>
     <string name="section_other">其他</string>
 
     <!-- 外观 -->
@@ -72,8 +72,8 @@
     <string name="artist_separator">艺术家分隔符</string>
     <string name="artist_separator_hint">存在多个艺术家时使用该分隔符分隔</string>
     <string name="replay_gain_scan_title">扫描 ReplayGain</string>
-    <string name="replay_gain_scan_summary">扫描当前音乐库并把 ReplayGain 曲目/专辑增益标签写回音频文件。</string>
-    <string name="replay_gain_no_songs">当前没有可用于 ReplayGain 扫描的歌曲。</string>
+    <string name="replay_gain_scan_summary">扫描当前音乐库并把 ReplayGain 曲目/专辑增益标签写回音频文件</string>
+    <string name="replay_gain_no_songs">当前没有可用于 ReplayGain 扫描的歌曲</string>
     <string name="action_calculate_replay_gain">计算 ReplayGain</string>
     <string name="replay_gain_calculate_in_progress">正在计算 ReplayGain，点击以中止</string>
     <string name="replay_gain_calculate_success">ReplayGain 计算成功</string>
@@ -242,32 +242,13 @@
     <string name="source_config_saved">已保存</string>
     <string name="source_config_invalid_source">无效的插件</string>
     <string name="source_config_empty">暂无可配置项</string>
-    <string name="source_config_tab_config">插件配置</string>
-    <string name="source_config_tab_metadata">写入规则</string>
-    <string name="plugin_config_tab_basic">基础配置</string>
-    <string name="plugin_config_tab_field_process">字段处理</string>
-    <string name="plugin_config_tab_metadata">字段写入</string>
-    <string name="plugin_field_process_field_rules">字段单独规则</string>
-    <string name="plugin_field_process_initial">初始值</string>
-    <string name="plugin_field_process_configured">已配置</string>
-    <string name="plugin_field_process_script_conversion">简繁转换</string>
-    <string name="plugin_field_process_trim">去首尾空白</string>
-    <string name="plugin_field_process_normalize_whitespace">空白归一化</string>
-    <string name="plugin_field_process_remove_empty_lines">删除空行</string>
-    <string name="plugin_field_process_script_conversion_summary">对适用的文本字段做简繁转换；ID、日期、数字、URL、封面等字段不会转换。</string>
-    <string name="plugin_field_process_trim_summary">移除适用文本值开头和结尾的空白字符。</string>
-    <string name="plugin_field_process_normalize_whitespace_summary">压缩连续空格和制表符；歌词和多行文本会保留换行结构。</string>
-    <string name="plugin_field_process_remove_empty_lines_summary">删除歌词和多行文本中的空行；单行元数据不受影响。</string>
     <string name="config_follow_global">跟随全局</string>
     <string name="config_enabled">启用</string>
     <string name="config_disabled">禁用</string>
-    <string name="script_conversion_disabled">不转换</string>
-    <string name="script_conversion_simplified">转简体</string>
-    <string name="script_conversion_traditional">转繁体</string>
     <string name="source_config_disable_all">全部禁用</string>
     <string name="source_config_supplement_all">全部补充</string>
     <string name="source_config_overwrite_all">全部覆盖</string>
-    <string name="source_config_batch_actions_summary">批量操作只修改当前插件可写入字段的写入模式，不会修改写入目标。</string>
+    <string name="source_config_batch_actions_summary">批量操作只修改当前插件可写入字段的写入模式，不会修改写入目标</string>
     <string name="label_track_number">音轨号</string>
     <string name="label_duration">时长</string>
     <string name="label_bitrate">比特率</string>
@@ -307,7 +288,7 @@
     <string name="folder_action_remove">移除文件夹</string>
     <string name="folder_action_hide">隐藏文件夹</string>
     <string name="folder_action_show">显示文件夹</string>
-    <string name="folder_action_remove_sub">从 Lyrico 中移除此文件夹，并清除音乐库里的对应歌曲。本地文件不会被删除。</string>
+    <string name="folder_action_remove_sub">从 Lyrico 中移除此文件夹，并清除音乐库里的对应歌曲。本地文件不会被删除</string>
 
     <!-- 通用操作 -->
     <string name="action_save">保存</string>
@@ -372,7 +353,7 @@
     <string name="only_translation_if_available">仅下载翻译歌词</string>
     <string name="only_translation_if_available_hint">若存在翻译，仅下载翻译歌词（需启用翻译下载）</string>
     <string name="remove_empty_lines">移除空行</string>
-    <string name="remove_empty_lines_hint">删除内容为空或仅包含占位符的行</string>
+    <string name="remove_empty_lines_hint">删除歌词和其他多行文本字段中的空行</string>
 
     <string name="permission_denied_cannot_save">权限已拒绝，无法保存更改</string>
     <string name="import_config">导入设置</string>
@@ -426,7 +407,7 @@
     <string name="configure_character_mapping">配置字符映射</string>
 
     <string name="select_replacement_character">选择替换字符</string>
-    <string name="character_mapping_description">点击字符可修改其替换规则。每个字符可以映射到不同的替换值。</string>
+    <string name="character_mapping_description">点击字符可修改其替换规则。每个字符可以映射到不同的替换值</string>
     <string name="character_to_replace">字符 %1$s</string>
     <string name="no_character_mappings">暂无字符映射</string>
     <string name="character_replacement_selector_subtitle">选择替换选项</string>
@@ -457,7 +438,8 @@
     <string name="chinese_conversion_mode_none">不转换</string>
     <string name="chinese_conversion_mode_traditional_to_simplified">繁体转简体</string>
     <string name="chinese_conversion_mode_simplified_to_traditional">简体转繁体</string>
-    <string name="conversion_mode">歌词转换</string>
+    <string name="conversion_mode">中文文本转换</string>
+    <string name="conversion_mode_hint">应用于搜索到的文本元数据和歌词；ID、日期、数字、URL、封面不会转换</string>
     <string name="offset_adjust_hint">调整偏移</string>
     <string name="label_lyrics_offset">歌词偏移 (毫秒)</string>
     <string name="batch_edit_lyrics_offset_hint">支持正负值，未填写正负号默认为正</string>
@@ -474,32 +456,32 @@
     <string name="group_custom_tags">自定义标签</string>
     <string name="action_add_custom_tag">添加自定义标签</string>
     <string name="action_remove_custom_tag">移除标签</string>
-    <string name="custom_tags_empty">还没有自定义标签，点击“添加标签”即可创建。</string>
+    <string name="custom_tags_empty">还没有自定义标签，点击“添加标签”即可创建</string>
     <string name="custom_tag_management_title">自定义标签管理</string>
     <string name="custom_tag_visible_section">编辑页显示标签</string>
-    <string name="custom_tag_visible_summary">添加到这里的自定义标签会显示在单曲编辑页和批量编辑页。</string>
+    <string name="custom_tag_visible_summary">添加到这里的自定义标签会显示在单曲编辑页和批量编辑页</string>
     <string name="custom_tag_discovered_section">所有已发现标签</string>
-    <string name="custom_tag_discovered_summary">这些标签来自当前音乐库，可添加到编辑页和批量编辑页显示。</string>
+    <string name="custom_tag_discovered_summary">这些标签来自当前音乐库，可添加到编辑页和批量编辑页显示</string>
     <string name="custom_tag_add_key">添加自定义标签键</string>
     <string name="custom_tag_key">标签键名</string>
-    <string name="custom_tag_key_hint">请输入音频标签中的自定义字段 key，例如 SOURCE、MOOD、CATALOG_NO。</string>
+    <string name="custom_tag_key_hint">请输入音频标签中的自定义字段 key，例如 SOURCE、MOOD、CATALOG_NO</string>
     <string name="custom_tag_add_to_visible">添加到显示</string>
     <string name="custom_tag_remove_visible">移除显示</string>
     <string name="custom_tag_already_visible">已显示</string>
     <string name="custom_tag_empty_visible_title">尚未添加显示标签</string>
-    <string name="custom_tag_empty_visible_summary">添加标签键后，它会显示在单曲编辑页和批量编辑页。</string>
-    <string name="custom_tag_remove_notice">移除显示不会删除歌曲中的已有数据。</string>
+    <string name="custom_tag_empty_visible_summary">添加标签键后，它会显示在单曲编辑页和批量编辑页</string>
+    <string name="custom_tag_remove_notice">移除显示不会删除歌曲中的已有数据</string>
     <string name="custom_tag_search_hint">搜索标签 key</string>
     <string name="custom_tag_song_count">%1$d 首歌曲</string>
     <string name="custom_tag_delete_current_value">删除当前歌曲中的标签值</string>
-    <string name="custom_tag_delete_current_value_summary">这只会删除当前歌曲中的该标签，不会从编辑页显示列表中移除。</string>
+    <string name="custom_tag_delete_current_value_summary">这只会删除当前歌曲中的该标签，不会从编辑页显示列表中移除</string>
 
     <!-- 批量编辑 -->
     <string name="batch_edit_title">编辑标签</string>
     <string name="batch_edit_tab_config">配置</string>
     <string name="batch_edit_tab_preview">预览 (%1$d)</string>
     <string name="batch_edit_song_count">已选择 %d 首歌曲</string>
-    <string name="batch_edit_no_fields">尚未添加任何标签。\n点击「添加」按钮选择要编辑的标签。</string>
+    <string name="batch_edit_no_fields">尚未添加任何标签。\n点击「添加」按钮选择要编辑的标签</string>
     <string name="batch_edit_saving_progress">保存中: %1$d / %2$d</string>
     <string name="batch_edit_result_summary">成功: %1$d / 总数: %2$d，跳过: %3$d，失败: %4$d</string>
     <string name="batch_edit_success_title">批量编辑成功</string>
@@ -559,7 +541,7 @@
     <!-- 批量 ReplayGain -->
     <string name="action_batch_replay_gain">计算回放增益</string>
     <string name="batch_replay_gain_concurrency">并发数</string>
-    <string name="batch_replay_gain_concurrency_tip">并发数越高，扫描速度越快，但可能消耗更多 CPU 和内存资源。</string>
+    <string name="batch_replay_gain_concurrency_tip">并发数越高，扫描速度越快，但可能消耗更多 CPU 和内存资源</string>
     <string name="batch_replay_gain_current">扫描: %s</string>
     <string name="batch_replay_gain_total_time">用时 %.2f 秒</string>
     <string name="batch_replay_gain_success">成功: %d</string>
@@ -701,7 +683,7 @@
     <string name="empty_artists_title">暂无艺术家</string>
     <string name="empty_albums_title">暂无专辑</string>
     <string name="empty_songs_title">暂无歌曲</string>
-    <string name="building_library_index">媒体库索引正在构建。</string>
+    <string name="building_library_index">媒体库索引正在构建</string>
     <string name="empty_library_index_summary">媒体库中暂无可显示的歌曲</string>
     <string name="artist_tab_songs">单曲</string>
     <string name="artist_tab_albums">专辑</string>
@@ -738,13 +720,13 @@
     <string name="duplicate_item">该项已存在</string>
     <string name="duplicate_builtin_item">该项已存在于内置列表中</string>
     <string name="artist_split_delete_rule_title">删除规则？</string>
-    <string name="artist_split_delete_rule_message">确定删除「%1$s」吗？重建艺术家索引后生效。</string>
+    <string name="artist_split_delete_rule_message">确定删除「%1$s」吗？重建艺术家索引后生效</string>
     <string name="album_grid_columns_format">%1$d 列显示</string>
 
     <!-- QuickJS Test -->
     <string name="quickjs_test_title">QuickJS 测试</string>
     <string name="quickjs_test_description">测试说明</string>
-    <string name="quickjs_test_description_summary">运行测试以验证 QuickJS 运行时功能，包括 eval、函数调用、超时处理和内存限制。</string>
+    <string name="quickjs_test_description_summary">运行测试以验证 QuickJS 运行时功能，包括 eval、函数调用、超时处理和内存限制</string>
     <string name="quickjs_test_run">运行测试</string>
     
     <string name="quickjs_test_eval_title">Eval 测试</string>
@@ -763,7 +745,7 @@
 
     <string name="plugin_config">配置</string>
     <string name="plugin_uninstall">卸载</string>
-    <string name="plugin_uninstall_confirm_message">确定要卸载"%1$s"吗？此操作无法撤销。</string>
+    <string name="plugin_uninstall_confirm_message">确定要卸载"%1$s"吗？此操作无法撤销</string>
     <string name="plugin_update_source_configured">更新源</string>
     <string name="plugin_version_with_value">版本：%1$s</string>
     <string name="plugin_author_with_value">作者：%1$s</string>

@@ -39,7 +39,6 @@ import com.lonx.lyrico.data.model.plugin.GlobalFieldProcessSettings
 import com.lonx.lyrico.data.model.plugin.defaultPluginFieldProcessConfig
 import com.lonx.lyrico.data.repository.AppLogRepository
 import com.lonx.lyrico.data.repository.CustomTagSettingsRepository
-import com.lonx.lyrico.data.repository.PluginFieldProcessConfigRepository
 import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.data.repository.SettingsDefaults
 import com.lonx.lyrico.data.repository.SettingsRepository
@@ -122,7 +121,6 @@ class EditMetadataViewModel(
     private val replayGainScanner: ReplayGainScanner,
     private val appLogRepository: AppLogRepository,
     private val editFieldVisibilityRepository: EditFieldVisibilityRepository,
-    private val pluginFieldProcessConfigRepository: PluginFieldProcessConfigRepository,
     private val customTagSettingsRepository: CustomTagSettingsRepository,
 ) : ViewModel() {
 
@@ -131,11 +129,6 @@ class EditMetadataViewModel(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         SettingsDefaults.LIMIT_LYRICS_INPUT_LINES
-    )
-    private val pluginFieldProcessConfigs = pluginFieldProcessConfigRepository.configsFlow.stateIn(
-        viewModelScope,
-        SharingStarted.Eagerly,
-        emptyMap()
     )
     private val lyricRenderConfig = settingsRepository.lyricRenderConfigFlow.stateIn(
         viewModelScope,
@@ -349,8 +342,6 @@ class EditMetadataViewModel(
         _uiState.update { state ->
             val current = state.editingTagData ?: AudioTagData()
 
-            val processConfig = pluginFieldProcessConfigs.value[result.pluginId]
-                ?: defaultPluginFieldProcessConfig(result.pluginId)
             val renderConfig = lyricRenderConfig.value
             val fieldProcessor = PluginFieldPostProcessor(
                 GlobalFieldProcessSettings(
@@ -370,7 +361,7 @@ class EditMetadataViewModel(
             val processedFields = fieldProcessor.processFields(
                 pluginId = result.pluginId,
                 fields = rawFields.sanitizeStandardFields(),
-                config = processConfig,
+                config = defaultPluginFieldProcessConfig(result.pluginId),
                 fieldDefinitions = emptyList(),
                 writeRules = emptyList()
             )

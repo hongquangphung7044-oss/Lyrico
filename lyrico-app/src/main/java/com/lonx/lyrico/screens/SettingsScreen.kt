@@ -486,26 +486,27 @@ fun SettingsScreen(
                             onCheckedChange = { settingsViewModel.setOnlyTranslationIfAvailable(it) }
                         )
                     }
-                    SwitchPreference(
-                        title = stringResource(R.string.remove_empty_lines),
-                        summary = stringResource(R.string.remove_empty_lines_hint),
-                        checked = removeEmptyLines,
-                        onCheckedChange = { settingsViewModel.setRemoveEmptyLines(it) }
-                    )
+                }
+            }
+
+            item(key = "text_processing"){
+                SmallTitle(text = stringResource(R.string.section_text_processing))
+                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                     WindowDropdownPreference(
                         title = stringResource(R.string.conversion_mode),
+                        summary = stringResource(R.string.conversion_mode_hint),
                         items = conversionModeItems,
                         selectedIndex = selectedConversionModeIndex,
                         onSelectedIndexChange = {
                             settingsViewModel.setConversionMode(ConversionMode.entries[it])
                         },
                     )
-                }
-            }
-
-            item(key = "metadata"){
-                SmallTitle(text = stringResource(R.string.section_metadata))
-                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    SwitchPreference(
+                        title = stringResource(R.string.remove_empty_lines),
+                        summary = stringResource(R.string.remove_empty_lines_hint),
+                        checked = removeEmptyLines,
+                        onCheckedChange = { settingsViewModel.setRemoveEmptyLines(it) }
+                    )
                     WindowDropdownPreference(
                         title = stringResource(R.string.artist_separator),
                         summary = stringResource(R.string.artist_separator_hint),

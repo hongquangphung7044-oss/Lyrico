@@ -18,8 +18,6 @@ import com.lonx.lyrico.data.repository.LibraryIndexRepository
 import com.lonx.lyrico.data.repository.LibraryIndexRepositoryImpl
 import com.lonx.lyrico.data.repository.PlaybackRepository
 import com.lonx.lyrico.data.repository.PlaybackRepositoryImpl
-import com.lonx.lyrico.data.repository.PluginFieldProcessConfigRepository
-import com.lonx.lyrico.data.repository.PluginFieldProcessConfigRepositoryImpl
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SettingsRepositoryImpl
 import com.lonx.lyrico.data.repository.SourcePluginRepository
@@ -201,7 +199,6 @@ val appModule = module {
     single<SettingsRepository> { SettingsRepositoryImpl(androidContext()) }
     single { CustomTagSettingsRepository(androidContext(), get()) }
     single { CustomTagKeyRepository(get()) }
-    single<PluginFieldProcessConfigRepository> { PluginFieldProcessConfigRepositoryImpl(androidContext(), get()) }
     single { EditFieldVisibilityRepository(androidContext()) }
     single<UpdateRepository> { UpdateRepositoryImpl(get(), get()) }
     single<PlaybackRepository> { PlaybackRepositoryImpl() }
@@ -271,16 +268,15 @@ val appModule = module {
     viewModel { ArtistSplitSettingsViewModel(get(), get()) }
     viewModel { AlbumLibraryViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
-    viewModel { SearchViewModel(get(), get(), get(), get()) }
+    viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { CoverSearchViewModel(get(), get(), get()) }
-    viewModel { SearchSourceConfigViewModel(get(), get(), get()) }
-    viewModel { EditMetadataViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(),
-        get()) }
+    viewModel { SearchSourceConfigViewModel(get(), get()) }
+    viewModel { EditMetadataViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { EditFieldVisibilitySettingsViewModel(get()) }
     viewModel { CustomTagManagementViewModel(get(), get()) }
-    viewModel { BatchMatchViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { BatchMatchViewModel(get(), get(), get(), get(), get()) }
     viewModel { AppLogViewModel(get(),get()) }
-    viewModel { PluginViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { PluginViewModel(get(), get(), get(), get(), get()) }
 
     viewModel { FolderManagerViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { BatchRenameViewModel(get(), get(), get(), get(), get()) }
