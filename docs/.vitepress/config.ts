@@ -33,35 +33,35 @@ const socialLinks = [
 ]
 
 const zhSidebar = {
-  '/zh-CN/plugins/': [
+  '/plugins/': [
     {
       text: '使用插件',
       items: [
-        { text: '插件首页', link: '/zh-CN/plugins/' },
-        { text: '使用插件', link: '/zh-CN/plugins/using' },
+        { text: '插件首页', link: '/plugins/' },
+        { text: '使用插件', link: '/plugins/using' },
       ],
     },
     {
       text: '开发插件',
       items: [
-        { text: '从零编写插件', link: '/zh-CN/plugins/examples' },
-        { text: '本地调试插件', link: '/zh-CN/plugins/debugging' },
-        { text: '插件包结构', link: '/zh-CN/plugins/composition' },
-        { text: '插件函数', link: '/zh-CN/plugins/plugin-functions' },
-        { text: '配置与结果字段', link: '/zh-CN/plugins/config-metadata' },
+        { text: '从零编写插件', link: '/plugins/examples' },
+        { text: '本地调试插件', link: '/plugins/debugging' },
+        { text: '插件包结构', link: '/plugins/composition' },
+        { text: '插件函数', link: '/plugins/plugin-functions' },
+        { text: '配置与结果字段', link: '/plugins/config-metadata' },
       ],
     },
     {
       text: '参考手册',
       items: [
-        { text: 'Manifest 参考', link: '/zh-CN/plugins/manifest' },
-        { text: '宿主 API 参考', link: '/zh-CN/plugins/host-api' },
+        { text: 'Manifest 参考', link: '/plugins/manifest' },
+        { text: '宿主 API 参考', link: '/plugins/host-api' },
       ],
     },
     {
       text: '运行机制',
       items: [
-        { text: '架构与生命周期', link: '/zh-CN/plugins/overview' },
+        { text: '架构与生命周期', link: '/plugins/overview' },
       ],
     },
   ],
@@ -108,16 +108,16 @@ export default defineConfig({
   lang: 'zh-CN',
   base,
   locales: {
-    'zh-CN': {
+    root: {
       label: '简体中文',
       lang: 'zh-CN',
-      link: '/zh-CN/',
+      link: '/',
       title: 'Lyrico',
       description: 'Lyrico 使用说明与插件开发文档',
       themeConfig: {
         nav: [
-          { text: '首页', link: '/zh-CN/' },
-          { text: '插件', link: '/zh-CN/plugins/' },
+          { text: '首页', link: '/' },
+          { text: '插件', link: '/plugins/' },
         ],
         returnToTopLabel: '回到顶部',
         sidebarMenuLabel: '菜单',
@@ -190,14 +190,23 @@ export default defineConfig({
   themeConfig: {
     logo: `/logo.svg`,
     nav: [
-      { text: '简体中文', link: '/zh-CN/' },
+      { text: '首页', link: '/' },
+      { text: '插件', link: '/plugins/' },
       { text: 'English', link: '/en-US/' },
     ],
     search: zhSearch,
+    sidebar: zhSidebar,
     socialLinks,
     outline: {
       level: [2, 3],
       label: '本页目录',
+    },
+    docFooter: {
+      prev: '上一页',
+      next: '下一页',
+    },
+    lastUpdated: {
+      text: '最后更新',
     },
   },
 })
