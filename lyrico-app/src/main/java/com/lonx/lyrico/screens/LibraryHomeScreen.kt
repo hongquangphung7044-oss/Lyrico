@@ -83,7 +83,7 @@ fun LibraryHomeScreen(
 
         fun selectTab(tab: LibraryTab) {
             scope.launch {
-                isFabMenuExpanded = false
+                selectionViewModel.exitSelectionMode()
                 pagerState.animateScrollToPage(tab.ordinal)
             }
         }
