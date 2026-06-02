@@ -1,12 +1,11 @@
 package com.lonx.lyrico.utils.lyrics.document
 
-import com.github.houbb.opencc4j.util.ZhHkConverterUtil
+import com.github.houbb.opencc4j.util.ZhConverterUtil
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
 import com.lonx.lyrico.data.model.lyrics.LyricsPayloadType
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
-import com.lonx.lyrico.data.model.lyrics.document.ExtensionMap
 import com.lonx.lyrico.data.model.lyrics.document.LyricsDocument
 import com.lonx.lyrico.data.model.lyrics.document.LyricsDocumentLine
 import com.lonx.lyrico.data.model.lyrics.document.LyricsDocumentWord
@@ -195,8 +194,8 @@ object LyricsDocumentPipeline {
 
     private fun convertText(text: String, conversionMode: ConversionMode): String {
         return when (conversionMode) {
-            ConversionMode.TRADITIONAL_TO_SIMPLIFIED -> ZhHkConverterUtil.toSimple(text)
-            ConversionMode.SIMPLIFIED_TO_TRADITIONAL -> ZhHkConverterUtil.toTraditional(text)
+            ConversionMode.TRADITIONAL_TO_SIMPLIFIED -> ZhConverterUtil.toSimple(text)
+            ConversionMode.SIMPLIFIED_TO_TRADITIONAL -> ZhConverterUtil.toTraditional(text)
             else -> text
         }
     }
