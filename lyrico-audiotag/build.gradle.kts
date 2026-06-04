@@ -8,7 +8,7 @@ android {
     namespace = "com.lonx.audiotag"
     ndkVersion = "29.0.14206865"
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     defaultConfig {
