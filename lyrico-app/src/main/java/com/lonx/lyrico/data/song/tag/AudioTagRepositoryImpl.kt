@@ -27,7 +27,7 @@ class AudioTagRepositoryImpl(
         val displayName = fileAccess.getDisplayName(uri)
         try {
             readFromUri(uri, displayName, strict = false)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Failed to read audio tags: $uri", e)
             logMetadataException("Failed to read audio tags", e, uri)
             AudioTagData(fileName = displayName)

@@ -17,6 +17,8 @@
     <string name="soda_rate_limited">Soda Music is temporarily limiting requests. Please wait a while or lower batch matching concurrency.</string>
     <string name="search_no_results">No results found</string>
     <string name="fetch_lyrics_failed">Failed to fetch lyrics. Please try again.</string>
+    <string name="lyrics_loading">Loading lyrics…</string>
+    <string name="search_apply_tab_metadata">Data</string>
     <string name="apply_action">Apply</string>
     <string name="apply_lyrics_only_action">Lyrics Only</string>
     <string name="preview_action">Preview</string>

@@ -22,6 +22,9 @@ import com.lonx.lyrico.data.model.lyrics.LyricsResult
 import com.lonx.lyrico.data.model.lyrics.SearchSource
 import com.lonx.lyrico.data.model.lyrics.SongSearchResult
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -142,9 +145,9 @@ class SearchViewModel(
 
             val sourceImpls = getSearchSources(searchConfig, allSources)
             val filteredSources = sourceImpls.map { it.toUiModel() }
-            val selectedSource =
-                filteredSources.find { it.id == selectedId }
-                    ?: filteredSources.firstOrNull()
+            val selectedSource = selectedId?.let { id ->
+                filteredSources.find { it.id == id }
+            }
 
             SearchUiState(
                 searchKeyword = search.keyword,
@@ -201,6 +204,20 @@ class SearchViewModel(
         }
     }
 
+    fun onAllSourcesSelected() {
+        selectedSourceId.value = null
+
+        val keyword = searchState.value.keyword
+        if (keyword.isBlank()) return
+
+        val sourceIds = allSourcesFlow.value.map { it.id }
+        val hasAllCurrentResults = sourceIds.isNotEmpty() &&
+                sourceIds.all { sourceId -> searchState.value.results.containsKey(sourceId) }
+        if (!hasAllCurrentResults) {
+            performSearch()
+        }
+    }
+
     fun performSearch(keywordOverride: String? = null) {
         val keyword = (keywordOverride ?: searchState.value.keyword).trim()
         if (keyword.isBlank()) return
@@ -220,11 +237,7 @@ class SearchViewModel(
                 allSources = allSourcesFlow.first { it.isNotEmpty() }
             )
 
-            val source =
-                selectedSourceId.value
-                    ?: sourceImpls.firstOrNull()?.id
-
-            if (source == null) {
+            if (sourceImpls.isEmpty()) {
                 logSearch(
                     level = AppLogLevel.WARNING,
                     message = "Search skipped: no enabled plugin source",
@@ -234,10 +247,76 @@ class SearchViewModel(
                 return@launch
             }
 
-            if (selectedSourceId.value == null) {
-                selectedSourceId.value = source
+            val source = selectedSourceId.value
+            if (source == null) {
+                executeSearchAll(keyword, sourceImpls, keywordOverride != null)
+            } else {
+                executeSearch(keyword, source, keywordOverride != null)
             }
-            executeSearch(keyword, source, keywordOverride != null)
+        }
+    }
+
+    private suspend fun executeSearchAll(
+        keyword: String,
+        sourceImpls: List<SearchSource>,
+        updateKeyword: Boolean
+    ) {
+        val sourceIds = sourceImpls.map { it.id }
+        searchState.update {
+            it.copy(
+                isSearching = true,
+                errors = it.errors - sourceIds.toSet()
+            )
+        }
+
+        if (updateKeyword) {
+            searchState.update { it.copy(keyword = keyword) }
+        }
+
+        val results = coroutineScope {
+            sourceImpls.map { source ->
+                async {
+                    try {
+                        val sourceResults = searchFromSource(keyword, source.id)
+                        cacheSearchResults(keyword, source.id, sourceResults)
+                        logSearch(
+                            level = AppLogLevel.DEBUG,
+                            message = "Search finished: ${sourceResults.size} result(s)",
+                            detail = "keyword=$keyword\nsource=${source.id}\nresultCount=${sourceResults.size}\n" +
+                                    "top=${sourceResults.take(5).map { "${it.id}:${it.title}" }}",
+                            relatedId = source.id
+                        )
+                        source.id to Result.success(sourceResults)
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        logSearchException(
+                            message = "Search failed\nkeyword=$keyword\nsource=${source.id}",
+                            throwable = e,
+                            relatedId = source.id
+                        )
+                        source.id to Result.failure<List<SongSearchResult>>(e)
+                    }
+                }
+            }.awaitAll()
+        }
+
+        val nextResults = results
+            .mapNotNull { (sourceId, result) ->
+                result.getOrNull()?.let { sourceId to it }
+            }
+            .toMap()
+        val nextErrors = results
+            .mapNotNull { (sourceId, result) ->
+                result.exceptionOrNull()?.let { sourceId to it.toUiMessage() }
+            }
+            .toMap()
+
+        searchState.update {
+            it.copy(
+                results = it.results + nextResults,
+                errors = it.errors + nextErrors,
+                isSearching = false
+            )
         }
     }
 
@@ -425,7 +504,6 @@ class SearchViewModel(
             result = processed,
             config = config.copy(conversionMode = ConversionMode.NONE)
         )
-
     }
 
     private fun LyricRenderConfig.toGlobalFieldProcessSettings(): GlobalFieldProcessSettings {

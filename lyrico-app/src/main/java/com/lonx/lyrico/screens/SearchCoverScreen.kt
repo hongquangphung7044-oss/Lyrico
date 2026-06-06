@@ -60,7 +60,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -139,26 +138,24 @@ fun SearchCoverScreen(
             /**
              * Tabs
              */
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp)
-            ) {
-                val tabs = listOf(stringResource(id = R.string.search_type_all)) + uiState.availableSources.map { source ->
-                    source.labelRes?.let { stringResource(id = it) } ?: source.name
-                }
-                TabRowWithContour(
-                    tabs = tabs,
-                    minWidth = 80.dp,
-                    selectedTabIndex = pagerState.currentPage,
-                    onTabSelected = { index ->
-                        scope.launch {
-                            pagerState.animateScrollToPage(index)
-                        }
-                    }
+            val tabs = listOf(
+                SourcePillTab(label = stringResource(id = R.string.search_type_all))
+            ) + uiState.availableSources.map { source ->
+                SourcePillTab(
+                    label = source.labelRes?.let { stringResource(id = it) } ?: source.name,
+                    iconPath = source.iconPath
                 )
             }
+            SourcePillTabRow(
+                tabs = tabs,
+                selectedTabIndex = pagerState.currentPage,
+                onTabSelected = { index ->
+                    scope.launch {
+                        pagerState.animateScrollToPage(index)
+                    }
+                },
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
 
             /**
              * Pager

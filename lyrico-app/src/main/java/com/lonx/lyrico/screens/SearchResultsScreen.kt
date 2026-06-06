@@ -2,8 +2,8 @@ package com.lonx.lyrico.screens
 
 import android.annotation.SuppressLint
 import android.content.ClipData
+import android.graphics.BitmapFactory
 import android.view.HapticFeedbackConstants
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -31,7 +32,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton as MaterialTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,16 +49,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,6 +68,7 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.metadata.MetadataFieldTarget
+import com.lonx.lyrico.data.model.metadata.StandardPluginField
 import com.lonx.lyrico.data.model.search.LyricsSearchResult
 import com.lonx.lyrico.ui.components.bar.SearchBar
 import com.lonx.lyrico.ui.components.rememberTintedPainter
@@ -81,12 +86,13 @@ import org.koin.androidx.compose.koinViewModel
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -95,7 +101,11 @@ import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import com.lonx.lyrico.ui.components.plugin.PluginIcon
-import com.lonx.lyrico.viewmodel.SearchSourceUiModel
+import com.lonx.lyrico.viewmodel.LyricsUiState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.TabRow
+import java.net.URL
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,13 +120,13 @@ fun SearchResultsScreen(
 
     val showLyricRenderConfigBottomSheet = remember { mutableStateOf(false) }
     val lyricConfig by viewModel.lyricConfigFlow.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+    var pendingApplySong by remember { mutableStateOf<SongSearchResult?>(null) }
+    var showApplyBottomSheet by remember { mutableStateOf(false) }
 
 
-    val clipboardManager = LocalClipboard.current
-    val pagerState = rememberPagerState { uiState.availableSources.size }
+    val pagerState = rememberPagerState { uiState.availableSources.size + 1 }
 
     /**
      * 外部 keyword 触发搜索
@@ -129,7 +139,12 @@ fun SearchResultsScreen(
      * ViewModel → Pager 同步
      */
     LaunchedEffect(uiState.selectedSearchSource) {
-        val index = uiState.availableSources.indexOf(uiState.selectedSearchSource)
+        val selectedSource = uiState.selectedSearchSource
+        val index = if (selectedSource == null) {
+            0
+        } else {
+            uiState.availableSources.indexOf(selectedSource) + 1
+        }
         if (index >= 0 && pagerState.currentPage != index) {
             pagerState.animateScrollToPage(index)
         }
@@ -141,8 +156,12 @@ fun SearchResultsScreen(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .collectLatest { page ->
-                val source = uiState.availableSources.getOrNull(page)
-                source?.let { viewModel.onSearchSourceSelected(it) }
+                if (page == 0) {
+                    viewModel.onAllSourcesSelected()
+                } else {
+                    val source = uiState.availableSources.getOrNull(page - 1)
+                    source?.let { viewModel.onSearchSourceSelected(it) }
+                }
             }
     }
 
@@ -160,7 +179,7 @@ fun SearchResultsScreen(
                     onValueChange = viewModel::onKeywordChanged,
                     placeholder = stringResource(id = R.string.search_lyrics_placeholder),
                     actions = {
-                        androidx.compose.material3.TextButton(
+                        MaterialTextButton(
                             onClick = {
                                 keyboardController?.hide()
                                 viewModel.performSearch()
@@ -221,22 +240,23 @@ fun SearchResultsScreen(
             /**
              * Tabs
              */
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp)
-            ) {
-                SourceIconTabRow(
-                    sources = uiState.availableSources,
-                    selectedTabIndex = pagerState.currentPage,
-                    onTabSelected = { index ->
-                        scope.launch {
-                            pagerState.animateScrollToPage(index)
-                        }
+            SourcePillTabRow(
+                tabs = listOf(
+                    SourcePillTab(label = stringResource(id = R.string.search_type_all))
+                ) + uiState.availableSources.map { source ->
+                    SourcePillTab(
+                        label = source.labelRes?.let { stringResource(id = it) } ?: source.name,
+                        iconPath = source.iconPath
+                    )
+                },
+                selectedTabIndex = pagerState.currentPage,
+                onTabSelected = { index ->
+                    scope.launch {
+                        pagerState.animateScrollToPage(index)
                     }
-                )
-            }
+                },
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
 
             /**
              * Pager
@@ -246,19 +266,35 @@ fun SearchResultsScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
 
-                val source = uiState.availableSources.getOrNull(page)
+                val source = if (page == 0) null else uiState.availableSources.getOrNull(page - 1)
 
-                val results =
-                    uiState.searchResults[source?.id] ?: emptyList()
+                val results = if (page == 0) {
+                    uiState.availableSources.flatMap { tabSource ->
+                        uiState.searchResults[tabSource.id].orEmpty()
+                    }
+                } else {
+                    uiState.searchResults[source?.id].orEmpty()
+                }
 
                 when {
-                    uiState.isSearching && source == uiState.selectedSearchSource -> {
+                    uiState.isSearching && (page == 0 || source == uiState.selectedSearchSource) -> {
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             CircularProgressIndicator()
                         }
                     }
 
-                    source != null && uiState.searchErrors[source.id] != null -> {
+                    page == 0 && uiState.searchErrors.isNotEmpty() && results.isEmpty() -> {
+                        val errorMessage = uiState.searchErrors.values.firstOrNull()
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            Text(
+                                text = errorMessage?.asString().orEmpty(),
+                                fontSize = 14.sp,
+                                color = MiuixTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    page != 0 && source != null && uiState.searchErrors[source.id] != null -> {
                         val errorMessage = uiState.searchErrors[source.id]
                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                             Text(
@@ -286,61 +322,9 @@ fun SearchResultsScreen(
 
                                 SearchResultItem(
                                     song = song,
-                                    onPreviewClick = {
-                                        viewModel.loadLyrics(song)
-                                    },
-                                    onApplyClick = {
-                                        scope.launch {
-                                            val lyrics =
-                                                viewModel.fetchLyrics(song)
-                                            if (lyrics != null) {
-                                                resultNavigator.navigateBack(
-                                                    LyricsSearchResult(
-                                                        title = song.title,
-                                                        artist = song.artist,
-                                                        album = song.album,
-                                                        lyrics = lyrics,
-                                                        date = song.date,
-                                                        trackerNumber = song.trackNumber,
-                                                        picUrl = song.picUrl,
-                                                        pluginId = song.pluginId,
-                                                        pluginName = song.pluginName,
-                                                        lyricsOnly = false,
-                                                        fields = song.fields
-                                                    )
-                                                )
-                                            } else {
-                                                Toast.makeText(
-                                                    context,
-                                                    context.getString(R.string.fetch_lyrics_failed),
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
-                                    },
-                                    onApplyLyricsOnlyClick = {
-                                        scope.launch {
-                                            val lyrics =
-                                                viewModel.fetchLyrics(song)
-                                            if (lyrics != null) {
-                                                resultNavigator.navigateBack(
-                                                    LyricsSearchResult(
-                                                        title = song.title,
-                                                        artist = song.artist,
-                                                        album = song.album,
-                                                        lyrics = lyrics,
-                                                        date = song.date,
-                                                        trackerNumber = song.trackNumber,
-                                                        picUrl = song.picUrl,
-                                                        pluginId = song.pluginId,
-                                                        pluginName = song.pluginName,
-                                                        lyricsOnly = true,
-                                                        applyTargets = setOf(MetadataFieldTarget.LYRICS),
-                                                        fields = song.fields
-                                                    )
-                                                )
-                                            }
-                                        }
+                                    onClick = {
+                                        pendingApplySong = song
+                                        showApplyBottomSheet = true
                                     }
                                 )
                             }
@@ -351,170 +335,36 @@ fun SearchResultsScreen(
         }
     }
 
-    /**
-     * 歌词 BottomSheet
-     */
-
-    val lyricsText = uiState.lyricsState.content
-    val song = uiState.lyricsState.song
-    var showLyricsSheet by remember { mutableStateOf(false) }
-    LaunchedEffect(song) {
-        if (song != null) {
-            showLyricsSheet = true
-        }
-    }
-
-    WindowBottomSheet(
-        show = showLyricsSheet,
-        enableNestedScroll = false,
-        onDismissRequest = { showLyricsSheet = false },
-        onDismissFinished = { viewModel.clearLyrics() },
-        title = song?.title ?: "",
-        endAction = {
-            IconButton(
-                onClick = {
-                    showLyricRenderConfigBottomSheet.value = true
-                }
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Settings,
-                    contentDescription = null
+    SearchResultApplyBottomSheet(
+        show = showApplyBottomSheet,
+        song = pendingApplySong,
+        lyricsState = uiState.lyricsState,
+        onLoadLyrics = viewModel::loadLyrics,
+        onOpenLyricsConfig = { showLyricRenderConfigBottomSheet.value = true },
+        onDismissRequest = { showApplyBottomSheet = false },
+        onDismissFinished = {
+            pendingApplySong = null
+            viewModel.clearLyrics()
+        },
+        onApply = { songToApply, lyrics, targets ->
+            resultNavigator.navigateBack(
+                LyricsSearchResult(
+                    title = songToApply.title,
+                    artist = songToApply.artist,
+                    album = songToApply.album,
+                    lyrics = lyrics,
+                    date = songToApply.date,
+                    trackerNumber = songToApply.trackNumber,
+                    picUrl = songToApply.picUrl,
+                    pluginId = songToApply.pluginId,
+                    pluginName = songToApply.pluginName,
+                    lyricsOnly = targets == setOf(MetadataFieldTarget.LYRICS),
+                    applyTargets = targets,
+                    fields = songToApply.fields
                 )
-            }
+            )
         }
-    ) {
-        song?.let { currentSong ->
-            Column(
-                modifier = Modifier
-                    .padding(bottom = 32.dp)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                Card(
-                    modifier = Modifier
-                        .padding(bottom = 12.dp)
-                        .fillMaxWidth(),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.secondaryContainer,
-                    )
-                ) {
-                    Box {
-                        LazyColumn(
-                            modifier = Modifier
-                                .heightIn(min = 30.dp, max = 300.dp)
-                                .fillMaxWidth(),
-                        ) {
-                            when {
-                                uiState.lyricsState.isLoading -> item("loading") {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                                    }
-                                }
-
-                                uiState.lyricsState.error != null -> item("error") {
-                                    val errorMessage = uiState.lyricsState.error
-                                    Text(
-                                        modifier = Modifier.padding(12.dp),
-                                        text = errorMessage?.asString().orEmpty(),
-                                        style = MiuixTheme.textStyles.body2
-                                    )
-                                }
-
-                                else -> item("lyrics") {
-                                    val text = lyricsText
-                                        ?.takeIf { it.isNotBlank() }
-                                        ?: stringResource(R.string.lyrics_empty)
-
-                                    Text(
-                                        modifier = Modifier.padding(12.dp),
-                                        text = text,
-                                        style = MiuixTheme.textStyles.body2
-                                    )
-                                }
-                            }
-                        }
-                        if (!lyricsText.isNullOrBlank()) {
-                            IconButton(
-                                onClick = {
-                                    scope.launch {
-                                        val clipData = ClipData.newPlainText("copy lyrics", lyricsText)
-                                        val clipEntry = ClipEntry(clipData)
-                                        clipboardManager.setClipEntry(clipEntry)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(8.dp)
-                                    .background(
-                                        color = MiuixTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                        shape = CircleShape
-                                    )
-                            ) {
-                                Icon(
-                                    imageVector = MiuixIcons.Copy,
-                                    contentDescription = "复制歌词"
-                                )
-                            }
-                        }
-                    }
-                }
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    TextButton(
-                        enabled = lyricsText != null && lyricsText != "",
-                        text = stringResource(R.string.apply_lyrics_only_action),
-                        onClick = {
-                            resultNavigator.navigateBack(
-                                LyricsSearchResult(
-                                    title = currentSong.title,
-                                    artist = currentSong.artist,
-                                    album = currentSong.album,
-                                    lyrics = lyricsText,
-                                    date = currentSong.date,
-                                    trackerNumber = currentSong.trackNumber,
-                                    picUrl = currentSong.picUrl,
-                                    pluginId = currentSong.pluginId,
-                                    pluginName = currentSong.pluginName,
-                                    lyricsOnly = true,
-                                    applyTargets = setOf(MetadataFieldTarget.LYRICS),
-                                    fields = currentSong.fields
-                                )
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(20.dp))
-                    TextButton(
-                        enabled = lyricsText != null && lyricsText != "",
-                        text = stringResource(R.string.apply_action),
-                        onClick = {
-                            resultNavigator.navigateBack(
-                                LyricsSearchResult(
-                                    title = currentSong.title,
-                                    artist = currentSong.artist,
-                                    album = currentSong.album,
-                                    lyrics = uiState.lyricsState.content,
-                                    date = currentSong.date,
-                                    trackerNumber = currentSong.trackNumber,
-                                    picUrl = currentSong.picUrl,
-                                    pluginId = currentSong.pluginId,
-                                    pluginName = currentSong.pluginName,
-                                    lyricsOnly = false,
-                                    fields = currentSong.fields
-                                )
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                    )
-                }
-            }
-        }
-    }
+    )
 
     WindowBottomSheet(
         show = showLyricRenderConfigBottomSheet.value,
@@ -599,20 +449,18 @@ fun SearchResultsScreen(
 @Composable
 fun SearchResultItem(
     song: SongSearchResult,
-    onPreviewClick: () -> Unit,
-    onApplyClick: () -> Unit,
-    onApplyLyricsOnlyClick: () -> Unit
+    onClick: () -> Unit
 ) {
 
     var imageSize by remember(song.picUrl) { mutableStateOf<Pair<Int, Int>?>(null) }
 
     LaunchedEffect(song.picUrl) {
         if (song.picUrl.isNotBlank()) {
-            imageSize = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            imageSize = withContext(Dispatchers.IO) {
                 try {
-                    val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    android.graphics.BitmapFactory.decodeStream(
-                        java.net.URL(song.picUrl).openStream(),
+                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeStream(
+                        URL(song.picUrl).openStream(),
                         null,
                         options
                     )
@@ -631,7 +479,7 @@ fun SearchResultItem(
         modifier = Modifier
             .padding(bottom = 6.dp)
             .clip(RoundedCornerShape(CardDefaults.CornerRadius))
-            .clickable(onClick = { onPreviewClick() }),
+            .clickable(onClick = onClick),
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
@@ -696,13 +544,23 @@ fun SearchResultItem(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = song.title,
-                        style = MiuixTheme.textStyles.body1,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = song.title,
+                            style = MiuixTheme.textStyles.body1,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SearchSourceBadge(
+                            text = song.pluginName.ifBlank { song.pluginId }
+                        )
+                    }
 
                     val artistAlbum = buildList {
                         if (song.artist.isNotBlank()) add(song.artist)
@@ -734,49 +592,6 @@ fun SearchResultItem(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-
-
-                        // 应用按钮组
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.surfaceVariant)
-                                    .clickable { onApplyLyricsOnlyClick() }
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.apply_lyrics_only_action),
-                                    fontSize = 11.sp,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.primary)
-                                    .clickable { onApplyClick() }
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.apply_action),
-                                    fontSize = 11.sp,
-                                    color = MiuixTheme.colorScheme.onPrimary,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                    }
                 }
             }
 
@@ -786,45 +601,646 @@ fun SearchResultItem(
 }
 
 @Composable
-private fun SourceIconTabRow(
-    sources: List<SearchSourceUiModel>,
+private fun SearchSourceBadge(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MiuixTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+private data class SearchResultApplyOption(
+    val target: MetadataFieldTarget,
+    val value: String,
+    val imageSize: Pair<Int, Int>? = null,
+    val enabled: Boolean = true
+)
+
+@Composable
+private fun SearchResultApplyBottomSheet(
+    show: Boolean,
+    song: SongSearchResult?,
+    lyricsState: LyricsUiState,
+    onLoadLyrics: (SongSearchResult) -> Unit,
+    onOpenLyricsConfig: () -> Unit,
+    onDismissRequest: () -> Unit,
+    onDismissFinished: () -> Unit,
+    onApply: (song: SongSearchResult, lyrics: String?, targets: Set<MetadataFieldTarget>) -> Unit
+) {
+    val clipboardManager = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val applyPagerState = rememberPagerState { 2 }
+    var imageSize by remember(song?.picUrl) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var selectedTargets by remember(song?.id, song?.pluginId) {
+        mutableStateOf(emptySet<MetadataFieldTarget>())
+    }
+    var knownTargets by remember(song?.id, song?.pluginId) {
+        mutableStateOf(emptySet<MetadataFieldTarget>())
+    }
+
+    LaunchedEffect(song?.id, song?.pluginId) {
+        val targetSong = song ?: return@LaunchedEffect
+        applyPagerState.scrollToPage(0)
+        onLoadLyrics(targetSong)
+    }
+
+    LaunchedEffect(song?.picUrl) {
+        val picUrl = song?.picUrl.orEmpty()
+        if (picUrl.isNotBlank()) {
+            imageSize = withContext(Dispatchers.IO) {
+                try {
+                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeStream(
+                        URL(picUrl).openStream(),
+                        null,
+                        options
+                    )
+                    if (options.outWidth > 0 && options.outHeight > 0) {
+                        options.outWidth to options.outHeight
+                    } else null
+                } catch (e: Exception) {
+                    null
+                }
+            }
+        }
+    }
+
+    val lyricsText = if (lyricsState.song?.id == song?.id && lyricsState.song?.pluginId == song?.pluginId) {
+        lyricsState.content?.takeIf { it.isNotBlank() }
+    } else {
+        null
+    }
+    val lyricsLoadingText = stringResource(R.string.lyrics_loading)
+    val lyricsLoadFailedText = stringResource(R.string.fetch_lyrics_failed)
+    val lyricsEmptyText = stringResource(R.string.lyrics_empty)
+    val lyricsStatusText = when {
+        lyricsState.isLoading -> lyricsLoadingText
+        lyricsState.error != null -> lyricsState.error.asString()?.ifBlank { lyricsLoadFailedText } ?: lyricsLoadFailedText
+        else -> lyricsEmptyText
+    }
+
+    val options = remember(song, lyricsText, lyricsState.isLoading, lyricsState.error, lyricsStatusText, imageSize) {
+        val targetSong = song ?: return@remember emptyList()
+        val fields = targetSong.normalizedFields().toMutableMap()
+        lyricsText?.let { fields["lyrics"] = it }
+
+        val fieldOptions = StandardPluginField.entries.sortedBy { field ->
+            if (field.target == MetadataFieldTarget.COVER) 0 else 1
+        }.mapNotNull { field ->
+            val value = fields[field.key]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            SearchResultApplyOption(
+                target = field.target,
+                value = value,
+                imageSize = if (field.target == MetadataFieldTarget.COVER) imageSize else null
+            )
+        }.distinctBy { it.target }.toMutableList()
+
+        if (fieldOptions.none { it.target == MetadataFieldTarget.LYRICS } &&
+            (lyricsState.isLoading || lyricsState.error != null || lyricsState.song != null)
+        ) {
+            fieldOptions += SearchResultApplyOption(
+                target = MetadataFieldTarget.LYRICS,
+                value = lyricsStatusText,
+                enabled = false
+            )
+        }
+
+        fieldOptions.sortedBy { if (it.target == MetadataFieldTarget.COVER) 0 else 1 }
+    }
+
+    LaunchedEffect(options) {
+        val targets = options.filter { it.enabled }.map { it.target }.toSet()
+        val newTargets = targets - knownTargets
+        selectedTargets = when {
+            knownTargets.isEmpty() -> targets
+            else -> (selectedTargets intersect targets) + newTargets
+        }
+        knownTargets = targets
+    }
+
+    val enabledTargets = options.filter { it.enabled }.map { it.target }.toSet()
+    val allSelected = enabledTargets.isNotEmpty() && selectedTargets.containsAll(enabledTargets)
+    val dataOptions = options.filter { it.target != MetadataFieldTarget.LYRICS }
+    val lyricsOption = options.firstOrNull { it.target == MetadataFieldTarget.LYRICS }
+
+    WindowBottomSheet(
+        show = show,
+        onDismissRequest = onDismissRequest,
+        onDismissFinished = onDismissFinished,
+        enableNestedScroll = false,
+        startAction = {
+            ApplySheetPillTabs(
+                selectedTabIndex = applyPagerState.currentPage,
+                onTabSelected = { index ->
+                    scope.launch {
+                        applyPagerState.animateScrollToPage(index)
+                    }
+                }
+            )
+        },
+        endAction = {
+            MaterialTextButton(
+                colors = ButtonColors(
+                    containerColor = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.primary,
+                    disabledContainerColor = MiuixTheme.colorScheme.disabledOnSurface,
+                    disabledContentColor = MiuixTheme.colorScheme.disabledPrimary
+                ),
+                onClick = {
+                    selectedTargets = if (allSelected) {
+                        emptySet()
+                    } else {
+                        enabledTargets
+                    }
+                }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (lyricsState.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    }
+                    androidx.compose.material3.Text(
+                        text = stringResource(
+                            if (allSelected) R.string.action_deselect_all else R.string.action_select_all
+                        )
+                    )
+                }
+            }
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(bottom = 32.dp)
+                .fillMaxWidth(),
+        ) {
+            HorizontalPager(
+                state = applyPagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(420.dp)
+            ) { page ->
+                when (page) {
+                    0 -> SearchResultApplyDataPage(
+                        options = dataOptions,
+                        selectedTargets = selectedTargets,
+                        onSelectedTargetsChange = { selectedTargets = it }
+                    )
+
+                    1 -> SearchResultApplyLyricsPage(
+                        option = lyricsOption,
+                        selected = MetadataFieldTarget.LYRICS in selectedTargets,
+                        lyricsText = lyricsText,
+                        lyricsState = lyricsState,
+                        loadingText = lyricsLoadingText,
+                        failedText = lyricsLoadFailedText,
+                        onSelectedChange = { selected ->
+                            if (lyricsOption?.enabled == true) {
+                                selectedTargets = if (selected) {
+                                    selectedTargets + MetadataFieldTarget.LYRICS
+                                } else {
+                                    selectedTargets - MetadataFieldTarget.LYRICS
+                                }
+                            }
+                        },
+                        onOpenLyricsConfig = onOpenLyricsConfig,
+                        onCopyLyrics = {
+                            scope.launch {
+                                val clipData = ClipData.newPlainText("copy lyrics", lyricsText)
+                                val clipEntry = ClipEntry(clipData)
+                                clipboardManager.setClipEntry(clipEntry)
+                            }
+                        }
+                    )
+                }
+            }
+
+            MiuixTextButton(
+                enabled = song != null && selectedTargets.isNotEmpty(),
+                text = if (lyricsState.isLoading) {
+                    lyricsLoadingText
+                } else {
+                    stringResource(R.string.apply_action)
+                },
+                onClick = {
+                    song?.let {
+                        onApply(
+                            it,
+                            lyricsText?.takeIf { MetadataFieldTarget.LYRICS in selectedTargets },
+                            selectedTargets
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ApplySheetPillTabs(
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        listOf(
+            stringResource(R.string.search_apply_tab_metadata),
+            stringResource(R.string.label_lyrics)
+        ).forEachIndexed { index, label ->
+            val selected = selectedTabIndex == index
+            Box(
+                modifier = Modifier
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(
+                        if (selected) {
+                            MiuixTheme.colorScheme.primary
+                        } else {
+                            MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                        }
+                    )
+                    .clickable { onTabSelected(index) }
+                    .padding(horizontal = 13.dp, vertical = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 13.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected) {
+                        MiuixTheme.colorScheme.onPrimary
+                    } else {
+                        MiuixTheme.colorScheme.onSurface
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultApplyDataPage(
+    options: List<SearchResultApplyOption>,
+    selectedTargets: Set<MetadataFieldTarget>,
+    onSelectedTargetsChange: (Set<MetadataFieldTarget>) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (options.isEmpty()) {
+            item("empty") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.search_no_results),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant
+                    )
+                }
+            }
+        } else {
+            items(options, key = { it.target.name }) { option ->
+                SearchResultApplyOptionItem(
+                    option = option,
+                    selected = option.enabled && option.target in selectedTargets,
+                    onSelectedChange = { selected ->
+                        if (!option.enabled) return@SearchResultApplyOptionItem
+                        onSelectedTargetsChange(
+                            if (selected) {
+                                selectedTargets + option.target
+                            } else {
+                                selectedTargets - option.target
+                            }
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultApplyLyricsPage(
+    option: SearchResultApplyOption?,
+    selected: Boolean,
+    lyricsText: String?,
+    lyricsState: LyricsUiState,
+    loadingText: String,
+    failedText: String,
+    onSelectedChange: (Boolean) -> Unit,
+    onOpenLyricsConfig: () -> Unit,
+    onCopyLyrics: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.label_lyrics),
+                    style = MiuixTheme.textStyles.main,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MiuixTheme.colorScheme.onSurfaceContainer
+                )
+                Text(
+                    text = option?.value ?: stringResource(R.string.lyrics_empty),
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(onClick = onOpenLyricsConfig) {
+                Icon(
+                    imageVector = MiuixIcons.Settings,
+                    contentDescription = null
+                )
+            }
+            Checkbox(
+                state = if (selected && option?.enabled == true) ToggleableState.On else ToggleableState.Off,
+                onClick = {
+                    if (option?.enabled == true) {
+                        onSelectedChange(!selected)
+                    }
+                }
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when {
+                    lyricsState.isLoading -> item("loading") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                Text(
+                                    text = loadingText,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant
+                                )
+                            }
+                        }
+                    }
+
+                    lyricsState.error != null -> item("error") {
+                        Text(
+                            modifier = Modifier.padding(12.dp),
+                            text = lyricsState.error.asString() ?: failedText,
+                            style = MiuixTheme.textStyles.body2
+                        )
+                    }
+
+                    else -> item("lyrics") {
+                        Text(
+                            modifier = Modifier.padding(12.dp),
+                            text = lyricsText ?: stringResource(R.string.lyrics_empty),
+                            style = MiuixTheme.textStyles.body2
+                        )
+                    }
+                }
+            }
+
+            if (!lyricsText.isNullOrBlank()) {
+                IconButton(
+                    onClick = onCopyLyrics,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(
+                            color = MiuixTheme.colorScheme.surface.copy(alpha = 0.7f),
+                            shape = CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = MiuixIcons.Copy,
+                        contentDescription = null
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultApplyOptionItem(
+    option: SearchResultApplyOption,
+    selected: Boolean,
+    onSelectedChange: (Boolean) -> Unit
+) {
+    val isCover = option.target == MetadataFieldTarget.COVER
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable {
+                if (option.enabled) {
+                    onSelectedChange(!selected)
+                }
+            }
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (isCover) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(LyricoColors.coverPlaceholder)
+            ) {
+                AsyncImage(
+                    model = option.value,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    placeholder = rememberTintedPainter(
+                        painter = painterResource(R.drawable.ic_album_24dp),
+                        tint = LyricoColors.coverPlaceholderIcon
+                    ),
+                    error = rememberTintedPainter(
+                        painter = painterResource(R.drawable.ic_album_24dp),
+                        tint = LyricoColors.coverPlaceholderIcon
+                    )
+                )
+                option.imageSize?.let { size ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MiuixTheme.colorScheme.onSecondaryContainer
+                                    )
+                                )
+                            )
+                    ) {
+                        Text(
+                            text = "${size.first}×${size.second}",
+                            color = if (isDarkTheme) Color.Black else Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(bottom = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(option.target.labelRes),
+                style = MiuixTheme.textStyles.main,
+                fontWeight = FontWeight.SemiBold,
+                color = if (option.enabled) {
+                    MiuixTheme.colorScheme.onSurfaceContainer
+                } else {
+                    MiuixTheme.colorScheme.onSurfaceContainerVariant
+                }
+            )
+            Text(
+                text = option.value,
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                maxLines = if (option.target == MetadataFieldTarget.LYRICS) 4 else 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Checkbox(
+            state = if (selected) ToggleableState.On else ToggleableState.Off,
+            onClick = {
+                if (option.enabled) {
+                    onSelectedChange(!selected)
+                }
+            }
+        )
+    }
+}
+
+data class SourcePillTab(
+    val label: String,
+    val iconPath: String? = null,
+    val imageVector: ImageVector? = null
+)
+
+@Composable
+fun SourcePillTabRow(
+    tabs: List<SourcePillTab>,
     selectedTabIndex: Int,
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    LazyRow(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        sources.forEachIndexed { index, source ->
+        items(tabs.size) { index ->
+            val tab = tabs[index]
             val selected = index == selectedTabIndex
-            val contentDescription = source.labelRes?.let { stringResource(id = it) } ?: source.name
 
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
                     .background(
                         if (selected) {
-                            MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)
+                            MiuixTheme.colorScheme.primary
                         } else {
-                            Color.Transparent
+                            MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
                         }
                     )
                     .clickable {
                         onTabSelected(index)
-                    },
+                    }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                PluginIcon(
-                    iconPath = source.iconPath,
-                    contentDescription = contentDescription,
-                    size = 28.dp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    when {
+                        tab.iconPath != null -> PluginIcon(
+                            iconPath = tab.iconPath,
+                            contentDescription = tab.label,
+                            size = 22.dp
+                        )
+                        tab.imageVector != null -> Icon(
+                            imageVector = tab.imageVector,
+                            contentDescription = tab.label,
+                            modifier = Modifier.size(18.dp),
+                            tint = if (selected) {
+                                MiuixTheme.colorScheme.onPrimary
+                            } else {
+                                MiuixTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
+                    Text(
+                        text = tab.label,
+                        fontSize = 15.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (selected) {
+                            MiuixTheme.colorScheme.onPrimary
+                        } else {
+                            MiuixTheme.colorScheme.onSurface
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -914,4 +1330,3 @@ fun OffsetStepButton(text: String, onClick: () -> Unit) {
         )
     }
 }
-
