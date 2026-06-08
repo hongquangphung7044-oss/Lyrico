@@ -1,11 +1,8 @@
 # Lyrico
 
-[![Build Debug](https://github.com/Replica0110/Lyrico/actions/workflows/build-debug.yml/badge.svg?branch=master)](https://github.com/Replica0110/Lyrico/actions/workflows/build-debug.yml)
-[![Docs](https://github.com/Replica0110/Lyrico/actions/workflows/deploy-docs.yml/badge.svg?branch=master)](https://github.com/Replica0110/Lyrico/actions/workflows/deploy-docs.yml)
-[![Release](https://img.shields.io/github/v/release/Replica0110/Lyrico?include_prereleases&label=release)](https://github.com/Replica0110/Lyrico/releases)
-[![License](https://img.shields.io/github/license/Replica0110/Lyrico)](./LICENSE)
-[![Android](https://img.shields.io/badge/Android-9%2B-3DDC84?logo=android&logoColor=white)](#构建)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.21-7F52FF?logo=kotlin&logoColor=white)](./gradle/libs.versions.toml)
+[![GitHub Release](https://img.shields.io/github/v/release/replica0110/lyrico?style=flat-square)](https://github.com/Replica0110/Lyrico/releases)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/replica0110/lyrico/total?style=flat-square)
+[![License](https://img.shields.io/github/license/Replica0110/Lyrico?style=flat-square)](./LICENSE)
 
 Lyrico 是一款面向 Android 的开源本地音乐标签编辑与歌词管理工具。它用于整理本地音乐库、读写音频元数据，并通过插件化搜索源补全歌词、封面和其他歌曲信息。
 
