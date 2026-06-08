@@ -78,6 +78,7 @@ class LyricsDocumentPipelineTest {
         ).orEmpty()
 
         assertTrue(output.contains("[00:01.000]A"))
+        assertTrue(output.contains("[00:01.000]翻译"))
         assertFalse(output.contains("ttm:agent"))
     }
 
@@ -90,6 +91,27 @@ class LyricsDocumentPipelineTest {
         ).orEmpty()
 
         assertTrue(output.contains("[00:01.000]<00:01.000>A<00:02.000>"))
+    }
+
+    @Test
+    fun wordLevelTtmlMetadataTranslationSurvivesFormatConversion() {
+        val output = LyricsDocumentPipeline.process(
+            raw = sampleWordLevelTtmlWithMetadataTranslation(),
+            sourceFormat = LyricFormat.TTML,
+            targetFormat = LyricFormat.ENHANCED_LRC
+        ).orEmpty()
+
+        assertTrue(output.contains("[00:01.000]<00:01.000>I<00:01.200> <00:01.300>had<00:02.000>"))
+        assertTrue(output.contains("[00:01.000]我曾拥有"))
+    }
+
+    @Test
+    fun ttmlParserPreservesTimedSpaceSpan() {
+        val document = TtmlParser.parse(sampleWordLevelTtmlWithTimedSpace())
+        val line = document.tracks.first { it.type == LyricsTrackType.Original }.lines.first()
+
+        assertEquals("I had", line.visibleText())
+        assertEquals(listOf("I", " ", "had"), line.words.map { it.text })
     }
 
     @Test
@@ -174,6 +196,51 @@ class LyricsDocumentPipelineTest {
                   <p begin="1.000" end="2.000" itunes:key="L1" ttm:agent="v1">
                     <span begin="1.000" end="2.000">A</span>
                     <span begin="2.000" end="3.000">B</span>
+                  </p>
+                </div>
+              </body>
+            </tt>
+        """.trimIndent()
+    }
+
+    private fun sampleWordLevelTtmlWithTimedSpace(): String {
+        return """
+            <?xml version="1.0" encoding="utf-8"?>
+            <tt xmlns="http://www.w3.org/ns/ttml"
+                xmlns:itunes="http://music.apple.com/lyric-ttml-internal"
+                xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+              <body>
+                <div>
+                  <p begin="1.000" end="2.000" itunes:key="L1" ttm:agent="v1">
+                    <span begin="1.000" end="1.200">I</span><span begin="1.200" end="1.300"> </span><span begin="1.300" end="2.000">had</span>
+                  </p>
+                </div>
+              </body>
+            </tt>
+        """.trimIndent()
+    }
+
+    private fun sampleWordLevelTtmlWithMetadataTranslation(): String {
+        return """
+            <?xml version="1.0" encoding="utf-8"?>
+            <tt xmlns="http://www.w3.org/ns/ttml"
+                xmlns:itunes="http://music.apple.com/lyric-ttml-internal"
+                xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+              <head>
+                <metadata>
+                  <iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">
+                    <translations>
+                      <translation type="subtitle" xml:lang="zh-Hans">
+                        <text for="L1">我曾拥有</text>
+                      </translation>
+                    </translations>
+                  </iTunesMetadata>
+                </metadata>
+              </head>
+              <body>
+                <div>
+                  <p begin="1.000" end="2.000" itunes:key="L1" ttm:agent="v1">
+                    <span begin="1.000" end="1.200">I</span><span begin="1.200" end="1.300"> </span><span begin="1.300" end="2.000">had</span>
                   </p>
                 </div>
               </body>

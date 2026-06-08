@@ -202,8 +202,9 @@ object TtmlParser : LyricsFormatParser {
                         else -> {
                             val start = element.attr("begin")?.let(::parseTtmlTimeMs)
                             val end = element.attr("end")?.let(::parseTtmlTimeMs)
-                            val normalized = normalizeTtmlText(text, trimEdges = true)
-                            if (start != null && normalized.isNotEmpty()) {
+                            val normalized = normalizeTtmlText(text, trimEdges = start == null)
+                            val isFormattingWhitespace = normalized.isBlank() && (text.contains('\n') || text.contains('\r'))
+                            if (start != null && normalized.isNotEmpty() && !isFormattingWhitespace) {
                                 words.add(
                                     LyricsDocumentWord(
                                         startMs = start,

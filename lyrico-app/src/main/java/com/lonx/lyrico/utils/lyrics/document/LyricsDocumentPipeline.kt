@@ -4,8 +4,11 @@ import com.github.houbb.opencc4j.util.ZhConverterUtil
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
+import com.lonx.lyrico.data.model.lyrics.LyricsLine
 import com.lonx.lyrico.data.model.lyrics.LyricsPayloadType
 import com.lonx.lyrico.data.model.lyrics.LyricsResult
+import com.lonx.lyrico.data.model.lyrics.LyricsWord
+import com.lonx.lyrico.data.model.lyrics.isWordByWord
 import com.lonx.lyrico.data.model.lyrics.document.LyricsDocument
 import com.lonx.lyrico.data.model.lyrics.document.LyricsDocumentLine
 import com.lonx.lyrico.data.model.lyrics.document.LyricsDocumentWord
@@ -28,6 +31,10 @@ object LyricsDocumentPipeline {
         EnhancedLrcWriter,
         TtmlWriter
     ).associateBy { it.format }
+
+    fun parse(raw: String, sourceFormat: LyricFormat): LyricsDocument? {
+        return parsers[sourceFormat]?.parse(raw)
+    }
 
     fun processRawResult(
         result: LyricsResult,
@@ -142,6 +149,40 @@ object LyricsDocumentPipeline {
         )
     }
 
+    fun LyricsDocument.toLyricsResult(): LyricsResult {
+        val originalDocumentLines = tracks
+            .firstOrNull { it.type == LyricsTrackType.Original }
+            ?.lines
+            .orEmpty()
+        val originalLines = originalDocumentLines.mapNotNull { it.toLyricsLine() }
+        val originalByKey = originalDocumentLines
+            .mapNotNull { line -> line.linkKey?.let { it to line } }
+            .toMap()
+        val originalByStart = originalDocumentLines
+            .mapNotNull { line -> line.startMs?.let { it to line } }
+            .toMap()
+
+        fun linkedTrackLines(type: LyricsTrackType): List<LyricsLine>? {
+            return tracks
+                .filter { it.type == type }
+                .flatMap { it.lines }
+                .mapNotNull { line ->
+                    val fallback = line.linkKey?.let { originalByKey[it] }
+                        ?: line.startMs?.let { originalByStart[it] }
+                    line.toLyricsLine(fallback)
+                }
+                .ifEmpty { null }
+        }
+
+        return LyricsResult(
+            tags = metadata.toTags(),
+            original = originalLines,
+            translated = linkedTrackLines(LyricsTrackType.Translation),
+            romanization = linkedTrackLines(LyricsTrackType.Romanization),
+            isWordByWord = originalLines.isWordByWord()
+        )
+    }
+
     private fun selectSource(result: LyricsResult, config: LyricRenderConfig): LyricFormat? {
         if (config.format == LyricFormat.TTML && result.rawTtml.isNotBlank()) return LyricFormat.TTML
         if (config.format == LyricFormat.ENHANCED_LRC && result.rawEnhancedLrc.isNotBlank()) return LyricFormat.ENHANCED_LRC
@@ -182,6 +223,53 @@ object LyricsDocumentPipeline {
         )
     }
 
+    private fun LyricsDocumentLine.toLyricsLine(fallback: LyricsDocumentLine? = null): LyricsLine? {
+        val start = startMs ?: fallback?.startMs ?: return null
+        val end = endMs
+            ?: words.lastOrNull()?.endMs
+            ?: fallback?.endMs
+            ?: fallback?.words?.lastOrNull()?.endMs
+            ?: start
+        val lineText = visibleText()
+        val resultWords = words
+            .mapNotNull { word ->
+                val wordStart = word.startMs ?: startMs ?: fallback?.startMs
+                val wordEnd = word.endMs ?: fallback?.endMs ?: end
+                if (wordStart == null) {
+                    null
+                } else {
+                    LyricsWord(
+                        start = wordStart,
+                        end = wordEnd,
+                        text = word.text
+                    )
+                }
+            }
+            .ifEmpty {
+                if (lineText.isBlank()) {
+                    emptyList()
+                } else {
+                    listOf(
+                        LyricsWord(
+                            start = start,
+                            end = end,
+                            text = lineText
+                        )
+                    )
+                }
+            }
+
+        return if (resultWords.isEmpty()) {
+            null
+        } else {
+            LyricsLine(
+                start = start,
+                end = end,
+                words = resultWords
+            )
+        }
+    }
+
     private fun Map<String, String>.toLyricsMetadata(): LyricsMetadata {
         return LyricsMetadata(
             title = this["ti"],
@@ -190,6 +278,16 @@ object LyricsDocumentPipeline {
             offsetMs = this["offset"]?.toLongOrNull(),
             extra = filterKeys { it !in setOf("ti", "ar", "al", "offset") }
         )
+    }
+
+    private fun LyricsMetadata.toTags(): Map<String, String> {
+        return buildMap {
+            title?.let { put("ti", it) }
+            artist?.let { put("ar", it) }
+            album?.let { put("al", it) }
+            offsetMs?.let { put("offset", it.toString()) }
+            putAll(extra)
+        }
     }
 
     private fun convertText(text: String, conversionMode: ConversionMode): String {
