@@ -22,7 +22,7 @@ These pages are for two audiences:
 | 2 | [Plugin Package Structure](./composition.md) | File layout, entry scripts, helper folders, and ZIP rules |
 | 3 | [Plugin Functions](./plugin-functions.md) | Implement `searchSongs`, `getLyrics`, and `searchCovers` |
 | 4 | [Manifest Reference](./manifest.md) | Manifest fields, values, and validation rules |
-| 5 | [Host API Reference](./host-api.md) | HTTP, crypto, encoding, compression, and logging APIs |
+| 5 | [Host API Reference](./host-api.md) | HTTP, crypto, encoding, compression, XML, and logging APIs |
 
 ## I Want To Understand The Runtime
 

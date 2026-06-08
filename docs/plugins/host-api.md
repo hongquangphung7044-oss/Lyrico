@@ -1,6 +1,6 @@
 # 宿主 API 参考
 
-本文是 `globalThis.Platform` 的 API 参考，适合在插件需要访问网络、加密、编码、压缩或日志能力时查阅。
+本文是 `globalThis.Platform` 的 API 参考，适合在插件需要访问网络、加密、编码、压缩、XML 处理或日志能力时查阅。
 
 插件通过 `globalThis.Platform` 对象访问宿主暴露的原生能力。该对象在 JS 运行时初始化时由 bootstrap 脚本注入。
 
@@ -88,6 +88,7 @@ var ua = Platform.app.getUserAgent();  // "Lyrico/0.0.0"
   "supportedHostApis": [
     "app.info", "app.userAgent", "...",
     "http.getText", "...",
+    "xml.getRootAttributes", "xml.findElements", "...",
     "log.debug", "log.warn", "log.error"
   ]
 }
@@ -415,6 +416,174 @@ var responseBytes = Platform.base64.decodeBytes(res.bodyBase64);
 
 ---
 
+## Platform.xml — XML 处理
+
+XML 模块提供轻量级 XML/TTML 查询和改写能力，适合处理歌词源返回的 TTML、带命名空间前缀属性的 `translation` 节点等场景。
+
+这些方法会由宿主解析并重新序列化 XML。输出会保留元素、文本和属性，但不保证原始缩进、注释、处理指令或字节级格式完全不变。属性名中的前缀会作为名称的一部分保留，例如 `xml:lang`。
+
+### XML 查询对象
+
+`findElements` 和 `removeElements` 使用相同的查询对象：
+
+```json
+{
+  "tag": "translation",
+  "attrs": {
+    "xml:lang": "zh-Hans"
+  }
+}
+```
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `tag` | `string` | `""` | 元素标签名；为空时匹配任意元素 |
+| `attrs` | `object` | `{}` | 属性精确匹配条件，所有属性都匹配才命中 |
+
+### XML 元素对象
+
+`findElements` 返回的每个元素形如：
+
+```json
+{
+  "tag": "translation",
+  "attrs": {
+    "xml:lang": "zh-Hans",
+    "type": "replacement"
+  },
+  "text": "纯文本内容",
+  "innerXml": "<text for=\"l1\">...</text>",
+  "children": []
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `tag` | `string` | 元素标签名 |
+| `attrs` | `object` | 元素属性 |
+| `text` | `string` | 递归合并后的纯文本内容 |
+| `innerXml` | `string` | 子节点重新序列化后的 XML |
+| `children` | `object[]` | 子元素列表，不包含纯文本节点 |
+
+### `xml.getRootAttributes(xml)`
+
+解析 XML 并返回根元素属性。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `xml` | `string` | XML 文本 |
+
+**返回值**：根元素属性对象；无根元素时返回 `{}`。
+
+```javascript
+var attrs = Platform.xml.getRootAttributes(ttml);
+var language = attrs["xml:lang"] || attrs.lang || "";
+```
+
+### `xml.findElements(xml, query)`
+
+递归查找匹配的元素。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `xml` | `string` | XML 文本 |
+| `query` | `object` | XML 查询对象 |
+
+**返回值**：XML 元素对象数组。
+
+```javascript
+var translations = Platform.xml.findElements(ttml, {
+  tag: "translation",
+  attrs: {
+    "xml:lang": "zh-Hans"
+  }
+});
+
+var first = translations[0];
+var innerXml = first ? first.innerXml : "";
+```
+
+### `xml.replaceChildrenByAttr(xml, options)`
+
+查找指定标签，并按某个属性值替换其全部子节点。常用于把翻译文本按 `itunes:key` 写回 TTML 的 `<p>` 节点。
+
+```json
+{
+  "targetTag": "p",
+  "keyAttr": "itunes:key",
+  "replacements": {
+    "line-1": {
+      "mode": "text",
+      "value": "替换后的文本"
+    },
+    "line-2": {
+      "mode": "xml",
+      "value": "<span begin=\"0s\">替换后的 XML 片段</span>"
+    }
+  },
+  "rootAttributes": {
+    "xml:lang": "zh-Hans"
+  }
+}
+```
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `targetTag` | `string` | `""` | 要替换子节点的元素标签名 |
+| `keyAttr` | `string` | `""` | 用于查找替换项的属性名 |
+| `replacements` | `object` | `{}` | `keyAttr` 属性值到替换内容的映射 |
+| `rootAttributes` | `object` | `{}` | 同时写入根元素的属性 |
+
+`replacements` 中每个替换项支持：
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `mode` | `"text"` 或 `"xml"` | `"text"` | `text` 写入纯文本；`xml` 将 `value` 作为 XML 片段解析 |
+| `value` | `string` | `""` | 替换内容 |
+
+当 `targetTag` 或 `keyAttr` 为空时，方法直接返回原 XML。
+
+```javascript
+var localized = Platform.xml.replaceChildrenByAttr(ttml, {
+  targetTag: "p",
+  keyAttr: "itunes:key",
+  replacements: {
+    "l1": {
+      mode: "text",
+      value: "第一行歌词"
+    },
+    "l2": {
+      mode: "xml",
+      value: "<span begin=\"1s\">第二行歌词</span>"
+    }
+  },
+  rootAttributes: {
+    "xml:lang": "zh-Hans"
+  }
+});
+```
+
+### `xml.removeElements(xml, query)`
+
+递归删除匹配的子元素，并返回改写后的 XML。根元素本身不会被删除。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `xml` | `string` | XML 文本 |
+| `query` | `object` | XML 查询对象 |
+
+```javascript
+var cleaned = Platform.xml.removeElements(ttml, {
+  tag: "translation",
+  attrs: {
+    "xml:lang": "zh-Hans",
+    type: "replacement"
+  }
+});
+```
+
+---
+
 ## Platform.log — 日志
 
 日志输出到 Android Logcat，tag 最多截取 48 字符。
@@ -471,6 +640,10 @@ Platform.log.error("Plugin", "Fatal error: " + err);
 | `http.post(url, body, options?)` | `url, body: string, options?: object` | `object`（含 code/headers/body） |
 | `http.getBytes(url, options?)` | `url: string, options?: object` | `object`（body 在 bodyBase64 中） |
 | `http.postBytesResponse(url, body, options?)` | `url, body: string, options?: object` | `object`（body 在 bodyBase64 中） |
+| `xml.getRootAttributes(xml)` | `xml: string` | `object` |
+| `xml.findElements(xml, query)` | `xml: string, query: object` | `object[]` |
+| `xml.replaceChildrenByAttr(xml, options)` | `xml: string, options: object` | `string` |
+| `xml.removeElements(xml, query)` | `xml: string, query: object` | `string` |
 | `log.debug(tag, message) \| log.debug(message)` | `tag?, message: string` | `""` |
 | `log.warn(tag, message) \| log.warn(message)` | `tag?, message: string` | `""` |
 | `log.error(tag, message) \| log.error(message)` | `tag?, message: string` | `""` |
