@@ -25,6 +25,7 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
@@ -33,12 +34,18 @@ import kotlin.math.roundToInt
 fun BatchLyricsFormatConfigBottomSheet(
     show: Boolean,
     initialConcurrency: Int,
-    initialTargetFormat: LyricFormat,
-    onDismissRequest: (Int, LyricFormat) -> Unit,
-    onConfirm: (Int, LyricFormat) -> Unit
+    initialTargetFormat: LyricFormat?,
+    initialFormatLineOrder: Boolean,
+    initialRemoveTagLines: Boolean,
+    initialRemoveEmptyLines: Boolean,
+    onDismissRequest: (Int, LyricFormat?, Boolean, Boolean, Boolean) -> Unit,
+    onConfirm: (Int, LyricFormat?, Boolean, Boolean, Boolean) -> Unit
 ) {
     var concurrency by remember(initialConcurrency) { mutableIntStateOf(initialConcurrency) }
     var targetFormat by remember(initialTargetFormat) { mutableStateOf(initialTargetFormat) }
+    var formatLineOrder by remember(initialFormatLineOrder) { mutableStateOf(initialFormatLineOrder) }
+    var removeTagLines by remember(initialRemoveTagLines) { mutableStateOf(initialRemoveTagLines) }
+    var removeEmptyLines by remember(initialRemoveEmptyLines) { mutableStateOf(initialRemoveEmptyLines) }
 
     YesNoBottomSheet(
         show = show,
@@ -55,6 +62,11 @@ fun BatchLyricsFormatConfigBottomSheet(
                         color = MiuixTheme.colorScheme.secondaryContainer,
                     )
                 ) {
+                    RadioButtonPreference(
+                        title = stringResource(R.string.lyrics_format_keep_current),
+                        selected = targetFormat == null,
+                        onClick = { targetFormat = null }
+                    )
                     LyricFormat.entries.forEach { format ->
                         RadioButtonPreference(
                             title = stringResource(format.labelRes),
@@ -62,6 +74,32 @@ fun BatchLyricsFormatConfigBottomSheet(
                             onClick = { targetFormat = format }
                         )
                     }
+                }
+
+                Card(
+                    modifier = Modifier.padding(bottom = 12.dp),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.secondaryContainer,
+                    )
+                ) {
+                    CheckboxPreference(
+                        title = stringResource(R.string.lyrics_format_line_order),
+                        summary = stringResource(R.string.lyrics_format_line_order_hint),
+                        checked = formatLineOrder,
+                        onCheckedChange = { formatLineOrder = it }
+                    )
+                    CheckboxPreference(
+                        title = stringResource(R.string.lyrics_remove_tag_lines),
+                        summary = stringResource(R.string.lyrics_remove_tag_lines_hint),
+                        checked = removeTagLines,
+                        onCheckedChange = { removeTagLines = it }
+                    )
+                    CheckboxPreference(
+                        title = stringResource(R.string.remove_empty_lines),
+                        summary = stringResource(R.string.lyrics_remove_empty_lines_manual_hint),
+                        checked = removeEmptyLines,
+                        onCheckedChange = { removeEmptyLines = it }
+                    )
                 }
 
                 Card(
@@ -108,10 +146,18 @@ fun BatchLyricsFormatConfigBottomSheet(
                 }
             }
         },
-        onDismissRequest = { onDismissRequest(concurrency, targetFormat) },
+        onDismissRequest = {
+            onDismissRequest(
+                concurrency,
+                targetFormat,
+                formatLineOrder,
+                removeTagLines,
+                removeEmptyLines
+            )
+        },
         onConfirm = {
-            onDismissRequest(concurrency, targetFormat)
-            onConfirm(concurrency, targetFormat)
+            onDismissRequest(concurrency, targetFormat, formatLineOrder, removeTagLines, removeEmptyLines)
+            onConfirm(concurrency, targetFormat, formatLineOrder, removeTagLines, removeEmptyLines)
         },
     )
 }

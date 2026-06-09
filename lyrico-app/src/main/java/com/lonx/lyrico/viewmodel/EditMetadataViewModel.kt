@@ -30,6 +30,7 @@ import com.lonx.lyrico.data.model.log.AppLogType
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
+import com.lonx.lyrico.data.model.lyrics.LyricsProcessingOptions
 import com.lonx.lyrico.data.model.lyrics.sanitizeStandardFields
 import com.lonx.lyrico.data.model.metadata.MetadataApplyPolicy
 import com.lonx.lyrico.data.model.metadata.MetadataFieldTarget
@@ -52,6 +53,7 @@ import com.lonx.lyrico.domain.song.usecase.SaveAudioTagsResult
 import com.lonx.lyrico.utils.CoverSourceType
 import com.lonx.lyrico.utils.LyricDecoder
 import com.lonx.lyrico.utils.LyricEncoder
+import com.lonx.lyrico.utils.lyrics.LyricsTextCleanup
 import com.lonx.lyrico.utils.PluginFieldPostProcessor
 import com.lonx.lyrico.utils.ReplayGainCalculateState
 import com.lonx.lyrico.utils.ReplayGainError
@@ -66,6 +68,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -1129,31 +1132,51 @@ class EditMetadataViewModel(
      * @param targetFormat 目标格式
      */
     fun convertLyricsFormat(targetFormat: LyricFormat) {
+        processLyrics(
+            LyricsProcessingOptions(
+                targetFormat = targetFormat,
+                formatLineOrder = true,
+                removeEmptyLines = true
+            )
+        )
+    }
+
+    fun processLyrics(options: LyricsProcessingOptions) {
         val currentLyrics = _uiState.value.editingTagData?.lyrics ?: return
         if (currentLyrics.isBlank()) return
 
         viewModelScope.launch {
             try {
-                val session = getOrCreateLyricsFormatConversionSession(currentLyrics)
-                    ?: return@launch
-
-                val converted = if (targetFormat == session.sourceFormat) {
-                    session.sourceLyrics
+                val currentFormat = LyricDecoder.detectFormat(currentLyrics) ?: return@launch
+                val targetFormat = options.targetFormat ?: currentFormat
+                val tagLineKeywords = if (options.removeTagLines) {
+                    settingsRepository.lyricsTagLineKeywords.first()
                 } else {
-                    LyricsDocumentPipeline.process(
-                        raw = session.sourceLyrics,
-                        sourceFormat = session.sourceFormat,
-                        targetFormat = targetFormat,
-                        removeEmptyLines = true
-                    ) ?: convertLyricsFormatFromCurrent(currentLyrics, targetFormat) ?: return@launch
+                    emptyList()
                 }
 
-                lyricsFormatConversionSession = session.copy(lastRenderedLyrics = converted)
+                val converted = if (options.targetFormat == null && !options.formatLineOrder) {
+                    LyricsTextCleanup.process(
+                        raw = currentLyrics,
+                        removeEmptyLines = options.removeEmptyLines,
+                        tagLineKeywords = tagLineKeywords
+                    ).takeIf { it.isNotBlank() }
+                } else {
+                    LyricsDocumentPipeline.process(
+                        raw = currentLyrics,
+                        sourceFormat = currentFormat,
+                        targetFormat = targetFormat,
+                        removeEmptyLines = options.removeEmptyLines,
+                        removeTagLineKeywords = tagLineKeywords
+                    ) ?: convertLyricsFormatFromCurrent(currentLyrics, targetFormat)
+                } ?: return@launch
+
+                lyricsFormatConversionSession = null
                 updateTag { copy(lyrics = converted) }
             } catch (e: Exception) {
-                Log.e(TAG, "歌词格式转换失败", e)
+                Log.e(TAG, "歌词处理失败", e)
                 recordMetadataException(
-                    message = "Failed to convert lyrics format",
+                    message = "Failed to process lyrics",
                     relatedId = currentSongUri,
                     throwable = e
                 )

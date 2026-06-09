@@ -63,6 +63,7 @@ import com.lonx.lyrico.plugin.source.PluginImportSession
 import com.lonx.lyrico.plugin.source.PluginInstallCandidate
 import com.lonx.lyrico.plugin.source.PluginInstallFailed
 import com.lonx.lyrico.plugin.source.PluginVersionConflict
+import com.lonx.lyrico.ui.components.base.ActionBottomSheet
 import com.lonx.lyrico.ui.components.base.YesNoBottomSheet
 import com.lonx.lyrico.ui.components.base.YesNoDialog
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
@@ -279,7 +280,7 @@ fun PluginManagerScreen(
         }
     )
 
-    WindowBottomSheet(
+    YesNoBottomSheet(
         show = showImportPreviewSheet,
         title = stringResource(R.string.plugin_import_found_title),
         onDismissRequest = {
@@ -292,43 +293,14 @@ fun PluginManagerScreen(
                 viewModel.clearPendingImport()
             }
         },
-        startAction = {
-            androidx.compose.material3.TextButton(
-                onClick = {
-                    viewModel.discardPendingImportFiles()
-                    showImportPreviewSheet = false
-                },
-                colors = ButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = colorScheme.onSurface,
-                    disabledContainerColor =  Color.Transparent,
-                    disabledContentColor = colorScheme.disabledOnSurface
-                )
-            ) {
-                Text(
-                    text = stringResource(R.string.cancel),
-                    color = colorScheme.onSurfaceVariantActions
-                )
-            }
+        onCancel = {
+            viewModel.discardPendingImportFiles()
+            showImportPreviewSheet = false
         },
-        endAction = {
-            androidx.compose.material3.TextButton(
-                onClick = {
-                    viewModel.installPendingImport()
-                    showImportPreviewSheet = false
-                },
-                colors = ButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = colorScheme.primary,
-                    disabledContainerColor =  Color.Transparent,
-                    disabledContentColor = colorScheme.disabledPrimary
-                )
-            ) {
-                Text(
-                    text = stringResource(R.string.plugin_import_install),
-                    color = colorScheme.primary
-                )
-            }
+        confirmText = stringResource(R.string.plugin_import_install),
+        onConfirm = {
+            viewModel.installPendingImport()
+            showImportPreviewSheet = false
         },
         content = {
             pendingImport?.let { session ->

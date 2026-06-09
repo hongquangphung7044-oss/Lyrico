@@ -48,6 +48,7 @@ interface SettingsRepository {
     val monetEnable: Flow<Boolean>
     val onlyTranslationIfAvailable: Flow<Boolean>
     val removeEmptyLines: Flow<Boolean>
+    val lyricsTagLineKeywords: Flow<List<String>>
     val limitLyricsInputLines: Flow<Boolean>
     val logRetentionOption: Flow<LogRetentionOption>
 
@@ -81,6 +82,7 @@ interface SettingsRepository {
     suspend fun saveMonetEnable(enabled: Boolean)
     suspend fun saveOnlyTranslationIfAvailable(enabled: Boolean)
     suspend fun saveRemoveEmptyLines(enabled: Boolean)
+    suspend fun saveLyricsTagLineKeywords(keywords: List<String>)
     suspend fun saveLimitLyricsInputLines(enabled: Boolean)
     suspend fun saveLogRetentionOption(option: LogRetentionOption)
     suspend fun getLyricRenderConfig(): LyricRenderConfig

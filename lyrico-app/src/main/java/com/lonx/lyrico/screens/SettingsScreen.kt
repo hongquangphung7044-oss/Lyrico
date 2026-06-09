@@ -56,6 +56,7 @@ import com.ramcosta.composedestinations.generated.destinations.BatchTaskListDest
 import com.ramcosta.composedestinations.generated.destinations.CustomTagManagementDestination
 import com.ramcosta.composedestinations.generated.destinations.EditFieldVisibilityDestination
 import com.ramcosta.composedestinations.generated.destinations.FolderManagerDestination
+import com.ramcosta.composedestinations.generated.destinations.LyricsCleanupRulesDestination
 import com.ramcosta.composedestinations.generated.destinations.PluginManagerDestination
 import com.ramcosta.composedestinations.generated.destinations.QuickjsTestDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
@@ -435,6 +436,11 @@ fun SettingsScreen(
                         summary = stringResource(R.string.remove_empty_lines_hint),
                         checked = removeEmptyLines,
                         onCheckedChange = { settingsViewModel.setRemoveEmptyLines(it) }
+                    )
+                    ArrowPreference(
+                        title = stringResource(R.string.non_lyrics_cleanup_rules_title),
+                        summary = stringResource(R.string.non_lyrics_cleanup_rules_summary),
+                        onClick = { navigator.navigate(LyricsCleanupRulesDestination()) }
                     )
                     WindowDropdownPreference(
                         title = stringResource(R.string.artist_separator),

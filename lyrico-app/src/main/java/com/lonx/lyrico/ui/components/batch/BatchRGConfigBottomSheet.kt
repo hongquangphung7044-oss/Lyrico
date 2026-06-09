@@ -36,7 +36,6 @@ fun BatchRGConfigBottomSheet(
         title = stringResource(R.string.action_batch_replay_gain),
         content = {
             Card(
-                modifier = Modifier.padding(bottom = 12.dp),
                 colors = CardDefaults.defaultColors(
                     color = MiuixTheme.colorScheme.secondaryContainer,
                 )

@@ -17,6 +17,7 @@ import com.lonx.lyrico.data.model.CharacterMappingDefaults
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
+import com.lonx.lyrico.data.model.lyrics.LyricsProcessingOptions
 import com.lonx.lyrico.data.model.log.LogRetentionOption
 import com.lonx.lyrico.data.model.plugin.PluginMetadataFieldWriteRule
 import com.lonx.lyrico.data.model.SearchConfig
@@ -73,6 +74,7 @@ object SettingsDefaults {
     const val IGNORE_SHORT_AUDIO = true
     const val ONLY_TRANSLATION_IF_AVAILABLE = false
     const val REMOVE_EMPTY_LINES = true
+    val LYRICS_TAG_LINE_KEYWORDS = LyricsProcessingOptions.DefaultTagLineKeywords
     const val LIMIT_LYRICS_INPUT_LINES = false
     val LOG_RETENTION_OPTION = LogRetentionOption.THIRTY_DAYS
 
@@ -93,6 +95,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
     private object PreferencesKeys {
         val RENAME_FORMAT = stringPreferencesKey("rename_format")
         val REMOVE_EMPTY_LINES = booleanPreferencesKey("remove_empty_lines")
+        val LYRICS_TAG_LINE_KEYWORDS = stringPreferencesKey("lyrics_tag_line_keywords")
         val LIMIT_LYRICS_INPUT_LINES = booleanPreferencesKey("limit_lyrics_input_lines")
         val LYRIC_FORMAT = stringPreferencesKey("lyric_display_mode")
         val LAST_SCAN_TIME = longPreferencesKey("last_scan_time")
@@ -296,6 +299,10 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
     override val removeEmptyLines: Flow<Boolean>
         get() = context.settingsDataStore.data.map { preferences ->
             preferences[PreferencesKeys.REMOVE_EMPTY_LINES] ?: SettingsDefaults.REMOVE_EMPTY_LINES
+        }
+    override val lyricsTagLineKeywords: Flow<List<String>>
+        get() = context.settingsDataStore.data.map { preferences ->
+            decodeLyricsTagLineKeywords(preferences[PreferencesKeys.LYRICS_TAG_LINE_KEYWORDS])
         }
     override val limitLyricsInputLines: Flow<Boolean>
         get() = context.settingsDataStore.data.map { preferences ->
@@ -510,6 +517,13 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         }
     }
 
+    override suspend fun saveLyricsTagLineKeywords(keywords: List<String>) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_TAG_LINE_KEYWORDS] =
+                jsonFormatter.encodeToString(normalizeLyricsTagLineKeywords(keywords))
+        }
+    }
+
     override suspend fun saveLimitLyricsInputLines(enabled: Boolean) {
         context.settingsDataStore.edit { preferences ->
             preferences[PreferencesKeys.LIMIT_LYRICS_INPUT_LINES] = enabled
@@ -558,6 +572,9 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val backup = SettingsBackup(
             removeEmptyLines = prefs[PreferencesKeys.REMOVE_EMPTY_LINES]
                 ?: SettingsDefaults.REMOVE_EMPTY_LINES,
+            lyricsTagLineKeywords = decodeLyricsTagLineKeywords(
+                prefs[PreferencesKeys.LYRICS_TAG_LINE_KEYWORDS]
+            ),
 
             lyricFormat = prefs[PreferencesKeys.LYRIC_FORMAT]
                 ?: SettingsDefaults.LYRIC_FORMAT.name,
@@ -646,6 +663,10 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
 
             context.settingsDataStore.edit { prefs ->
                 backup.removeEmptyLines?.let { prefs[PreferencesKeys.REMOVE_EMPTY_LINES] = it }
+                backup.lyricsTagLineKeywords?.let {
+                    prefs[PreferencesKeys.LYRICS_TAG_LINE_KEYWORDS] =
+                        jsonFormatter.encodeToString(normalizeLyricsTagLineKeywords(it))
+                }
                 backup.lyricFormat?.let { prefs[PreferencesKeys.LYRIC_FORMAT] = it }
                 backup.sortBy?.let { prefs[PreferencesKeys.SORT_BY] = it }
                 backup.sortOrder?.let { prefs[PreferencesKeys.SORT_ORDER] = it }
@@ -971,6 +992,25 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 }.getOrNull()
             }
             ?: SourceSettingsStore()
+    }
+
+    private fun decodeLyricsTagLineKeywords(raw: String?): List<String> {
+        if (raw.isNullOrBlank()) return SettingsDefaults.LYRICS_TAG_LINE_KEYWORDS
+        return runCatching {
+            normalizeLyricsTagLineKeywords(jsonFormatter.decodeFromString<List<String>>(raw))
+        }.getOrElse {
+            normalizeLyricsTagLineKeywords(raw.lines()).ifEmpty {
+                SettingsDefaults.LYRICS_TAG_LINE_KEYWORDS
+            }
+        }
+    }
+
+    private fun normalizeLyricsTagLineKeywords(keywords: List<String>): List<String> {
+        return keywords
+            .flatMap { it.split('\n', ',', '，', ';', '；') }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
     }
 
     private fun String.toStableSourceId(): String {

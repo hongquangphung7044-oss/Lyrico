@@ -9,6 +9,7 @@ import kotlinx.serialization.SerialName
 @Serializable
 data class SettingsBackup(
     @SerialName("remove_empty_lines") val removeEmptyLines: Boolean? = null,
+    @SerialName("lyrics_tag_line_keywords") val lyricsTagLineKeywords: List<String>? = null,
     @SerialName("lyric_format") val lyricFormat: String? = null,
     @SerialName("sort_by") val sortBy: String? = null,
     @SerialName("sort_order") val sortOrder: String? = null,

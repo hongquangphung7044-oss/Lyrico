@@ -673,6 +673,7 @@ private fun FolderPagerSlideContent(
 
     HorizontalPager(
         state = pagerState,
+        userScrollEnabled =  false,
         modifier = modifier
     ) { page ->
         FolderPageSlideContent(

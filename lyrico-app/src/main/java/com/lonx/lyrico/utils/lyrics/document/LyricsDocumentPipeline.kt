@@ -91,6 +91,7 @@ object LyricsDocumentPipeline {
         onlyTranslationIfAvailable: Boolean = false,
         normalizeWhitespace: Boolean = false,
         removeEmptyLines: Boolean = false,
+        removeTagLineKeywords: List<String> = emptyList(),
         offset: Long = 0L
     ): String? {
         val parser = parsers[sourceFormat] ?: return null
@@ -106,6 +107,12 @@ object LyricsDocumentPipeline {
             }
             if (!showTranslation) add(RemoveTranslationPostProcessor)
             if (!showRomanization) add(RemoveRomanizationPostProcessor)
+            val normalizedTagLineKeywords = removeTagLineKeywords
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+            if (normalizedTagLineKeywords.isNotEmpty()) {
+                add(RemoveTagLinesPostProcessor(normalizedTagLineKeywords))
+            }
             if (removeEmptyLines) add(RemoveEmptyLinesPostProcessor)
             if (onlyTranslationIfAvailable) add(OnlyTranslationPostProcessor)
             if (offset != 0L) add(OffsetPostProcessor(offset))
@@ -359,23 +366,75 @@ object RemoveRomanizationPostProcessor : LyricsPostProcessor {
 object RemoveEmptyLinesPostProcessor : LyricsPostProcessor {
     override fun process(document: LyricsDocument): LyricsDocument {
         val removedKeys = mutableSetOf<String>()
+        val removedStarts = mutableSetOf<Long>()
         val tracks = document.tracks.map { track ->
             val keptLines = track.lines.filter { line ->
-                val empty = line.text.isBlank() && line.words.all { it.text.isBlank() }
+                val empty = line.isBlankOrPlaceholder()
                 if (empty && track.type == LyricsTrackType.Original) {
                     line.linkKey?.let(removedKeys::add)
+                    line.startMs?.let(removedStarts::add)
                 }
                 !empty
             }
             track.copy(lines = keptLines)
         }.map { track ->
             if (track.type == LyricsTrackType.Translation || track.type == LyricsTrackType.Romanization) {
-                track.copy(lines = track.lines.filterNot { it.linkKey in removedKeys })
+                track.copy(lines = track.lines.filterNot {
+                    it.linkKey in removedKeys || it.startMs?.let(removedStarts::contains) == true
+                })
             } else {
                 track
             }
         }
         return document.copy(tracks = tracks)
+    }
+}
+
+class RemoveTagLinesPostProcessor(
+    private val keywords: List<String>
+) : LyricsPostProcessor {
+    override fun process(document: LyricsDocument): LyricsDocument {
+        val removedKeys = mutableSetOf<String>()
+        val removedStarts = mutableSetOf<Long>()
+        val tracks = document.tracks.map { track ->
+            val keptLines = track.lines.filter { line ->
+                val shouldRemove = keywords.any { keyword -> line.visibleText().contains(keyword, ignoreCase = true) }
+                if (shouldRemove && track.type == LyricsTrackType.Original) {
+                    line.linkKey?.let(removedKeys::add)
+                    line.startMs?.let(removedStarts::add)
+                }
+                !shouldRemove
+            }
+            track.copy(lines = keptLines)
+        }.map { track ->
+            if (track.type == LyricsTrackType.Translation || track.type == LyricsTrackType.Romanization) {
+                track.copy(lines = track.lines.filterNot {
+                    it.linkKey in removedKeys || it.startMs?.let(removedStarts::contains) == true
+                })
+            } else {
+                track
+            }
+        }
+
+        return document.copy(
+            metadata = document.metadata.removeMatchingTags(),
+            tracks = tracks
+        )
+    }
+
+    private fun LyricsMetadata.removeMatchingTags(): LyricsMetadata {
+        fun shouldRemove(key: String, value: String?): Boolean {
+            val tagText = "[$key:${value.orEmpty()}]"
+            return keywords.any { keyword -> tagText.contains(keyword, ignoreCase = true) }
+        }
+
+        return copy(
+            title = title.takeUnless { shouldRemove("ti", it) },
+            artist = artist.takeUnless { shouldRemove("ar", it) },
+            album = album.takeUnless { shouldRemove("al", it) },
+            offsetMs = offsetMs.takeUnless { shouldRemove("offset", it?.toString()) },
+            extra = extra.filterNot { (key, value) -> shouldRemove(key, value) }
+        )
     }
 }
 
@@ -432,4 +491,9 @@ class OffsetPostProcessor(
             }
         )
     }
+}
+
+private fun LyricsDocumentLine.isBlankOrPlaceholder(): Boolean {
+    val visible = visibleText().trim()
+    return visible.isEmpty() || visible.matches(Regex("^[\\s/\\\\|｜·・.。…_-]*$"))
 }

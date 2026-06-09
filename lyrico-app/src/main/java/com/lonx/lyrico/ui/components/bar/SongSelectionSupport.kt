@@ -224,14 +224,23 @@ fun BoxScope.SongBatchSelectionActions(
         show = batchLyricsFormatUiState.showConfigDialog,
         initialConcurrency = batchLyricsFormatUiState.concurrency,
         initialTargetFormat = batchLyricsFormatUiState.targetFormat,
-        onDismissRequest = { concurrency, targetFormat ->
+        initialFormatLineOrder = batchLyricsFormatUiState.formatLineOrder,
+        initialRemoveTagLines = batchLyricsFormatUiState.removeTagLines,
+        initialRemoveEmptyLines = batchLyricsFormatUiState.removeEmptyLines,
+        onDismissRequest = { concurrency, targetFormat, formatLineOrder, removeTagLines, removeEmptyLines ->
             batchLyricsFormatViewModel.setConcurrency(concurrency)
             batchLyricsFormatViewModel.setTargetFormat(targetFormat)
+            batchLyricsFormatViewModel.setFormatLineOrder(formatLineOrder)
+            batchLyricsFormatViewModel.setRemoveTagLines(removeTagLines)
+            batchLyricsFormatViewModel.setRemoveEmptyLines(removeEmptyLines)
             batchLyricsFormatViewModel.closeConfig()
         },
-        onConfirm = { concurrency, targetFormat ->
+        onConfirm = { concurrency, targetFormat, formatLineOrder, removeTagLines, removeEmptyLines ->
             batchLyricsFormatViewModel.setConcurrency(concurrency)
             batchLyricsFormatViewModel.setTargetFormat(targetFormat)
+            batchLyricsFormatViewModel.setFormatLineOrder(formatLineOrder)
+            batchLyricsFormatViewModel.setRemoveTagLines(removeTagLines)
+            batchLyricsFormatViewModel.setRemoveEmptyLines(removeEmptyLines)
             batchLyricsFormatViewModel.startBatchConvert()
         }
     )

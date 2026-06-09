@@ -204,6 +204,7 @@ fun ArtistDetailScreen(
 
                     HorizontalPager(
                         state = pagerState,
+                        userScrollEnabled = false,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -215,6 +216,7 @@ fun ArtistDetailScreen(
                                 selectedSongUris = selectedSongUris,
                                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                                 onSongClick = { song ->
+                                    selectionViewModel.exitSelectionMode()
                                     navigator.navigate(EditMetadataDestination(songFileUri = song.uri))
                                 },
                                 onToggleSelection = { song ->
@@ -240,6 +242,7 @@ fun ArtistDetailScreen(
                                 albums = albums,
                                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                                 onAlbumClick = { album ->
+                                    selectionViewModel.exitSelectionMode()
                                     navigator.navigate(
                                         AlbumDetailDestination(albumId = album.id)
                                     )

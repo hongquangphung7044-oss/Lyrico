@@ -49,7 +49,9 @@ import androidx.compose.foundation.text.input.placeCursorAtEnd
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -84,6 +86,7 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.editfield.EditFieldRegistry
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
+import com.lonx.lyrico.data.model.lyrics.LyricsProcessingOptions
 import com.lonx.lyrico.data.model.search.LyricsSearchResult
 import com.lonx.lyrico.ui.components.crop.ImageCropper
 import com.lonx.lyrico.ui.components.getBitmap
@@ -141,12 +144,15 @@ import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
+import java.net.URL
 
 private const val LIMITED_LYRICS_INPUT_MAX_LINES = 30
 
@@ -1057,20 +1063,8 @@ fun EditMetadataScreen(
                             showOffsetSheet = true
                         }
                     )
-
-                    // 格式转换选项
-                    val detectedFormat = LyricDecoder.detectFormat(it)
-                    val formatText = when (detectedFormat) {
-                        LyricFormat.PLAIN_LRC -> stringResource(R.string.lyric_format_plain)
-                        LyricFormat.VERBATIM_LRC -> stringResource(R.string.lyric_format_verbatim)
-                        LyricFormat.ENHANCED_LRC -> stringResource(R.string.lyric_format_enhanced)
-                        LyricFormat.TTML -> stringResource(R.string.lyric_format_ttml)
-                        null -> stringResource(R.string.unknown_format)
-                    }
-
                     ArrowPreference(
-                        title = stringResource(R.string.action_convert_lyrics_format),
-                        summary = formatText,
+                        title = stringResource(R.string.action_format_lyrics),
                         onClick = {
                             showLyricsActionBottomSheet = false
                             showLyricsFormatBottomSheet = true
@@ -1414,15 +1408,42 @@ fun EditMetadataScreen(
             }
         }
     }
-
+    val currentLyrics = editingTagData?.lyrics ?: ""
+    val detectedFormat = LyricDecoder.detectFormat(currentLyrics)
+    var targetFormat by remember(currentLyrics) { mutableStateOf<LyricFormat?>(null) }
+    var formatLineOrder by remember(currentLyrics) { mutableStateOf(true) }
+    var removeTagLines by remember(currentLyrics) { mutableStateOf(true) }
+    var removeEmptyLines by remember(currentLyrics) { mutableStateOf(true) }
     // 歌词格式转换
     WindowBottomSheet(
         show = showLyricsFormatBottomSheet,
-        title = stringResource(R.string.action_convert_lyrics_format_title),
+        endAction = {
+            TextButton(
+                colors = ButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = MiuixTheme.colorScheme.primary,
+                    disabledContainerColor = Color.Transparent,
+                    disabledContentColor = MiuixTheme.colorScheme.disabledPrimary
+                ),
+                onClick = {
+                    showLyricsFormatBottomSheet = false
+                    viewModel.processLyrics(
+                        LyricsProcessingOptions(
+                            targetFormat = targetFormat,
+                            formatLineOrder = formatLineOrder,
+                            removeTagLines = removeTagLines,
+                            removeEmptyLines = removeEmptyLines
+                        )
+                    )
+                }
+            ){
+                Text(text = stringResource(R.string.confirm), color = MiuixTheme.colorScheme.primary)
+            }
+        },
+        title = stringResource(R.string.action_format_lyrics_title),
         onDismissRequest = { showLyricsFormatBottomSheet = false }
     ) {
-        val currentLyrics = editingTagData?.lyrics ?: ""
-        val detectedFormat = LyricDecoder.detectFormat(currentLyrics)
+
 
         Column(
             modifier = Modifier
@@ -1449,41 +1470,41 @@ fun EditMetadataScreen(
             Card(
                 colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.secondaryContainer)
             ) {
-                // 提供转换选项
-                val availableFormats = listOfNotNull(
-                    if (detectedFormat != LyricFormat.PLAIN_LRC) LyricFormat.PLAIN_LRC to stringResource(
-                        R.string.lyric_format_plain
-                    ) else null,
-                    if (detectedFormat != LyricFormat.VERBATIM_LRC) LyricFormat.VERBATIM_LRC to stringResource(
-                        R.string.lyric_format_verbatim
-                    ) else null,
-                    if (detectedFormat != LyricFormat.ENHANCED_LRC) LyricFormat.ENHANCED_LRC to stringResource(
-                        R.string.lyric_format_enhanced
-                    ) else null,
-                    if (detectedFormat != LyricFormat.TTML) LyricFormat.TTML to stringResource(R.string.lyric_format_ttml) else null
+                RadioButtonPreference(
+                    title = stringResource(R.string.lyrics_format_keep_current),
+                    selected = targetFormat == null,
+                    onClick = { targetFormat = null }
                 )
-
-                availableFormats.forEach { (targetFormat, formatName) ->
-                    ArrowPreference(
-                        title = stringResource(R.string.convert_to_format, formatName),
-                        onClick = {
-                            showLyricsFormatBottomSheet = false
-                            viewModel.convertLyricsFormat(targetFormat)
-                        }
+                LyricFormat.entries.forEach { format ->
+                    RadioButtonPreference(
+                        title = stringResource(format.labelRes),
+                        selected = targetFormat == format,
+                        onClick = { targetFormat = format }
                     )
                 }
-
             }
+
             Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.End,
+            Card(
+                colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.secondaryContainer)
             ) {
-                TextButton(
-                    text = stringResource(R.string.cancel),
-                    onClick = {
-                        showLyricsFormatBottomSheet = false
-                    },
-                    modifier = Modifier.weight(1f),
+                CheckboxPreference(
+                    title = stringResource(R.string.lyrics_format_line_order),
+                    summary = stringResource(R.string.lyrics_format_line_order_hint),
+                    checked = formatLineOrder,
+                    onCheckedChange = { formatLineOrder = it }
+                )
+                CheckboxPreference(
+                    title = stringResource(R.string.lyrics_remove_tag_lines),
+                    summary = stringResource(R.string.lyrics_remove_tag_lines_settings_hint),
+                    checked = removeTagLines,
+                    onCheckedChange = { removeTagLines = it }
+                )
+                CheckboxPreference(
+                    title = stringResource(R.string.remove_empty_lines),
+                    summary = stringResource(R.string.lyrics_remove_empty_lines_manual_hint),
+                    checked = removeEmptyLines,
+                    onCheckedChange = { removeEmptyLines = it }
                 )
             }
         }
@@ -1565,7 +1586,7 @@ private fun CoverSection(
 
                         CoverSourceType.NETWORK_URL -> {
                             val source = coverUri.toString().trim()
-                            java.net.URL(source).openStream().use { stream ->
+                            URL(source).openStream().use { stream ->
                                 BitmapFactory.decodeStream(stream, null, options)
                             }
                         }

@@ -12,6 +12,7 @@ import com.lonx.lyrico.data.model.ArtistSeparator
 import com.lonx.lyrico.data.model.cache.CacheCategory
 import com.lonx.lyrico.data.model.ConversionMode
 import com.lonx.lyrico.data.model.lyrics.LyricFormat
+import com.lonx.lyrico.data.model.lyrics.LyricsProcessingOptions
 import com.lonx.lyrico.data.model.plugin.PluginMetadataFieldWriteRule
 import com.lonx.lyrico.data.model.ThemeMode
 import com.lonx.lyrico.data.model.lyrics.LyricRenderConfig
@@ -50,6 +51,7 @@ data class SettingsUiState(
     val categorizedCacheSize: Map<CacheCategory, Long> = emptyMap(),
     val totalCacheSize: Long = 0L,
     val conversionMode: ConversionMode = ConversionMode.NONE,
+    val lyricsTagLineKeywords: List<String> = emptyList(),
     val metadataFieldWriteRules: List<PluginMetadataFieldWriteRule> = emptyList()
 ) {
     /**
@@ -74,17 +76,25 @@ class SettingsViewModel(
         val search: com.lonx.lyrico.data.model.SearchConfig,
         val theme: com.lonx.lyrico.data.model.ThemeConfig,
         val ignoreShortAudio: Boolean,
+        val lyricsTagLineKeywords: List<String>,
         val metadataFieldRules: List<PluginMetadataFieldWriteRule>
     )
+
+    private val settingsTailState = combine(
+        settingsRepository.ignoreShortAudio,
+        settingsRepository.lyricsTagLineKeywords,
+        settingsRepository.metadataFieldWriteRules
+    ) { ignoreShort, lyricsTagLineKeywords, metadataFieldRules ->
+        Triple(ignoreShort, lyricsTagLineKeywords, metadataFieldRules)
+    }
 
     private val settingsBaseState = combine(
         settingsRepository.lyricRenderConfigFlow,
         settingsRepository.searchConfigFlow,
         settingsRepository.themeConfigFlow,
-        settingsRepository.ignoreShortAudio,
-        settingsRepository.metadataFieldWriteRules
-    ) { lyric, search, theme, ignoreShort, metadataFieldRules ->
-        SettingsBaseState(lyric, search, theme, ignoreShort, metadataFieldRules)
+        settingsTailState
+    ) { lyric, search, theme, tail ->
+        SettingsBaseState(lyric, search, theme, tail.first, tail.second, tail.third)
     }
 
     private val baseUiState = combine(
@@ -108,6 +118,7 @@ class SettingsViewModel(
             totalCacheSize = cacheMap.values.sum(),
             removeEmptyLines = base.lyric.removeEmptyLines,
             conversionMode = base.lyric.conversionMode,
+            lyricsTagLineKeywords = base.lyricsTagLineKeywords,
             metadataFieldWriteRules = base.metadataFieldRules
         )
     }
@@ -172,6 +183,42 @@ class SettingsViewModel(
         viewModelScope.launch {
             settingsRepository.saveRemoveEmptyLines(enabled)
         }
+    }
+    fun setLyricsTagLineKeywords(keywords: List<String>) {
+        viewModelScope.launch {
+            settingsRepository.saveLyricsTagLineKeywords(keywords)
+        }
+    }
+
+    fun addNonLyricsContentRule(rule: String): Boolean {
+        val normalized = normalizeNonLyricsContentRule(rule) ?: return false
+        val current = uiState.value.lyricsTagLineKeywords
+        if (current.any { it.equals(normalized, ignoreCase = true) }) return false
+        setLyricsTagLineKeywords(current + normalized)
+        return true
+    }
+
+    fun updateNonLyricsContentRule(oldRule: String, newRule: String): Boolean {
+        val normalized = normalizeNonLyricsContentRule(newRule) ?: return false
+        val current = uiState.value.lyricsTagLineKeywords
+        if (current.any { !it.equals(oldRule, ignoreCase = false) && it.equals(normalized, ignoreCase = true) }) {
+            return false
+        }
+        setLyricsTagLineKeywords(current.map { if (it == oldRule) normalized else it })
+        return true
+    }
+
+    fun removeNonLyricsContentRule(rule: String) {
+        setLyricsTagLineKeywords(uiState.value.lyricsTagLineKeywords.filterNot { it == rule })
+    }
+
+    fun resetNonLyricsContentRules() {
+        setLyricsTagLineKeywords(LyricsProcessingOptions.DefaultTagLineKeywords)
+    }
+
+    private fun normalizeNonLyricsContentRule(input: String): String? {
+        val value = input.trim()
+        return value.takeIf { it.isNotEmpty() && !it.contains('\n') && !it.contains('\r') }
     }
     fun setSeparator(separator: ArtistSeparator) {
         viewModelScope.launch {

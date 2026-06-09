@@ -16,7 +16,9 @@ class SharedSelectionManager {
 
     fun setUris(uris: Set<String>) {
         _selectedUris.value = uris
-        _isSelectionMode.value = uris.isNotEmpty()
+        if (uris.isNotEmpty()) {
+            _isSelectionMode.value = true
+        }
         if (swipeAnchorUri !in uris) {
             swipeAnchorUri = null
         }
@@ -30,7 +32,6 @@ class SharedSelectionManager {
             _selectedUris.value + uri
         }
         _selectedUris.value = selectedUris
-        _isSelectionMode.value = selectedUris.isNotEmpty()
         if (swipeAnchorUri !in selectedUris) {
             swipeAnchorUri = null
         }

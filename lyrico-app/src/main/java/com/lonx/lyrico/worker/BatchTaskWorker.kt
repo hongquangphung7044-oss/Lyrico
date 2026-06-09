@@ -463,8 +463,11 @@ class BatchTaskWorker(
     private fun summarizeLyricsFormatConfig(configJson: String): String {
         val config = Json.decodeFromString<LyricsFormatConfig>(configJson)
         return buildString {
-            appendLine("targetFormat=${config.targetFormat.name}")
+            appendLine("targetFormat=${config.targetFormat?.name ?: "KEEP"}")
             appendLine("concurrency=${config.concurrency}")
+            appendLine("formatLineOrder=${config.formatLineOrder}")
+            appendLine("removeTagLines=${config.removeTagLines}")
+            appendLine("removeEmptyLines=${config.removeEmptyLines}")
         }.trimEnd()
     }
 
