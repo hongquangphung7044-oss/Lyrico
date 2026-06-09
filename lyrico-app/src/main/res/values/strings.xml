@@ -182,6 +182,9 @@
 
     <!-- Selection Mode -->
     <string name="selection_mode_selected_count">Selected %d items</string>
+    <string name="swipe_selection_enter_selection">Enter multi-select</string>
+    <string name="swipe_selection_range_start">Range start</string>
+    <string name="swipe_selection_range_end">Range end</string>
     <string name="action_select_all">Select All</string>
     <string name="action_deselect_all">Deselect All</string>
     <string name="action_match_tags">Match Tags</string>

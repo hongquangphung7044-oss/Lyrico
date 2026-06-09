@@ -43,7 +43,6 @@ import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.cover.CoverImage
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
-import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
@@ -86,6 +85,21 @@ fun AlbumDetailScreen(
         }
     val isSelectionMode by selectionViewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedSongUris by selectionViewModel.selectedSongUris.collectAsStateWithLifecycle()
+    val swipeAnchorUri by selectionViewModel.swipeAnchorUri.collectAsStateWithLifecycle()
+    val swipeSelectionLabel = stringResource(
+        if (!isSelectionMode) {
+            R.string.swipe_selection_enter_selection
+        } else if (swipeAnchorUri == null) {
+            R.string.swipe_selection_range_start
+        } else {
+            R.string.swipe_selection_range_end
+        }
+    )
+    val swipeSelectionSecondaryLabel = if (!isSelectionMode) {
+        stringResource(R.string.swipe_selection_range_start)
+    } else {
+        null
+    }
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -178,18 +192,6 @@ fun AlbumDetailScreen(
                             .scrollEndHaptic()
                             .overScrollVertical()
                             .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-                            .dragSelection(
-                                listState = listState,
-                                itemCount = songs.size,
-                                isSelectionMode = isSelectionMode,
-                                onDragSelectionStart = { index ->
-                                    selectionViewModel.startDragSelection(index, songs)
-                                },
-                                onDragSelectionChange = { startIndex, endIndex ->
-                                    selectionViewModel.updateDragSelection(startIndex, endIndex, songs)
-                                },
-                                onDragSelectionEnd = selectionViewModel::endDragSelection
-                            )
                             .weight(1f),
                         state = listState,
                         contentPadding = PaddingValues(bottom = 12.dp),
@@ -205,6 +207,8 @@ fun AlbumDetailScreen(
                                 song = song,
                                 isSelectionMode = isSelectionMode,
                                 isSelected = selectedSongUris.contains(song.uri),
+                                swipeSelectionLabel = swipeSelectionLabel,
+                                swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                                 onClick = {
                                     navigator.navigate(EditMetadataDestination(songFileUri = song.uri))
                                 },

@@ -48,7 +48,6 @@ import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.cover.CoverImage
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
-import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
@@ -94,6 +93,21 @@ fun ArtistDetailScreen(
     val artistName = artist?.name.orEmpty()
     val isSelectionMode by selectionViewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedSongUris by selectionViewModel.selectedSongUris.collectAsStateWithLifecycle()
+    val swipeAnchorUri by selectionViewModel.swipeAnchorUri.collectAsStateWithLifecycle()
+    val swipeSelectionLabel = stringResource(
+        if (!isSelectionMode) {
+            R.string.swipe_selection_enter_selection
+        } else if (swipeAnchorUri == null) {
+            R.string.swipe_selection_range_start
+        } else {
+            R.string.swipe_selection_range_end
+        }
+    )
+    val swipeSelectionSecondaryLabel = if (!isSelectionMode) {
+        stringResource(R.string.swipe_selection_range_start)
+    } else {
+        null
+    }
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -214,6 +228,8 @@ fun ArtistDetailScreen(
                                 songs = songs,
                                 isSelectionMode = isSelectionMode,
                                 selectedSongUris = selectedSongUris,
+                                swipeSelectionLabel = swipeSelectionLabel,
+                                swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                                 onSongClick = { song ->
                                     selectionViewModel.exitSelectionMode()
@@ -225,13 +241,6 @@ fun ArtistDetailScreen(
                                 onSwipeSelection = { song ->
                                     selectionViewModel.swipeSelect(song, songs)
                                 },
-                                onDragSelectionStart = { index ->
-                                    selectionViewModel.startDragSelection(index, songs)
-                                },
-                                onDragSelectionChange = { startIndex, endIndex ->
-                                    selectionViewModel.updateDragSelection(startIndex, endIndex, songs)
-                                },
-                                onDragSelectionEnd = selectionViewModel::endDragSelection,
                                 onShowSongMenu = { song ->
                                     selectedSong = song
                                     showMenuSheet = true
@@ -294,13 +303,12 @@ private fun ArtistSongsPage(
     songs: List<SongEntity>,
     isSelectionMode: Boolean,
     selectedSongUris: Set<String>,
+    swipeSelectionLabel: String,
+    swipeSelectionSecondaryLabel: String?,
     topAppBarScrollBehavior: ScrollBehavior,
     onSongClick: (SongEntity) -> Unit,
     onToggleSelection: (SongEntity) -> Unit,
     onSwipeSelection: (SongEntity) -> Unit,
-    onDragSelectionStart: (Int) -> Unit,
-    onDragSelectionChange: (Int, Int) -> Unit,
-    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -310,14 +318,6 @@ private fun ArtistSongsPage(
             .scrollEndHaptic()
             .overScrollVertical()
             .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-            .dragSelection(
-                listState = listState,
-                itemCount = songs.size,
-                isSelectionMode = isSelectionMode,
-                onDragSelectionStart = onDragSelectionStart,
-                onDragSelectionChange = onDragSelectionChange,
-                onDragSelectionEnd = onDragSelectionEnd
-            )
             .fillMaxHeight(),
         state = listState,
         contentPadding = PaddingValues(bottom = 12.dp),
@@ -331,6 +331,8 @@ private fun ArtistSongsPage(
                 song = song,
                 isSelectionMode = isSelectionMode,
                 isSelected = selectedSongUris.contains(song.uri),
+                swipeSelectionLabel = swipeSelectionLabel,
+                swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                 onClick = { onSongClick(song) },
                 onToggleSelection = { onToggleSelection(song) },
                 onSwipeSelection = { onSwipeSelection(song) },

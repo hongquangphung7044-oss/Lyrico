@@ -66,7 +66,6 @@ import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
-import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
@@ -122,6 +121,21 @@ fun FolderManagerScreen(
     val currentFolderSongs by viewModel.currentFolderSongs.collectAsState()
     val isSelectionMode by selectionViewModel.isSelectionMode.collectAsState()
     val selectedSongUris by selectionViewModel.selectedSongUris.collectAsState()
+    val swipeAnchorUri by selectionViewModel.swipeAnchorUri.collectAsState()
+    val swipeSelectionLabel = stringResource(
+        if (!isSelectionMode) {
+            R.string.swipe_selection_enter_selection
+        } else if (swipeAnchorUri == null) {
+            R.string.swipe_selection_range_start
+        } else {
+            R.string.swipe_selection_range_end
+        }
+    )
+    val swipeSelectionSecondaryLabel = if (!isSelectionMode) {
+        stringResource(R.string.swipe_selection_range_start)
+    } else {
+        null
+    }
 
     val folders = uiState.folders
     val folderTree = remember(folders) {
@@ -484,6 +498,8 @@ fun FolderManagerScreen(
                     queuedFolderIds = uiState.queuedFolderIds,
                     isSelectionMode = isSelectionMode,
                     selectedSongUris = selectedSongUris,
+                    swipeSelectionLabel = swipeSelectionLabel,
+                    swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                     navigator = navigator,
                     selectionViewModel = selectionViewModel,
@@ -496,13 +512,6 @@ fun FolderManagerScreen(
                     },
                     onRefreshFolder = viewModel::refreshFolder,
                     onIgnoredChange = viewModel::setFolderIgnored,
-                    onDragSelectionStart = { index, songs ->
-                        selectionViewModel.startDragSelection(index, songs)
-                    },
-                    onDragSelectionChange = { startIndex, endIndex, songs ->
-                        selectionViewModel.updateDragSelection(startIndex, endIndex, songs)
-                    },
-                    onDragSelectionEnd = selectionViewModel::endDragSelection,
                     onShowSongMenu = { song ->
                         selectedSong = song
                         showMenuSheet = true
@@ -587,6 +596,8 @@ private fun FolderPagerSlideContent(
     queuedFolderIds: Set<Long>,
     isSelectionMode: Boolean,
     selectedSongUris: Set<String>,
+    swipeSelectionLabel: String,
+    swipeSelectionSecondaryLabel: String?,
     topAppBarScrollBehavior: ScrollBehavior,
     navigator: DestinationsNavigator,
     selectionViewModel: SongSelectionViewModel,
@@ -594,9 +605,6 @@ private fun FolderPagerSlideContent(
     onDeleteFolder: (FolderEntity) -> Unit,
     onRefreshFolder: (FolderEntity) -> Unit,
     onIgnoredChange: (FolderEntity, Boolean) -> Unit,
-    onDragSelectionStart: (index: Int, songs: List<SongEntity>) -> Unit,
-    onDragSelectionChange: (startIndex: Int, endIndex: Int, songs: List<SongEntity>) -> Unit,
-    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
     onTransitionFinished: () -> Unit,
     modifier: Modifier = Modifier
@@ -688,6 +696,8 @@ private fun FolderPagerSlideContent(
             queuedFolderIds = queuedFolderIds,
             isSelectionMode = isSelectionMode,
             selectedSongUris = selectedSongUris,
+            swipeSelectionLabel = swipeSelectionLabel,
+            swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
             topAppBarScrollBehavior = topAppBarScrollBehavior,
             navigator = navigator,
             selectionViewModel = selectionViewModel,
@@ -695,9 +705,6 @@ private fun FolderPagerSlideContent(
             onDeleteFolder = onDeleteFolder,
             onRefreshFolder = onRefreshFolder,
             onIgnoredChange = onIgnoredChange,
-            onDragSelectionStart = onDragSelectionStart,
-            onDragSelectionChange = onDragSelectionChange,
-            onDragSelectionEnd = onDragSelectionEnd,
             onShowSongMenu = onShowSongMenu,
             modifier = Modifier.fillMaxSize()
         )
@@ -717,6 +724,8 @@ private fun FolderPageSlideContent(
     queuedFolderIds: Set<Long>,
     isSelectionMode: Boolean,
     selectedSongUris: Set<String>,
+    swipeSelectionLabel: String,
+    swipeSelectionSecondaryLabel: String?,
     topAppBarScrollBehavior: ScrollBehavior,
     navigator: DestinationsNavigator,
     selectionViewModel: SongSelectionViewModel,
@@ -724,9 +733,6 @@ private fun FolderPageSlideContent(
     onDeleteFolder: (FolderEntity) -> Unit,
     onRefreshFolder: (FolderEntity) -> Unit,
     onIgnoredChange: (FolderEntity, Boolean) -> Unit,
-    onDragSelectionStart: (index: Int, songs: List<SongEntity>) -> Unit,
-    onDragSelectionChange: (startIndex: Int, endIndex: Int, songs: List<SongEntity>) -> Unit,
-    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -745,6 +751,8 @@ private fun FolderPageSlideContent(
                 queuedFolderIds = queuedFolderIds,
                 isSelectionMode = isSelectionMode,
                 selectedSongUris = selectedSongUris,
+                swipeSelectionLabel = swipeSelectionLabel,
+                swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 navigator = navigator,
                 selectionViewModel = selectionViewModel,
@@ -752,9 +760,6 @@ private fun FolderPageSlideContent(
                 onDeleteFolder = onDeleteFolder,
                 onRefreshFolder = onRefreshFolder,
                 onIgnoredChange = onIgnoredChange,
-                onDragSelectionStart = onDragSelectionStart,
-                onDragSelectionChange = onDragSelectionChange,
-                onDragSelectionEnd = onDragSelectionEnd,
                 onShowSongMenu = onShowSongMenu,
                 modifier = Modifier.fillMaxSize()
             )
@@ -782,6 +787,8 @@ private fun FolderPageSlideContent(
                     queuedFolderIds = queuedFolderIds,
                     isSelectionMode = isSelectionMode,
                     selectedSongUris = selectedSongUris,
+                    swipeSelectionLabel = swipeSelectionLabel,
+                    swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                     navigator = navigator,
                     selectionViewModel = selectionViewModel,
@@ -789,9 +796,6 @@ private fun FolderPageSlideContent(
                     onDeleteFolder = onDeleteFolder,
                     onRefreshFolder = onRefreshFolder,
                     onIgnoredChange = onIgnoredChange,
-                    onDragSelectionStart = onDragSelectionStart,
-                    onDragSelectionChange = onDragSelectionChange,
-                    onDragSelectionEnd = onDragSelectionEnd,
                     onShowSongMenu = onShowSongMenu,
                     modifier = Modifier
                         .fillMaxSize()
@@ -809,6 +813,8 @@ private fun FolderPageSlideContent(
                     queuedFolderIds = queuedFolderIds,
                     isSelectionMode = isSelectionMode,
                     selectedSongUris = selectedSongUris,
+                    swipeSelectionLabel = swipeSelectionLabel,
+                    swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                     navigator = navigator,
                     selectionViewModel = selectionViewModel,
@@ -816,9 +822,6 @@ private fun FolderPageSlideContent(
                     onDeleteFolder = onDeleteFolder,
                     onRefreshFolder = onRefreshFolder,
                     onIgnoredChange = onIgnoredChange,
-                    onDragSelectionStart = onDragSelectionStart,
-                    onDragSelectionChange = onDragSelectionChange,
-                    onDragSelectionEnd = onDragSelectionEnd,
                     onShowSongMenu = onShowSongMenu,
                     modifier = Modifier
                         .fillMaxSize()
@@ -841,6 +844,8 @@ private fun FolderPage(
     queuedFolderIds: Set<Long>,
     isSelectionMode: Boolean,
     selectedSongUris: Set<String>,
+    swipeSelectionLabel: String,
+    swipeSelectionSecondaryLabel: String?,
     topAppBarScrollBehavior: ScrollBehavior,
     navigator: DestinationsNavigator,
     selectionViewModel: SongSelectionViewModel,
@@ -848,9 +853,6 @@ private fun FolderPage(
     onDeleteFolder: (FolderEntity) -> Unit,
     onRefreshFolder: (FolderEntity) -> Unit,
     onIgnoredChange: (FolderEntity, Boolean) -> Unit,
-    onDragSelectionStart: (index: Int, songs: List<SongEntity>) -> Unit,
-    onDragSelectionChange: (startIndex: Int, endIndex: Int, songs: List<SongEntity>) -> Unit,
-    onDragSelectionEnd: () -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -876,6 +878,8 @@ private fun FolderPage(
                 songs = snapshot.songs,
                 isSelectionMode = isSelectionMode,
                 selectedSongUris = selectedSongUris,
+                swipeSelectionLabel = swipeSelectionLabel,
+                swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 onSongClick = { song ->
                     navigator.navigate(
@@ -889,13 +893,6 @@ private fun FolderPage(
                     selectionViewModel.swipeSelect(song, snapshot.songs)
                 },
                 onShowSongMenu = onShowSongMenu,
-                onDragSelectionStart = { index ->
-                    onDragSelectionStart(index, snapshot.songs)
-                },
-                onDragSelectionChange = { startIndex, endIndex ->
-                    onDragSelectionChange(startIndex, endIndex, snapshot.songs)
-                },
-                onDragSelectionEnd = onDragSelectionEnd,
                 modifier = modifier
             )
         }
@@ -983,14 +980,13 @@ private fun FolderCurrentSongsPage(
     songs: List<SongEntity>,
     isSelectionMode: Boolean,
     selectedSongUris: Set<String>,
+    swipeSelectionLabel: String,
+    swipeSelectionSecondaryLabel: String?,
     topAppBarScrollBehavior: ScrollBehavior,
     onSongClick: (SongEntity) -> Unit,
     onToggleSelection: (SongEntity) -> Unit,
     onSwipeSelection: (SongEntity) -> Unit,
     onShowSongMenu: (SongEntity) -> Unit,
-    onDragSelectionStart: (Int) -> Unit,
-    onDragSelectionChange: (Int, Int) -> Unit,
-    onDragSelectionEnd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -1000,14 +996,6 @@ private fun FolderCurrentSongsPage(
             .scrollEndHaptic()
             .overScrollVertical()
             .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-            .dragSelection(
-                listState = listState,
-                itemCount = songs.size,
-                isSelectionMode = isSelectionMode,
-                onDragSelectionStart = onDragSelectionStart,
-                onDragSelectionChange = onDragSelectionChange,
-                onDragSelectionEnd = onDragSelectionEnd
-            )
             .fillMaxHeight(),
         state = listState,
         contentPadding = PaddingValues(bottom = 12.dp),
@@ -1024,6 +1012,8 @@ private fun FolderCurrentSongsPage(
                 modifier = Modifier.animateItem(),
                 isSelectionMode = isSelectionMode,
                 isSelected = selectedSongUris.contains(song.uri),
+                swipeSelectionLabel = swipeSelectionLabel,
+                swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                 onClick = {
                     onSongClick(song)
                 },

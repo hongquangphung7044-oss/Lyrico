@@ -14,19 +14,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,19 +64,25 @@ fun SongListItem(
     trailingContent: (@Composable () -> Unit)? = null,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
+    swipeSelectionLabel: String? = null,
+    swipeSelectionSecondaryLabel: String? = null,
     onClick: () -> Unit,
     onToggleSelection: (() -> Unit)? = null,
     onSwipeSelection: (() -> Unit)? = null,
 ) {
     val view = LocalView.current
-    val swipeThresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
+    val density = LocalDensity.current
+    val swipeThresholdPx = with(density) { 56.dp.toPx() }
     val maxSwipeOffsetPx = swipeThresholdPx * 1.35f
     var swipeOffsetX by remember(song.uri) { mutableFloatStateOf(0f) }
+    var isSwipeDragging by remember(song.uri) { mutableStateOf(false) }
     val animatedSwipeOffsetX by animateFloatAsState(
         targetValue = swipeOffsetX,
         animationSpec = spring(),
         label = "SongListItemSwipeOffset"
     )
+    val displayedSwipeOffsetX = if (isSwipeDragging) swipeOffsetX else animatedSwipeOffsetX
+    val revealWidth = with(density) { abs(displayedSwipeOffsetX).toDp() }
 
     val backgroundColor =
         if (isSelected) {
@@ -81,13 +91,68 @@ fun SongListItem(
             MiuixTheme.colorScheme.surface
         }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .graphicsLayer {
-                translationX = animatedSwipeOffsetX
+    ) {
+        if (onSwipeSelection != null && swipeSelectionLabel != null && revealWidth > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(
+                            if (displayedSwipeOffsetX >= 0f) {
+                                Alignment.CenterStart
+                            } else {
+                                Alignment.CenterEnd
+                            }
+                        )
+                        .width(revealWidth)
+                        .fillMaxHeight()
+                        .clipToBounds()
+                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = swipeSelectionLabel,
+                            color = MiuixTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip
+                        )
+
+                        swipeSelectionSecondaryLabel?.let { secondaryLabel ->
+                            Text(
+                                text = secondaryLabel,
+                                color = MiuixTheme.colorScheme.primary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    translationX = displayedSwipeOffsetX
+                }
+                .background(backgroundColor)
             .then(
                 if (onSwipeSelection != null) {
                     Modifier.pointerInput(onSwipeSelection, swipeThresholdPx, maxSwipeOffsetPx) {
@@ -96,6 +161,7 @@ fun SongListItem(
                         detectHorizontalDragGestures(
                             onDragStart = {
                                 totalDragX = 0f
+                                isSwipeDragging = true
                                 swipeOffsetX = 0f
                             },
                             onHorizontalDrag = { change, dragAmount ->
@@ -113,10 +179,12 @@ fun SongListItem(
                                 }
                                 totalDragX = 0f
                                 swipeOffsetX = 0f
+                                isSwipeDragging = false
                             },
                             onDragCancel = {
                                 totalDragX = 0f
                                 swipeOffsetX = 0f
+                                isSwipeDragging = false
                             }
                         )
                     }
@@ -142,87 +210,76 @@ fun SongListItem(
                 }
             )
             .padding(vertical = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(LyricoColors.coverPlaceholder)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                AsyncImage(
-                    model = CoverRequest(song.getUri, song.fileLastModified),
-                    contentDescription = song.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    placeholder = rememberTintedPainter(
-                        painter = painterResource(R.drawable.ic_album_24dp),
-                        tint = LyricoColors.coverPlaceholderIcon
-                    ),
-                    error = rememberTintedPainter(
-                        painter = painterResource(R.drawable.ic_album_24dp),
-                        tint = LyricoColors.coverPlaceholderIcon
-                    )
-                )
-
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    MiuixTheme.colorScheme.secondary
-                                ),
-                            )
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(LyricoColors.coverPlaceholder)
+                ) {
+                    AsyncImage(
+                        model = CoverRequest(song.getUri, song.fileLastModified),
+                        contentDescription = song.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = rememberTintedPainter(
+                            painter = painterResource(R.drawable.ic_album_24dp),
+                            tint = LyricoColors.coverPlaceholderIcon
+                        ),
+                        error = rememberTintedPainter(
+                            painter = painterResource(R.drawable.ic_album_24dp),
+                            tint = LyricoColors.coverPlaceholderIcon
                         )
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MiuixTheme.colorScheme.secondary
+                                    ),
+                                )
+                            )
+                    ) {
+                        Text(
+                            text = song.fileName.substringAfterLast('.', "").uppercase(),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MiuixTheme.colorScheme.onSecondary,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(bottom = 1.dp)
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = song.fileName.substringAfterLast('.', "").uppercase(),
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MiuixTheme.colorScheme.onSecondary,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(bottom = 1.dp)
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = song.title.takeIf { !it.isNullOrBlank() } ?: song.fileName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = song.artist.takeIf { !it.isNullOrBlank() }
-                            ?: stringResource(R.string.unknown_artist),
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                        fontSize = 13.sp,
+                        text = song.title.takeIf { !it.isNullOrBlank() } ?: song.fileName,
                         maxLines = 1,
                         fontWeight = FontWeight.Bold,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        fontSize = 15.sp
                     )
 
-                    if (!song.album.isNullOrBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = " · ${song.album}",
+                            text = song.artist.takeIf { !it.isNullOrBlank() }
+                                ?: stringResource(R.string.unknown_artist),
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                             fontSize = 13.sp,
                             maxLines = 1,
@@ -230,42 +287,54 @@ fun SongListItem(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+
+                        if (!song.album.isNullOrBlank()) {
+                            Text(
+                                text = " · ${song.album}",
+                                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                fontWeight = FontWeight.Bold,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        }
                     }
                 }
-            }
 
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
-            ) {
-                if (song.durationMilliseconds > 0) {
-                    val minutes = song.durationMilliseconds / 60000
-                    val seconds = (song.durationMilliseconds % 60000) / 1000
-                    Text(
-                        text = String.format("%d:%02d", minutes, seconds),
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                if (song.bitrate > 0) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${song.bitrate}kbps",
-                        fontSize = 10.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            trailingContent?.let {
-                Box(
-                    modifier = Modifier.size(36.dp),
-                    contentAlignment = Alignment.CenterEnd
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    trailingContent()
+                    if (song.durationMilliseconds > 0) {
+                        val minutes = song.durationMilliseconds / 60000
+                        val seconds = (song.durationMilliseconds % 60000) / 1000
+                        Text(
+                            text = String.format("%d:%02d", minutes, seconds),
+                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    if (song.bitrate > 0) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${song.bitrate}kbps",
+                            fontSize = 10.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                trailingContent?.let {
+                    Box(
+                        modifier = Modifier.size(36.dp),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        trailingContent()
+                    }
                 }
             }
         }

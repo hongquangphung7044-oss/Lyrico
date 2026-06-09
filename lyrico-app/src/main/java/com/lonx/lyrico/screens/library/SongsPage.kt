@@ -44,7 +44,6 @@ import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
-import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.ui.components.song.LibraryScanProgressText
@@ -99,6 +98,21 @@ fun SongsPage(
     val songs by viewModel.songs.collectAsState()
     val isSelectionMode by selectionViewModel.isSelectionMode.collectAsState(initial = false)
     val selectedSongUris by selectionViewModel.selectedSongUris.collectAsState()
+    val swipeAnchorUri by selectionViewModel.swipeAnchorUri.collectAsState(initial = null)
+    val swipeSelectionLabel = stringResource(
+        if (!isSelectionMode) {
+            R.string.swipe_selection_enter_selection
+        } else if (swipeAnchorUri == null) {
+            R.string.swipe_selection_range_start
+        } else {
+            R.string.swipe_selection_range_end
+        }
+    )
+    val swipeSelectionSecondaryLabel = if (!isSelectionMode) {
+        stringResource(R.string.swipe_selection_range_start)
+    } else {
+        null
+    }
     val hasFolders by viewModel.hasFolders.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val alphabetScrollController = rememberAlphabetSideBarScrollController(listState)
@@ -345,25 +359,7 @@ fun SongsPage(
                                 .scrollEndHaptic()
                                 .overScrollVertical()
                                 .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-                                .fillMaxHeight()
-                                .dragSelection(
-                                    listState = listState,
-                                    itemCount = songs.size,
-                                    isSelectionMode = isSelectionMode,
-                                    onDragSelectionStart = { index ->
-                                        selectionViewModel.startDragSelection(index, songs)
-                                    },
-                                    onDragSelectionChange = { startIndex, endIndex ->
-                                        selectionViewModel.updateDragSelection(
-                                            startIndex,
-                                            endIndex,
-                                            songs
-                                        )
-                                    },
-                                    onDragSelectionEnd = {
-                                        selectionViewModel.endDragSelection()
-                                    }
-                                ),
+                                .fillMaxHeight(),
                             state = listState,
                             overscrollEffect = null,
                             contentPadding = PaddingValues()
@@ -380,6 +376,8 @@ fun SongsPage(
                                     modifier = Modifier.animateItem(),
                                     isSelectionMode = isSelectionMode,
                                     isSelected = selectedSongUris.contains(song.uri),
+                                    swipeSelectionLabel = swipeSelectionLabel,
+                                    swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                                     onClick = {
                                         navigator.navigate(EditMetadataDestination(songFileUri = song.uri))
                                     },

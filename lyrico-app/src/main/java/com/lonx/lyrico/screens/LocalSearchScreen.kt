@@ -48,7 +48,6 @@ import com.lonx.lyrico.ui.components.scaffoldContentPadding
 import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.ui.components.search.ArtistSongItem
 import com.lonx.lyrico.ui.components.search.SearchSectionHeader
-import com.lonx.lyrico.ui.components.selection.dragSelection
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
@@ -85,6 +84,21 @@ fun LocalSearchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isSelectionMode by selectionViewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedSongUris by selectionViewModel.selectedSongUris.collectAsStateWithLifecycle()
+    val swipeAnchorUri by selectionViewModel.swipeAnchorUri.collectAsStateWithLifecycle()
+    val swipeSelectionLabel = stringResource(
+        if (!isSelectionMode) {
+            R.string.swipe_selection_enter_selection
+        } else if (swipeAnchorUri == null) {
+            R.string.swipe_selection_range_start
+        } else {
+            R.string.swipe_selection_range_end
+        }
+    )
+    val swipeSelectionSecondaryLabel = if (!isSelectionMode) {
+        stringResource(R.string.swipe_selection_range_start)
+    } else {
+        null
+    }
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -97,11 +111,6 @@ fun LocalSearchScreen(
     val hasResults = uiState.songs.isNotEmpty() ||
         uiState.albums.isNotEmpty() ||
         uiState.artists.isNotEmpty()
-    val songIndexByLazyListKey = remember(uiState.songs) {
-        uiState.songs
-            .mapIndexed { index, song -> localSearchSongKey(song) to index }
-            .toMap()
-    }
     val searchState = rememberSyncedTextFieldState(
         value = searchQuery,
         onValueChange = viewModel::onQueryChange
@@ -218,25 +227,6 @@ fun LocalSearchScreen(
                     .scrollEndHaptic()
                     .overScrollVertical()
                     .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
-                    .dragSelection(
-                        listState = listState,
-                        itemCount = uiState.songs.size,
-                        isSelectionMode = isSelectionMode,
-                        itemInfoMapper = { itemInfo ->
-                            songIndexByLazyListKey[itemInfo.key]
-                        },
-                        onDragSelectionStart = { index ->
-                            selectionViewModel.startDragSelection(index, uiState.songs)
-                        },
-                        onDragSelectionChange = { startIndex, endIndex ->
-                            selectionViewModel.updateDragSelection(
-                                startIndex,
-                                endIndex,
-                                uiState.songs
-                            )
-                        },
-                        onDragSelectionEnd = selectionViewModel::endDragSelection
-                    )
                     .fillMaxHeight(),
                 state = listState,
                 contentPadding = scaffoldContentPadding(
@@ -323,6 +313,8 @@ fun LocalSearchScreen(
                             song = song,
                             isSelectionMode = isSelectionMode,
                             isSelected = selectedSongUris.contains(song.uri),
+                            swipeSelectionLabel = swipeSelectionLabel,
+                            swipeSelectionSecondaryLabel = swipeSelectionSecondaryLabel,
                             onClick = {
                                 selectionViewModel.exitSelectionMode()
                                 navigator.navigate(EditMetadataDestination(songFileUri = song.uri))

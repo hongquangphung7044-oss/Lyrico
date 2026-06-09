@@ -186,6 +186,9 @@
 
     <!-- 选择模式 -->
     <string name="selection_mode_selected_count">已选择 %d 项</string>
+    <string name="swipe_selection_enter_selection">进入多选</string>
+    <string name="swipe_selection_range_start">区间起点</string>
+    <string name="swipe_selection_range_end">区间终点</string>
     <string name="action_select_all">全选</string>
     <string name="action_deselect_all">取消全选</string>
     <string name="action_match_tags">匹配标签</string>
