@@ -16,7 +16,6 @@ data class LyricsSearchResult(
     val picUrl: String?,
     val pluginId: String = "",
     val pluginName: String = "",
-    val lyricsOnly: Boolean = false,
     val applyTargets: Set<MetadataFieldTarget> = emptySet(),
     val fields: Map<String, String> = emptyMap()
 ) : Parcelable {

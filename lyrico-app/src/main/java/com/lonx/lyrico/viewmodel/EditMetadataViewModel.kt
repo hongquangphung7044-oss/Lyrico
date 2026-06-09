@@ -366,7 +366,6 @@ class EditMetadataViewModel(
             )
             val applyTargets = when {
                 result.applyTargets.isNotEmpty() -> result.applyTargets
-                result.lyricsOnly -> setOf(MetadataFieldTarget.LYRICS)
                 else -> processedFields.keys
                     .mapNotNull { key -> StandardPluginField.fromKey(key)?.target }
                     .toSet()

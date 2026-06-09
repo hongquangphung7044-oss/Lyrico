@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.CircularProgressIndicator as MaterialCircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextButton as MaterialTextButton
 import androidx.compose.runtime.Composable
@@ -375,6 +376,7 @@ fun SearchResultsScreen(
             viewModel.clearLyrics()
         },
         onApply = { songToApply, lyrics, targets ->
+            showApplyBottomSheet = false
             resultNavigator.navigateBack(
                 LyricsSearchResult(
                     title = songToApply.title,
@@ -386,7 +388,6 @@ fun SearchResultsScreen(
                     picUrl = songToApply.picUrl,
                     pluginId = songToApply.pluginId,
                     pluginName = songToApply.pluginName,
-                    lyricsOnly = targets == setOf(MetadataFieldTarget.LYRICS),
                     applyTargets = targets,
                     fields = songToApply.fields
                 )
@@ -777,30 +778,59 @@ private fun SearchResultApplyBottomSheet(
         onDismissRequest = onDismissRequest,
         onDismissFinished = onDismissFinished,
         enableNestedScroll = false,
+        startAction = {
+            PillButton(
+                text = stringResource(
+                    if (allSelected) R.string.action_deselect_all else R.string.action_select_all
+                ),
+                onClick = {
+                    selectedTargets = if (allSelected) {
+                        emptySet()
+                    } else {
+                        enabledTargets
+                    }
+                },
+                containerColor = MiuixTheme.colorScheme.surface,
+                textStyle = MiuixTheme.textStyles.body1
+            )
+        },
         endAction = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ){
+            ) {
                 PillButton(
-                    text = stringResource(
-                        if (allSelected) R.string.action_deselect_all else R.string.action_select_all
-                    ),
+                    text = stringResource(R.string.apply_lyrics_only_action),
+                    enabled = !lyricsState.isLoading && song != null,
+                    leadingIcon = if (lyricsState.isLoading) {
+                        {
+                            MaterialCircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    } else {
+                        null
+                    },
                     onClick = {
-                        selectedTargets = if (allSelected) {
-                            emptySet()
-                        } else {
-                            enabledTargets
+                        song?.let {
+                            selectedTargets = setOf(MetadataFieldTarget.LYRICS)
+                            if (lyricsText.isNullOrBlank()) {
+                                onLoadLyrics(it)
+                            } else {
+                                onApply(
+                                    it,
+                                    lyricsText,
+                                    setOf(MetadataFieldTarget.LYRICS)
+                                )
+                            }
                         }
                     },
                     containerColor = MiuixTheme.colorScheme.surface,
                     textStyle = MiuixTheme.textStyles.body1
                 )
                 PillButton(
-                    text = if (lyricsState.isLoading) {
-                        lyricsLoadingText
-                    } else {
-                        stringResource(R.string.apply_action)
-                    },
+                    text = stringResource(R.string.apply_action),
                     onClick = {
                         song?.let {
                             onApply(
