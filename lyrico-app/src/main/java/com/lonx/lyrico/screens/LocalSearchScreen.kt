@@ -24,9 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,13 +38,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.entity.SongEntity
+import com.lonx.lyrico.ui.components.album.AlbumListItem
+import com.lonx.lyrico.ui.components.artist.ArtistListItem
 import com.lonx.lyrico.ui.components.bar.SearchBar
 import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.bar.rememberSyncedTextFieldState
 import com.lonx.lyrico.ui.components.scaffoldContentPadding
-import com.lonx.lyrico.ui.components.search.AlbumSongItem
-import com.lonx.lyrico.ui.components.search.ArtistSongItem
 import com.lonx.lyrico.ui.components.search.SearchSectionHeader
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
@@ -250,17 +248,10 @@ fun LocalSearchScreen(
                     }
                     items(
                         items = uiState.artists,
-                        key = { artist -> artist.artist }
+                        key = { artist -> artist.name }
                     ) { artist ->
-                        ArtistSongItem(
-                            name = artist.artist,
-                            subtitle = stringResource(
-                                R.string.album_song_count,
-                                artist.albumCount,
-                                artist.songCount
-                            ),
-                            coverUri = artist.coverSongUri,
-                            coverLastModified = artist.coverSongLastModified,
+                        ArtistListItem(
+                            artist = artist,
                             onClick = {
                                 selectionViewModel.exitSelectionMode()
                                 navigator.navigate(ArtistDetailDestination(artistId = artist.id))
@@ -278,16 +269,10 @@ fun LocalSearchScreen(
                     }
                     items(
                         items = uiState.albums,
-                        key = { album -> "${album.album}|${album.albumArtist.orEmpty()}" }
+                        key = { album -> "${album.name}|${album.albumArtist.orEmpty()}" }
                     ) { album ->
-                        AlbumSongItem(
-                            title = album.album,
-                            subtitle = listOfNotNull(
-                                album.albumArtist,
-                                stringResource(R.string.song_count, album.songCount)
-                            ).joinToString(" · "),
-                            coverUri = album.coverSongUri,
-                            coverLastModified = album.coverSongLastModified,
+                        AlbumListItem(
+                            album = album,
                             onClick = {
                                 selectionViewModel.exitSelectionMode()
                                 navigator.navigate(

@@ -1,8 +1,5 @@
 package com.lonx.lyrico.screens.library
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,20 +7,15 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,19 +26,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.ArtistSortBy
 import com.lonx.lyrico.data.model.ArtistSortInfo
+import com.lonx.lyrico.ui.components.artist.ArtistListItem
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
-import com.lonx.lyrico.ui.components.search.ArtistSongItem
 import com.lonx.lyrico.viewmodel.ArtistLibraryViewModel
 import com.lonx.lyrico.viewmodel.SortOrder
 import com.ramcosta.composedestinations.generated.destinations.ArtistDetailDestination
 import com.ramcosta.composedestinations.generated.destinations.LocalSearchDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingsDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
-import my.nanihadesuka.compose.LazyColumnScrollbar
 import my.nanihadesuka.compose.LazyVerticalGridScrollbar
 import my.nanihadesuka.compose.ScrollbarSelectionMode
 import my.nanihadesuka.compose.ScrollbarSettings
@@ -60,8 +51,6 @@ import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
-import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -70,6 +59,7 @@ import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 
 private val SECTIONS_ASC = listOf("0") + ('A'..'Z').map { it.toString() } + listOf("#")
 private val SECTIONS_DESC = SECTIONS_ASC.asReversed()
@@ -223,15 +213,8 @@ fun ArtistsPage(
                                         items = artists,
                                         key = { it.id }
                                     ) { artist ->
-                                        ArtistSongItem(
-                                            name = artist.name,
-                                            subtitle = stringResource(
-                                                R.string.album_song_count,
-                                                artist.albumCount,
-                                                artist.songCount
-                                            ),
-                                            coverUri = artist.coverSongUri,
-                                            coverLastModified = artist.coverSongLastModified,
+                                        ArtistListItem(
+                                            artist = artist,
                                             onClick = {
                                                 navigator.navigate(ArtistDetailDestination(artistId = artist.id))
                                             }

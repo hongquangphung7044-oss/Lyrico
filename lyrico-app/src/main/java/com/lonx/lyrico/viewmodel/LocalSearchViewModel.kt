@@ -3,8 +3,6 @@ package com.lonx.lyrico.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lonx.lyrico.data.model.search.LocalSearchUiState
-import com.lonx.lyrico.data.model.search.toAlbumSearchResult
-import com.lonx.lyrico.data.model.search.toArtistSearchResult
 import com.lonx.lyrico.data.repository.LibraryIndexRepository
 import com.lonx.lyrico.data.song.search.SongSearchRepository
 import kotlinx.coroutines.FlowPreview
@@ -43,8 +41,8 @@ class LocalSearchViewModel(
                     LocalSearchUiState(
                         query = keyword,
                         songs = songs,
-                        albums = albums.map { it.toAlbumSearchResult() },
-                        artists = artists.map { it.toArtistSearchResult() }
+                        albums = albums,
+                        artists = artists
                     )
                 }
             }

@@ -38,7 +38,7 @@ import com.lonx.lyrico.data.model.entity.SourcePluginEntity
         SourcePluginEntity::class,
         SongCustomTagKeyEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -319,6 +319,11 @@ abstract class LyricoDatabase : RoomDatabase() {
         val MIGRATION_15_16 = object : Migration(15, 16) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE source_plugins ADD COLUMN customName TEXT")
+            }
+        }
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE albums ADD COLUMN year TEXT")
             }
         }
     }

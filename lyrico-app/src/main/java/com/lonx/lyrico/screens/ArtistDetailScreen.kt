@@ -44,11 +44,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.entity.AlbumEntity
 import com.lonx.lyrico.data.model.entity.SongEntity
+import com.lonx.lyrico.ui.components.album.AlbumListItem
 import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
 import com.lonx.lyrico.ui.components.cover.CoverImage
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
-import com.lonx.lyrico.ui.components.search.AlbumSongItem
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
@@ -73,6 +73,7 @@ import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -370,14 +371,8 @@ private fun ArtistAlbumsPage(
             items = albums,
             key = { album -> album.id }
         ) { album ->
-            AlbumSongItem(
-                title = album.name,
-                subtitle = listOfNotNull(
-                    album.albumArtist,
-                    stringResource(R.string.song_count, album.songCount)
-                ).joinToString(" - "),
-                coverUri = album.coverSongUri,
-                coverLastModified = album.coverSongLastModified,
+            AlbumListItem(
+                album = album,
                 onClick = { onAlbumClick(album) }
             )
         }
