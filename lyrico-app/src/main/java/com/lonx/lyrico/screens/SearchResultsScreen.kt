@@ -59,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,6 +76,9 @@ import com.lonx.lyrico.ui.components.bar.SearchBar
 import com.lonx.lyrico.ui.components.bar.rememberSyncedTextFieldState
 import com.lonx.lyrico.ui.components.base.ActionBottomSheet
 import com.lonx.lyrico.ui.components.base.PillButton
+import com.lonx.lyrico.ui.components.base.PillButtonColors
+import com.lonx.lyrico.ui.components.base.PillButtonDefaults
+import com.lonx.lyrico.ui.components.base.PillButtonSize
 import com.lonx.lyrico.ui.components.plugin.PluginIcon
 import com.lonx.lyrico.ui.components.rememberTintedPainter
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
@@ -860,8 +864,7 @@ private fun SearchResultApplyBottomSheet(
                         enabledTargets
                     }
                 },
-                containerColor = MiuixTheme.colorScheme.surface,
-                textStyle = MiuixTheme.textStyles.body1
+                style = PillButtonDefaults.style(PillButtonSize.Large),
             )
         },
         endAction = {
@@ -871,7 +874,7 @@ private fun SearchResultApplyBottomSheet(
                 PillButton(
                     text = stringResource(R.string.apply_lyrics_only_action),
                     enabled = !lyricsState.isLoading && song != null,
-                    leadingIcon = if (lyricsState.isLoading) {
+                    leading = if (lyricsState.isLoading) {
                         {
                             MaterialCircularProgressIndicator(
                                 modifier = Modifier.size(14.dp),
@@ -896,8 +899,7 @@ private fun SearchResultApplyBottomSheet(
                             }
                         }
                     },
-                    containerColor = MiuixTheme.colorScheme.surface,
-                    textStyle = MiuixTheme.textStyles.body1
+                    style = PillButtonDefaults.style(PillButtonSize.Large)
                 )
                 PillButton(
                     text = stringResource(R.string.apply_action),
@@ -910,11 +912,7 @@ private fun SearchResultApplyBottomSheet(
                             )
                         }
                     },
-                    containerColor = MiuixTheme.colorScheme.primary,
-                    contentColor = MiuixTheme.colorScheme.onPrimary,
-                    textStyle = MiuixTheme.textStyles.body2.copy(
-                        fontWeight = FontWeight.Bold
-                    )
+                    style = PillButtonDefaults.style(PillButtonSize.Large)
                 )
             }
         },
@@ -992,20 +990,17 @@ private fun ApplySheetPillTabs(
             val selected = index == selectedTabIndex
             PillButton(
                 text = label,
+                selected = selected,
                 onClick = { onTabSelected(index) },
-                containerColor = if (selected) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-                },
-                contentColor = if (selected) {
-                    MiuixTheme.colorScheme.onPrimary
-                } else {
-                    MiuixTheme.colorScheme.onSurface
-                },
-                textStyle = MiuixTheme.textStyles.body2.copy(
-                    fontSize = 13.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                style = PillButtonDefaults.style(PillButtonSize.Medium).copy(
+                    textStyle = MiuixTheme.textStyles.body2.copy(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    selectedTextStyle = MiuixTheme.textStyles.body2.copy(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
             )
         }
@@ -1341,70 +1336,66 @@ fun SourcePillTabRow(
     ) {
         tabs.forEachIndexed { index, tab ->
             val selected = index == selectedTabIndex
-            val showIcon = tabStyle != SearchSourceTabStyle.TEXT_ONLY
-            val showText = tabStyle != SearchSourceTabStyle.ICON_ONLY
-            val iconOnly = showIcon && !showText
-            val horizontalPadding = if (iconOnly) 7.dp else 12.dp
+            val hasIcon = tab.imageVector != null || tab.iconPath != null
+            val showIcon = tabStyle != SearchSourceTabStyle.TEXT_ONLY && hasIcon
+            val showText = tabStyle != SearchSourceTabStyle.ICON_ONLY || !showIcon
 
-            Box(
-                modifier = Modifier
-                    .bringIntoViewRequester(bringIntoViewRequesters[index])
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        if (selected) {
-                            MiuixTheme.colorScheme.primary
-                        } else {
-                            MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-                        }
-                    )
-                    .clickable {
-                        onTabSelected(index)
-                    }
-                    .padding(horizontal = horizontalPadding, vertical = 5.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(if (showIcon && showText) 5.dp else 0.dp)
-                ) {
-                    if (showIcon) {
-                        when {
-                            tab.imageVector != null -> Icon(
-                                imageVector = tab.imageVector,
-                                contentDescription = tab.label,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (selected) {
-                                    MiuixTheme.colorScheme.onPrimary
-                                } else {
-                                    MiuixTheme.colorScheme.onSurface
-                                }
-                            )
+            val iconTint = if (selected) {
+                MiuixTheme.colorScheme.onPrimary
+            } else {
+                MiuixTheme.colorScheme.onSurface
+            }
 
-                            else -> PluginIcon(
-                                iconPath = tab.iconPath,
-                                contentDescription = tab.label,
-                                size = 18.dp
-                            )
-                        }
-                    }
-
-                    if (showText) {
-                        Text(
-                            text = tab.label,
-                            fontSize = 13.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                            color = if (selected) {
-                                MiuixTheme.colorScheme.onPrimary
-                            } else {
-                                MiuixTheme.colorScheme.onSurface
-                            },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+            PillButton(
+                text = tab.label,
+                selected = selected,
+                showText = showText,
+                style = PillButtonDefaults.style(PillButtonSize.Medium),
+                modifier = Modifier.bringIntoViewRequester(
+                    bringIntoViewRequesters[index]
+                ),
+                colors = PillButtonDefaults.colors(
+                    containerColor = MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                ),
+                onClick = {
+                    onTabSelected(index)
+                },
+                leading = if (showIcon) {
+                    {
+                        SourcePillTabIcon(
+                            tab = tab,
+                            tint = iconTint
                         )
                     }
+                } else {
+                    null
                 }
-            }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SourcePillTabIcon(
+    tab: SourcePillTab,
+    tint: Color
+) {
+    when {
+        tab.imageVector != null -> {
+            Icon(
+                imageVector = tab.imageVector,
+                contentDescription = tab.label,
+                modifier = Modifier.size(16.dp),
+                tint = tint
+            )
+        }
+
+        else -> {
+            PluginIcon(
+                iconPath = tab.iconPath,
+                contentDescription = tab.label,
+                size = 18.dp
+            )
         }
     }
 }

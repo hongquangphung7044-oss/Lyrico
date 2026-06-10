@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,8 +25,131 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+enum class PillButtonSize {
+    Small,
+    Medium,
+    Large
+}
+
+@Immutable
+data class PillButtonStyle(
+    val height: Dp,
+    val contentPadding: PaddingValues,
+    val iconOnlyPadding: PaddingValues,
+    val spacing: Dp,
+    val shape: Shape,
+    val textStyle: TextStyle,
+    val selectedTextStyle: TextStyle = textStyle
+)
+
+@Immutable
+data class PillButtonColors(
+    val selectedContainerColor: Color,
+    val selectedContentColor: Color,
+    val containerColor: Color,
+    val contentColor: Color,
+    val disabledContainerColor: Color,
+    val disabledContentColor: Color
+) {
+    fun containerColor(
+        selected: Boolean,
+        enabled: Boolean
+    ): Color {
+        return when {
+            !enabled -> disabledContainerColor
+            selected -> selectedContainerColor
+            else -> containerColor
+        }
+    }
+
+    fun contentColor(
+        selected: Boolean,
+        enabled: Boolean
+    ): Color {
+        return when {
+            !enabled -> disabledContentColor
+            selected -> selectedContentColor
+            else -> contentColor
+        }
+    }
+}
+
+object PillButtonDefaults {
+
+    @Composable
+    fun style(size: PillButtonSize): PillButtonStyle {
+        return when (size) {
+            PillButtonSize.Small -> PillButtonStyle(
+                height = 28.dp,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                iconOnlyPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp),
+                spacing = 4.dp,
+                shape = RoundedCornerShape(14.dp),
+                textStyle = MiuixTheme.textStyles.body2.copy(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                selectedTextStyle = MiuixTheme.textStyles.body2.copy(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+
+            PillButtonSize.Medium -> PillButtonStyle(
+                height = 32.dp,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
+                iconOnlyPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                spacing = 5.dp,
+                shape = RoundedCornerShape(16.dp),
+                textStyle = MiuixTheme.textStyles.body2.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                selectedTextStyle = MiuixTheme.textStyles.body2.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+
+            PillButtonSize.Large -> PillButtonStyle(
+                height = 38.dp,
+                contentPadding = PaddingValues(horizontal = 15.dp, vertical = 7.dp),
+                iconOnlyPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                spacing = 6.dp,
+                shape = RoundedCornerShape(19.dp),
+                textStyle = MiuixTheme.textStyles.body1.copy(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                selectedTextStyle = MiuixTheme.textStyles.body1.copy(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    }
+
+    @Composable
+    fun colors(
+        selectedContainerColor: Color = MiuixTheme.colorScheme.primary,
+        selectedContentColor: Color = MiuixTheme.colorScheme.onPrimary,
+        containerColor: Color = MiuixTheme.colorScheme.surface,
+        contentColor: Color = MiuixTheme.colorScheme.onSurface,
+        disabledContainerColor: Color = MiuixTheme.colorScheme.surface,
+        disabledContentColor: Color = MiuixTheme.colorScheme.disabledOnSurface
+    ): PillButtonColors {
+        return PillButtonColors(
+            selectedContainerColor = selectedContainerColor,
+            selectedContentColor = selectedContentColor,
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = disabledContainerColor,
+            disabledContentColor = disabledContentColor
+        )
+    }
+}
 
 @Composable
 fun PillButton(
@@ -34,66 +157,78 @@ fun PillButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    leadingIcon: (@Composable (() -> Unit))? = null,
-    trailingIcon: (@Composable (() -> Unit))? = null,
-    height: Dp = 30.dp,
-    shape: Shape = RoundedCornerShape(percent = 50),
-    contentPadding: PaddingValues = PaddingValues(horizontal = 13.dp, vertical = 5.dp),
-    iconSpacing: Dp = 5.dp,
-    containerColor: Color = MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-    contentColor: Color = MiuixTheme.colorScheme.onSurface,
-    disabledContainerColor: Color = MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
-    disabledContentColor: Color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    textStyle: TextStyle = MiuixTheme.textStyles.body2.copy(
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Medium
-    )
+    selected: Boolean = false,
+    showText: Boolean = true,
+    style: PillButtonStyle = PillButtonDefaults.style(PillButtonSize.Medium),
+    colors: PillButtonColors = PillButtonDefaults.colors(),
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null
 ) {
-    val actualContainerColor = if (enabled) containerColor else disabledContainerColor
-    val actualContentColor = if (enabled) contentColor else disabledContentColor
+    val containerColor = colors.containerColor(
+        selected = selected,
+        enabled = enabled
+    )
+
+    val contentColor = colors.contentColor(
+        selected = selected,
+        enabled = enabled
+    )
+
+    val hasText = showText && text.isNotBlank()
+    val hasLeading = leading != null
+    val hasTrailing = trailing != null
+    val iconOnly = !hasText && (hasLeading || hasTrailing)
 
     Box(
         modifier = modifier
-            .height(height)
-            .clip(shape)
-            .background(actualContainerColor)
+            .height(style.height)
+            .clip(style.shape)
+            .background(containerColor)
             .clickable(
                 enabled = enabled,
                 onClick = onClick
             )
-            .padding(contentPadding),
+            .padding(
+                if (iconOnly) {
+                    style.iconOnlyPadding
+                } else {
+                    style.contentPadding
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
         Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            if (leadingIcon != null) {
-                CompositionLocalProvider(
-                    LocalContentColor provides actualContentColor
-                ) {
-                    leadingIcon()
-                }
-
-                Spacer(modifier = Modifier.width(iconSpacing))
+            if (leading != null) {
+                leading()
             }
 
-            Text(
-                text = text,
-                style = textStyle,
-                color = actualContentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (leading != null && hasText) {
+                Spacer(modifier = Modifier.width(style.spacing))
+            }
 
-            if (trailingIcon != null) {
-                Spacer(modifier = Modifier.width(iconSpacing))
+            if (hasText) {
+                Text(
+                    text = text,
+                    style = if (selected) {
+                        style.selectedTextStyle
+                    } else {
+                        style.textStyle
+                    },
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-                CompositionLocalProvider(
-                    LocalContentColor provides actualContentColor
-                ) {
-                    trailingIcon()
-                }
+            if (trailing != null && hasText) {
+                Spacer(modifier = Modifier.width(style.spacing))
+            }
+
+            if (trailing != null) {
+                trailing()
             }
         }
     }
