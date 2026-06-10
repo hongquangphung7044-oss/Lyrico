@@ -1,5 +1,6 @@
 package com.lonx.lyrico.screens.library
 
+import android.widget.Toast
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -14,26 +15,34 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.AlbumSortBy
 import com.lonx.lyrico.data.model.AlbumSortInfo
+import com.lonx.lyrico.data.model.dao.AlbumListItem
 import com.lonx.lyrico.ui.components.bar.AlphabetSideBar
 import com.lonx.lyrico.ui.components.bar.rememberAlphabetSideBarScrollController
+import com.lonx.lyrico.ui.components.base.YesNoDialog
+import com.lonx.lyrico.ui.components.library.AlbumActionBottomSheet
 import com.lonx.lyrico.ui.components.library.AlbumGridItem
+import com.lonx.lyrico.ui.components.library.AlbumReplayGainProgressBottomSheet
 import com.lonx.lyrico.ui.components.library.LibraryEmptyState
 import com.lonx.lyrico.ui.components.library.rememberAlbumGridTextStyle
 import com.lonx.lyrico.ui.components.scaffoldTopAppBarInsetsPadding
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
+import com.lonx.lyrico.viewmodel.AlbumActionsViewModel
 import com.lonx.lyrico.viewmodel.AlbumLibraryViewModel
 import com.lonx.lyrico.viewmodel.SortOrder
 import com.ramcosta.composedestinations.generated.destinations.AlbumDetailDestination
@@ -73,7 +82,9 @@ fun AlbumsPage(
     modifier: Modifier = Modifier
 ) {
     val viewModel: AlbumLibraryViewModel = koinViewModel()
+    val albumActionsViewModel: AlbumActionsViewModel = koinViewModel()
     val scanState by viewModel.scanState.collectAsStateWithLifecycle()
+    val albumActionsUiState by albumActionsViewModel.uiState.collectAsStateWithLifecycle()
 
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val sortInfo by viewModel.sortInfo.collectAsStateWithLifecycle()
@@ -82,6 +93,18 @@ fun AlbumsPage(
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val gridState = rememberLazyGridState()
     val alphabetScrollController = rememberAlphabetSideBarScrollController(gridState)
+    val context = LocalContext.current
+    var selectedAlbum by remember { mutableStateOf<AlbumListItem?>(null) }
+    var showAlbumActionSheet by remember { mutableStateOf(false) }
+    var showDeleteAlbumDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(albumActionsViewModel, context) {
+        albumActionsViewModel.events.collect { message ->
+            message.asString(context)?.let { text ->
+                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val sections = remember(sortInfo.order) {
         if (sortInfo.order == SortOrder.ASC) SECTIONS_ASC else SECTIONS_DESC
@@ -217,6 +240,10 @@ fun AlbumsPage(
                                     titleMaxLines = albumTextStyle.titleMaxLines,
                                     onClick = {
                                         navigator.navigate(AlbumDetailDestination(albumId = album.id))
+                                    },
+                                    onLongClick = {
+                                        selectedAlbum = album
+                                        showAlbumActionSheet = true
                                     }
                                 )
                             }
@@ -241,6 +268,58 @@ fun AlbumsPage(
             }
         }
     }
+
+    selectedAlbum?.let { album ->
+        AlbumActionBottomSheet(
+            show = showAlbumActionSheet,
+            albumName = album.name,
+            isCalculatingReplayGain = albumActionsUiState.isCalculatingAlbumReplayGain,
+            onDismissRequest = { showAlbumActionSheet = false },
+            onDismissFinished = {
+                if (!showAlbumActionSheet && !showDeleteAlbumDialog) {
+                    selectedAlbum = null
+                }
+            },
+            onShare = {
+                showAlbumActionSheet = false
+                albumActionsViewModel.shareAlbum(context, album.id)
+            },
+            onDelete = {
+                showAlbumActionSheet = false
+                showDeleteAlbumDialog = true
+            },
+            onCalculateReplayGain = {
+                showAlbumActionSheet = false
+                albumActionsViewModel.calculateAlbumReplayGain(album.id)
+            }
+        )
+
+        YesNoDialog(
+            title = stringResource(R.string.dialog_delete_album_title),
+            show = showDeleteAlbumDialog,
+            summary = stringResource(
+                R.string.dialog_delete_album_content,
+                album.songCount,
+                album.name
+            ),
+            onConfirm = {
+                showDeleteAlbumDialog = false
+                albumActionsViewModel.deleteAlbum(album.id)
+                selectedAlbum = null
+            },
+            onDismissRequest = {
+                showDeleteAlbumDialog = false
+                selectedAlbum = null
+            }
+        )
+    }
+
+    AlbumReplayGainProgressBottomSheet(
+        uiState = albumActionsUiState,
+        onDismissRequest = albumActionsViewModel::closeAlbumReplayGainProgressDialog,
+        onDismissFinished = albumActionsViewModel::clearAlbumReplayGainProgressDialog,
+        onAbort = albumActionsViewModel::cancelAlbumReplayGain
+    )
 }
 
 private fun buildAlbumSummary(

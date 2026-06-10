@@ -93,6 +93,12 @@
     <string name="replay_gain_error_alac_issue">系统 ALAC 解码器不稳定，请尝试重启</string>
     <string name="replay_gain_error_codec_exception">解码器异常: %1$s</string>
     <string name="replay_gain_error_general">扫描失败: %1$s</string>
+    <string name="album_replay_gain_calculating">计算中</string>
+    <string name="album_replay_gain_result_title">计算完成</string>
+    <string name="album_replay_gain_progress">进度: %1$d%%</string>
+    <string name="album_replay_gain_success">已写入 %1$d 首歌的专辑回放增益</string>
+    <string name="album_replay_gain_write_permission_required">需要授权才能写入专辑回放增益</string>
+    <string name="album_replay_gain_write_failed">写入专辑回放增益失败: %1$s</string>
 
 
     <string name="cache_category_image">图片缓存</string>
@@ -303,6 +309,7 @@
 
     <!-- 通用操作 -->
     <string name="action_save">保存</string>
+    <string name="action_write">写入</string>
     <string name="action_undo_changes">撤销修改</string>
     <string name="action_back">返回</string>
     <string name="action_search">搜索</string>
@@ -352,6 +359,14 @@
     <string name="menu_action_delete">删除歌曲</string>
     <string name="menu_action_delete_sub">此操作会删除文件，且不可撤销</string>
     <string name="menu_action_rename">重命名文件</string>
+    <string name="menu_action_share_album">分享专辑</string>
+    <string name="menu_action_delete_album">删除专辑</string>
+    <string name="menu_action_delete_album_sub">此操作会删除专辑中的所有文件</string>
+    <string name="menu_action_calculate_album_replay_gain">计算专辑回放增益</string>
+    <string name="album_action_more">专辑操作</string>
+    <string name="dialog_delete_album_title">删除专辑</string>
+    <string name="dialog_delete_album_content">删除「%2$s」中的全部 %1$d 首歌？</string>
+    <string name="album_delete_success">已删除 %1$d / %2$d 首歌</string>
     <string name="dialog_rename_title">重命名</string>
     <string name="msg_copied_to_clipboard">已复制到剪贴板</string>
 

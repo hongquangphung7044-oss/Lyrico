@@ -149,9 +149,9 @@ fun BatchExportBottomSheet(
                         stringResource(R.string.action_close)
                     },
                     color = if (batchExportUiState.isRunning) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
                         MiuixTheme.colorScheme.error
+                    } else {
+                        MiuixTheme.colorScheme.primary
                     }
                 )
             }

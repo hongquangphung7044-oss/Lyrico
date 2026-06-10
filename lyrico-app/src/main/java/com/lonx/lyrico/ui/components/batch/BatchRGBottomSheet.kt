@@ -181,9 +181,9 @@ fun BatchRGBottomSheet(
                         R.string.action_close
                     ),
                     color = if (batchReplayGainUiState.isRunning){
-                        MiuixTheme.colorScheme.primary
-                    } else {
                         MiuixTheme.colorScheme.error
+                    } else {
+                        MiuixTheme.colorScheme.primary
                     }
                 )
             }

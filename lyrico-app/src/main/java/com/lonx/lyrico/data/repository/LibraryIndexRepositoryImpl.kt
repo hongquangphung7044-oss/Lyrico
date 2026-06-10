@@ -55,6 +55,10 @@ class LibraryIndexRepositoryImpl(
         return indexDao.observeSongsByAlbumId(albumId)
     }
 
+    override suspend fun getSongsByAlbumId(albumId: Long): List<SongEntity> {
+        return indexDao.getSongsByAlbumId(albumId)
+    }
+
     override fun searchArtists(query: String): Flow<List<ArtistListItem>> {
         return indexDao.searchArtists(query)
     }

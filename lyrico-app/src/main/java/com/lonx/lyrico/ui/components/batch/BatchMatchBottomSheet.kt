@@ -181,9 +181,9 @@ fun BatchMatchBottomSheet(
                         R.string.action_close
                     ),
                     color = if (uiState.isRunning){
-                        MiuixTheme.colorScheme.primary
-                    } else {
                         MiuixTheme.colorScheme.error
+                    } else {
+                        MiuixTheme.colorScheme.primary
                     }
                 )
             }

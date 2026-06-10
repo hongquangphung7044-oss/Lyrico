@@ -73,6 +73,7 @@ import com.lonx.lyrico.worker.processor.LyricsFormatProcessor
 import com.lonx.lyrico.worker.processor.MatchMetadataProcessor
 import com.lonx.lyrico.worker.processor.ReplayGainProcessor
 import com.lonx.lyrico.viewmodel.AboutViewModel
+import com.lonx.lyrico.viewmodel.AlbumActionsViewModel
 import com.lonx.lyrico.viewmodel.AlbumDetailViewModel
 import com.lonx.lyrico.viewmodel.AlbumLibraryViewModel
 import com.lonx.lyrico.viewmodel.AppLogViewModel
@@ -249,6 +250,7 @@ val appModule = module {
     )) }
     // ViewModels
     viewModel { AboutViewModel(get(),get(), get()) }
+    viewModel { AlbumActionsViewModel(get(), get(), get(), get()) }
     viewModel { SongListViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { SongSelectionViewModel(get(), get(), get(), get()) }
     viewModel { LocalSearchViewModel(get(), get()) }

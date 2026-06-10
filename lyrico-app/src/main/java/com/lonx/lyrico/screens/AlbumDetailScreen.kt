@@ -1,5 +1,6 @@
 package com.lonx.lyrico.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,11 +43,14 @@ import com.lonx.lyrico.R
 import com.lonx.lyrico.data.model.entity.SongEntity
 import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
+import com.lonx.lyrico.ui.components.base.YesNoDialog
 import com.lonx.lyrico.ui.components.cover.CoverImage
+import com.lonx.lyrico.ui.components.library.AlbumReplayGainProgressBottomSheet
 import com.lonx.lyrico.ui.components.scaffoldTopHorizontalPadding
 import com.lonx.lyrico.ui.components.song.SongActionSheets
 import com.lonx.lyrico.ui.components.song.SongListItem
 import com.lonx.lyrico.ui.components.song.SongListItemActions
+import com.lonx.lyrico.viewmodel.AlbumActionsViewModel
 import com.lonx.lyrico.viewmodel.AlbumDetailViewModel
 import com.lonx.lyrico.viewmodel.SongSelectionViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -54,6 +59,8 @@ import com.ramcosta.composedestinations.generated.destinations.EditMetadataDesti
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -62,6 +69,8 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -76,8 +85,10 @@ fun AlbumDetailScreen(
         parameters = { parametersOf(albumId) }
     )
     val selectionViewModel: SongSelectionViewModel = koinViewModel()
+    val albumActionsViewModel: AlbumActionsViewModel = koinViewModel()
     val album by viewModel.album.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val albumActionsUiState by albumActionsViewModel.uiState.collectAsStateWithLifecycle()
     val albumName = album?.name.orEmpty()
     val albumArtist = album?.albumArtist?.takeIf { it.isNotBlank() }
         ?: songs.firstNotNullOfOrNull { song ->
@@ -110,6 +121,15 @@ fun AlbumDetailScreen(
     var showDetailSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteAlbumDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(albumActionsViewModel, context) {
+        albumActionsViewModel.events.collect { message ->
+            message.asString(context)?.let { text ->
+                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     BackHandler(enabled = isSelectionMode) {
         if (isFabMenuExpanded) {
@@ -165,6 +185,29 @@ fun AlbumDetailScreen(
                                     Icon(
                                         imageVector = MiuixIcons.Back,
                                         contentDescription = stringResource(R.string.action_back)
+                                    )
+                                }
+                            },
+                            actions = {
+                                OverlayIconDropdownMenu(
+                                    entries = listOf(
+                                        albumActionsDropdownEntry(
+                                            isCalculatingReplayGain = albumActionsUiState.isCalculatingAlbumReplayGain,
+                                            onShare = {
+                                                albumActionsViewModel.shareAlbum(context, songs)
+                                            },
+                                            onDelete = {
+                                                showDeleteAlbumDialog = true
+                                            },
+                                            onCalculateReplayGain = {
+                                                albumActionsViewModel.calculateAlbumReplayGain(songs)
+                                            }
+                                        )
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.More,
+                                        contentDescription = stringResource(R.string.album_action_more)
                                     )
                                 }
                             },
@@ -261,6 +304,29 @@ fun AlbumDetailScreen(
             }
         }
 
+        YesNoDialog(
+            title = stringResource(R.string.dialog_delete_album_title),
+            show = showDeleteAlbumDialog,
+            summary = stringResource(
+                R.string.dialog_delete_album_content,
+                songs.size,
+                albumName.ifBlank { stringResource(R.string.album_detail_title) }
+            ),
+            onConfirm = {
+                showDeleteAlbumDialog = false
+                albumActionsViewModel.deleteAlbum(songs)
+                navigator.popBackStack()
+            },
+            onDismissRequest = { showDeleteAlbumDialog = false }
+        )
+
+        AlbumReplayGainProgressBottomSheet(
+            uiState = albumActionsUiState,
+            onDismissRequest = albumActionsViewModel::closeAlbumReplayGainProgressDialog,
+            onDismissFinished = albumActionsViewModel::clearAlbumReplayGainProgressDialog,
+            onAbort = albumActionsViewModel::cancelAlbumReplayGain
+        )
+
         SongBatchSelectionActions(
             navigator = navigator,
             songs = songs,
@@ -273,6 +339,35 @@ fun AlbumDetailScreen(
             onBatchShare = selectionViewModel::batchShare
         )
     }
+}
+
+@Composable
+private fun albumActionsDropdownEntry(
+    isCalculatingReplayGain: Boolean,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    onCalculateReplayGain: () -> Unit
+): DropdownEntry {
+    return DropdownEntry(
+        items = listOf(
+            DropdownItem(
+                text = stringResource(R.string.menu_action_calculate_album_replay_gain),
+                onClick = {
+                    if (!isCalculatingReplayGain) {
+                        onCalculateReplayGain()
+                    }
+                }
+            ),
+            DropdownItem(
+                text = stringResource(R.string.menu_action_share_album),
+                onClick = onShare
+            ),
+            DropdownItem(
+                text = stringResource(R.string.menu_action_delete_album),
+                onClick = onDelete
+            )
+        )
+    )
 }
 
 @Composable

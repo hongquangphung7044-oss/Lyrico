@@ -1,5 +1,6 @@
 package com.lonx.lyrico.ui.components.library
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,15 +65,23 @@ fun AlbumGridItem(
     summaryStyle: TextStyle,
     titleMaxLines: Int,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
 ) {
+    val view = LocalView.current
     Card(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        onLongPress = onLongClick?.let {
+            {
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                it()
+            }
+        }
     ) {
         BasicComponent(
             modifier = Modifier.fillMaxWidth().background(MiuixTheme.colorScheme.surfaceVariant),
-            insideMargin = PaddingValues(8.dp),
-            onClick = onClick
+            insideMargin = PaddingValues(8.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth()

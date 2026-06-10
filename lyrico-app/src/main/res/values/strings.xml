@@ -93,6 +93,12 @@
     <string name="replay_gain_error_alac_issue">System ALAC decoder is unstable, please try restarting</string>
     <string name="replay_gain_error_codec_exception">Decoder exception: %1$s</string>
     <string name="replay_gain_error_general">Scan failed: %1$s</string>
+    <string name="album_replay_gain_calculating">Calculating</string>
+    <string name="album_replay_gain_result_title">Calculation completed</string>
+    <string name="album_replay_gain_progress">Progress: %1$d%%</string>
+    <string name="album_replay_gain_success">Album ReplayGain written to %1$d songs</string>
+    <string name="album_replay_gain_write_permission_required">Permission required to write album ReplayGain</string>
+    <string name="album_replay_gain_write_failed">Failed to write album ReplayGain: %1$s</string>
 
 
     <string name="cache_category_image">Image Cache</string>
@@ -298,6 +304,7 @@
 
     <!-- General Actions -->
     <string name="action_save">Save</string>
+    <string name="action_write">Write</string>
     <string name="action_undo_changes">Undo changes</string>
     <string name="action_back">Back</string>
     <string name="action_search">Search</string>
@@ -380,6 +387,14 @@
     <string name="menu_action_delete">Delete Song</string>
     <string name="menu_action_delete_sub">This will delete the file and cannot be undone</string>
     <string name="menu_action_rename">Rename File</string>
+    <string name="menu_action_share_album">Share Album</string>
+    <string name="menu_action_delete_album">Delete Album</string>
+    <string name="menu_action_delete_album_sub">This will delete all files in the album</string>
+    <string name="menu_action_calculate_album_replay_gain">Calculate Album ReplayGain</string>
+    <string name="album_action_more">Album actions</string>
+    <string name="dialog_delete_album_title">Delete album</string>
+    <string name="dialog_delete_album_content">Delete all %1$d songs in \"%2$s\"?</string>
+    <string name="album_delete_success">Deleted %1$d / %2$d songs</string>
     <string name="dialog_rename_title">Rename</string>
     <string name="msg_copied_to_clipboard">Copied to clipboard</string>
 

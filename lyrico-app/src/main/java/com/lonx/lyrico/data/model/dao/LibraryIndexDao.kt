@@ -265,6 +265,19 @@ interface LibraryIndexDao {
     fun observeSongsByAlbumId(albumId: Long): Flow<List<SongEntity>>
 
     @Query("""
+        SELECT s.*
+        FROM songs AS s
+        INNER JOIN album_song AS als ON s.id = als.songId
+        INNER JOIN folders AS f ON s.folderId = f.id
+        WHERE als.albumId = :albumId
+          AND f.isIgnored = 0
+        ORDER BY COALESCE(s.discNumber, 0) ASC,
+            CAST(NULLIF(s.trackerNumber, '') AS INTEGER) ASC,
+            s.titleSortKey ASC, s.fileName ASC
+    """)
+    suspend fun getSongsByAlbumId(albumId: Long): List<SongEntity>
+
+    @Query("""
         SELECT id, name, songCount, albumCount, coverSongUri, coverSongLastModified, groupKey, sortKey
         FROM artists
         WHERE name LIKE '%' || :query || '%'
