@@ -16,13 +16,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.placeCursorAtEnd
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -37,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.basic.SearchCleanup
@@ -59,20 +60,18 @@ fun InputField(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val textColor = MiuixTheme.colorScheme.onSurface
-    val textStyle = MiuixTheme.textStyles.paragraph.copy(
-        color = textColor
-    )
+    val textStyle = MiuixTheme.textStyles.paragraph.copy(color = textColor)
 
+    // 仅处理自动聚焦，不操作光标
     LaunchedEffect(autoFocus) {
         if (autoFocus) {
             delay(100)
-            state.placeCursorAtEnd()
             focusRequester.requestFocus()
             keyboardController?.show()
         }
     }
 
-    val actualLeadingIcon = leadingIcon ?: {
+    val defaultLeadingIcon: @Composable () -> Unit = {
         Icon(
             modifier = Modifier.padding(start = 16.dp, end = 8.dp),
             imageVector = MiuixIcons.Basic.Search,
@@ -81,7 +80,7 @@ fun InputField(
         )
     }
 
-    val actualTrailingIcon = trailingIcon ?: {
+    val defaultTrailingIcon: @Composable () -> Unit = {
         AnimatedVisibility(
             visible = state.text.isNotEmpty(),
             enter = fadeIn(),
@@ -98,7 +97,8 @@ fun InputField(
                             indication = null,
                             interactionSource = interactionSource
                         ) {
-                            state.setTextAndPlaceCursorAtEnd("")
+                            // clearText() 内部会正确处理光标
+                            state.clearText()
                         },
                     imageVector = MiuixIcons.Basic.SearchCleanup,
                     tint = MiuixTheme.colorScheme.onSurfaceContainerHighest,
@@ -122,18 +122,17 @@ fun InputField(
         modifier = modifier.focusRequester(focusRequester),
         decorator = { innerTextField ->
             Box(
-                modifier = Modifier
-                    .background(
-                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
-                        shape = RoundedCornerShape(50),
-                    ),
+                modifier = Modifier.background(
+                    color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(50),
+                ),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    actualLeadingIcon()
+                    (leadingIcon ?: defaultLeadingIcon)()
 
                     Box(
                         modifier = Modifier
@@ -151,43 +150,13 @@ fun InputField(
                                 maxLines = 1
                             )
                         }
-
                         innerTextField()
                     }
 
-                    actualTrailingIcon()
+                    (trailingIcon ?: defaultTrailingIcon)()
                 }
             }
         },
-    )
-}
-
-@Composable
-fun InputField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String = "",
-    enabled: Boolean = true,
-    onSearch: ((String) -> Unit)? = null,
-    leadingIcon: @Composable (() -> Unit)? = null,
-    trailingIcon: @Composable (() -> Unit)? = null,
-    autoFocus: Boolean = false,
-) {
-    val state = rememberSyncedSearchTextFieldState(
-        value = value,
-        onValueChange = onValueChange
-    )
-
-    InputField(
-        state = state,
-        modifier = modifier,
-        placeholder = placeholder,
-        enabled = enabled,
-        onSearch = onSearch,
-        leadingIcon = leadingIcon,
-        trailingIcon = trailingIcon,
-        autoFocus = autoFocus
     )
 }
 
@@ -215,105 +184,6 @@ fun SearchBar(
                 .fillMaxWidth(),
             trailingIcon = trailingIcon
         )
-
         actions?.invoke()
     }
-}
-
-@Composable
-fun SearchBar(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String = "",
-    actions: @Composable (() -> Unit)? = null,
-    trailingIcon: @Composable (() -> Unit)? = null,
-    onSearch: ((String) -> Unit)? = null,
-    autoFocus: Boolean = false,
-) {
-    val state = rememberSyncedSearchTextFieldState(
-        value = value,
-        onValueChange = onValueChange
-    )
-
-    SearchBar(
-        state = state,
-        modifier = modifier,
-        placeholder = placeholder,
-        actions = actions,
-        trailingIcon = trailingIcon,
-        onSearch = onSearch,
-        autoFocus = autoFocus
-    )
-}
-
-@Composable
-private fun rememberSyncedSearchTextFieldState(
-    value: String,
-    onValueChange: (String) -> Unit
-): TextFieldState {
-    val state = rememberTextFieldState(initialText = value)
-    val latestValue by rememberUpdatedState(value)
-    val latestOnValueChange by rememberUpdatedState(onValueChange)
-
-    LaunchedEffect(value) {
-        if (state.text.toString() != value) {
-            state.setTextAndPlaceCursorAtEnd(value)
-        }
-    }
-
-    LaunchedEffect(state) {
-        snapshotFlow { state.text.toString() }
-            .distinctUntilChanged()
-            .collect { text ->
-                if (text != latestValue) {
-                    latestOnValueChange(text)
-                }
-            }
-    }
-
-    return state
-}
-
-private fun TextFieldState.setTextAndPlaceCursorAtEnd(text: String) {
-    edit {
-        replace(0, length, text)
-        placeCursorAtEnd()
-    }
-}
-
-private fun TextFieldState.placeCursorAtEnd() {
-    edit {
-        placeCursorAtEnd()
-    }
-}
-@Composable
-fun rememberSyncedTextFieldState(
-    value: String,
-    onValueChange: (String) -> Unit
-): TextFieldState {
-    val state = rememberTextFieldState(initialText = value)
-    val latestValue by rememberUpdatedState(value)
-    val latestOnValueChange by rememberUpdatedState(onValueChange)
-
-    LaunchedEffect(value) {
-        if (state.text.toString() != value) {
-            state.edit {
-                replace(0, length, value)
-                placeCursorAtEnd()
-            }
-        }
-    }
-
-    LaunchedEffect(state) {
-        snapshotFlow { state.text.toString() }
-            .distinctUntilChanged()
-            .collect { text ->
-                if (text != latestValue) {
-                    latestOnValueChange(text)
-                }
-            }
-    }
-
-    return state
 }

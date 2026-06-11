@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -59,7 +61,6 @@ import com.lonx.lyrico.ui.components.artist.ArtistListItem
 import com.lonx.lyrico.ui.components.bar.SearchBar
 import com.lonx.lyrico.ui.components.bar.SongBatchSelectionActions
 import com.lonx.lyrico.ui.components.bar.SongSelectionTopAppBar
-import com.lonx.lyrico.ui.components.bar.rememberSyncedTextFieldState
 import com.lonx.lyrico.ui.components.scaffoldContentPadding
 import com.lonx.lyrico.ui.components.search.SearchSectionHeader
 import com.lonx.lyrico.ui.components.song.SongActionSheets
@@ -74,6 +75,8 @@ import com.ramcosta.composedestinations.generated.destinations.ArtistDetailDesti
 import com.ramcosta.composedestinations.generated.destinations.EditMetadataDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import org.koin.androidx.compose.koinViewModel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -134,10 +137,13 @@ fun LocalSearchScreen(
         tab = searchTabs[pagerState.currentPage],
         uiState = uiState
     )
-    val searchState = rememberSyncedTextFieldState(
-        value = searchQuery,
-        onValueChange = viewModel::onQueryChange
-    )
+    val searchState = rememberTextFieldState(initialText = searchQuery)
+
+    LaunchedEffect(searchState) {
+        snapshotFlow { searchState.text.toString() }
+            .distinctUntilChanged()
+            .collectLatest(viewModel::onQueryChange)
+    }
 
     LaunchedEffect(isSelectionMode, pagerState.currentPage) {
         if (isSelectionMode && visibleSongs.isEmpty()) {
