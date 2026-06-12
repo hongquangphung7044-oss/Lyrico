@@ -1,5 +1,5 @@
 export const PLUGIN_API_VERSION = 1;
-export const HOST_API_VERSION = 1;
+export const HOST_API_VERSION = 2;
 
 export const CAPABILITIES = new Set([
   'searchSongs',
@@ -54,6 +54,12 @@ export const HOST_APIS = new Set([
   'base64.dropBytes',
   'base64.decodeBytes',
   'base64.encodeBytes',
+  'base64.encodeUrlText',
+  'base64.decodeUrlText',
+  'base64.encodeUrlBytes',
+  'base64.decodeUrlBytes',
+  'base64.toUrl',
+  'base64.fromUrl',
   'bytes.xor',
   'bytes.xorBase64',
   'compression.inflateBytesToText',

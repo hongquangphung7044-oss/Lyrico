@@ -175,14 +175,14 @@ After installation, plugin metadata is written to the Room `source_plugins` tabl
 
 ## Host Capability Overview
 
-Plugins access host capabilities through `globalThis.Platform`. There are **31 APIs**:
+Plugins access host capabilities through `globalThis.Platform`. There are **37 APIs**:
 
 | Category | API count | Purpose |
 |----------|-----------|---------|
 | `app` | 2 | Host app information and User-Agent |
 | `runtime` | 1 | Runtime information |
 | `crypto` | 4 | MD5 and AES-ECB encryption/decryption |
-| `base64` | 5 | Base64 encode/decode/truncate/byte conversion |
+| `base64` | 11 | Base64/Base64URL encode, decode, truncate, and byte conversion |
 | `bytes` | 2 | XOR byte operations |
 | `compression` | 2 | zlib inflate decompression |
 | `http` | 8 | GET/POST requests for text and binary responses, old and new APIs |

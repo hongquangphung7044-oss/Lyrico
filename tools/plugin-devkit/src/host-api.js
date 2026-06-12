@@ -14,7 +14,7 @@ export function createHostApi(options = {}) {
   };
   const runtimeInfo = {
     pluginApiVersion: 1,
-    hostApiVersion: 1,
+    hostApiVersion: 2,
     engine: 'node-vm',
     engineVersion: process.version,
     supportedHostApis: [
@@ -30,6 +30,12 @@ export function createHostApi(options = {}) {
       'base64.dropBytes',
       'base64.decodeBytes',
       'base64.encodeBytes',
+      'base64.encodeUrlText',
+      'base64.decodeUrlText',
+      'base64.encodeUrlBytes',
+      'base64.decodeUrlBytes',
+      'base64.toUrl',
+      'base64.fromUrl',
       'bytes.xor',
       'bytes.xorBase64',
       'compression.inflateBytesToText',
@@ -81,7 +87,13 @@ export function createHostApi(options = {}) {
         decodeText: base64 => Buffer.from(String(base64 || ''), 'base64').toString('utf8'),
         dropBytes: (base64, count) => Buffer.from(String(base64 || ''), 'base64').subarray(Number(count) || 0).toString('base64'),
         decodeBytes: base64 => Array.from(Buffer.from(String(base64 || ''), 'base64')),
-        encodeBytes: bytes => Buffer.from(Array.from(bytes || [])).toString('base64')
+        encodeBytes: bytes => Buffer.from(Array.from(bytes || [])).toString('base64'),
+        encodeUrlText: text => Buffer.from(String(text || ''), 'utf8').toString('base64url'),
+        decodeUrlText: base64Url => Buffer.from(String(base64Url || ''), 'base64url').toString('utf8'),
+        encodeUrlBytes: bytes => Buffer.from(Array.from(bytes || [])).toString('base64url'),
+        decodeUrlBytes: base64Url => Array.from(Buffer.from(String(base64Url || ''), 'base64url')),
+        toUrl: base64 => String(base64 || '').trim().replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, ''),
+        fromUrl: base64Url => padBase64(String(base64Url || '').trim().replace(/-/g, '+').replace(/_/g, '/'))
       },
       bytes: {
         xor: (bytes, key) => xorBytes(Array.from(bytes || []), Array.from(key || [])),
@@ -130,6 +142,13 @@ function aesEcbDecrypt(base64, key) {
 function xorBytes(bytes, key) {
   if (key.length === 0) return bytes;
   return bytes.map((byte, index) => (byte ^ key[index % key.length]) & 0xff);
+}
+
+function padBase64(base64) {
+  const remainder = base64.length % 4;
+  if (remainder === 2) return `${base64}==`;
+  if (remainder === 3) return `${base64}=`;
+  return base64;
 }
 
 function normalizeLogCall(log, level, tag, message) {

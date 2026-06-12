@@ -2,7 +2,7 @@ package com.lonx.lyrico.plugin.runtime
 
 object HostApiRegistry {
     const val PLUGIN_API_VERSION = 1
-    const val HOST_API_VERSION = 1
+    const val HOST_API_VERSION = 2
 
     val SUPPORTED_HOST_APIS = setOf(
         "app.info",
@@ -17,6 +17,12 @@ object HostApiRegistry {
         "base64.dropBytes",
         "base64.decodeBytes",
         "base64.encodeBytes",
+        "base64.encodeUrlText",
+        "base64.decodeUrlText",
+        "base64.encodeUrlBytes",
+        "base64.decodeUrlBytes",
+        "base64.toUrl",
+        "base64.fromUrl",
         "bytes.xor",
         "bytes.xorBase64",
         "compression.inflateBytesToText",

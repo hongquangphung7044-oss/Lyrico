@@ -82,11 +82,12 @@ Returns JS runtime environment information.
 ```json
 {
   "pluginApiVersion": 1,
-  "hostApiVersion": 1,
+  "hostApiVersion": 2,
   "engine": "quickjs",
   "engineVersion": null,
   "supportedHostApis": [
     "app.info", "app.userAgent", "...",
+    "base64.encodeUrlText", "base64.decodeUrlText", "...",
     "http.getText", "...",
     "xml.getRootAttributes", "xml.findElements", "...",
     "log.debug", "log.warn", "log.error"
@@ -206,6 +207,60 @@ Byte array → Base64.
 ```javascript
 var b64 = Platform.base64.encodeBytes([1, 2, 3, 4]);
 // "AQIDBA=="
+```
+
+### `base64.encodeUrlText(text)`
+
+UTF-8 text → Base64URL without padding.
+
+```javascript
+var b64url = Platform.base64.encodeUrlText("Hello World?");
+// "SGVsbG8gV29ybGQ_"
+```
+
+### `base64.decodeUrlText(base64Url)`
+
+Base64URL → UTF-8 text. Both padded and unpadded input are accepted.
+
+```javascript
+var text = Platform.base64.decodeUrlText("SGVsbG8gV29ybGQ_");
+// "Hello World?"
+```
+
+### `base64.encodeUrlBytes(bytes)`
+
+Byte array → Base64URL without padding.
+
+```javascript
+var b64url = Platform.base64.encodeUrlBytes([251, 255, 254]);
+// "-__-"
+```
+
+### `base64.decodeUrlBytes(base64Url)`
+
+Base64URL → byte array. Both padded and unpadded input are accepted.
+
+```javascript
+var bytes = Platform.base64.decodeUrlBytes("-__-");
+// Returns [251, 255, 254]
+```
+
+### `base64.toUrl(base64)`
+
+Standard Base64 → Base64URL, with trailing padding removed.
+
+```javascript
+var b64url = Platform.base64.toUrl("+//+");
+// "-__-"
+```
+
+### `base64.fromUrl(base64Url)`
+
+Base64URL → standard Base64 with padding added automatically.
+
+```javascript
+var b64 = Platform.base64.fromUrl("SGVsbG8gV29ybGQ_");
+// "SGVsbG8gV29ybGQ/"
 ```
 
 ---
@@ -630,6 +685,12 @@ Platform.log.error("Plugin", "Fatal error: " + err);
 | `base64.dropBytes(base64, count)` | `base64: string, count: int` | `string`, Base64 |
 | `base64.decodeBytes(base64)` | `base64: string` | `int[]` |
 | `base64.encodeBytes(bytes)` | `bytes: int[]` | `string`, Base64 |
+| `base64.encodeUrlText(text)` | `text: string` | `string`, Base64URL without padding |
+| `base64.decodeUrlText(base64Url)` | `base64Url: string` | `string` |
+| `base64.encodeUrlBytes(bytes)` | `bytes: int[]` | `string`, Base64URL without padding |
+| `base64.decodeUrlBytes(base64Url)` | `base64Url: string` | `int[]` |
+| `base64.toUrl(base64)` | `base64: string` | `string`, Base64URL without padding |
+| `base64.fromUrl(base64Url)` | `base64Url: string` | `string`, Base64 with padding |
 | `bytes.xor(bytes, key)` | `bytes, key: int[]` | `int[]` |
 | `bytes.xorBase64(base64, key)` | `base64: string, key: int[]` | `string`, Base64 |
 | `compression.inflateBytesToText(bytes)` | `bytes: int[]` | `string` |

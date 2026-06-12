@@ -82,11 +82,12 @@ var ua = Platform.app.getUserAgent();  // "Lyrico/0.0.0"
 ```json
 {
   "pluginApiVersion": 1,
-  "hostApiVersion": 1,
+  "hostApiVersion": 2,
   "engine": "quickjs",
   "engineVersion": null,
   "supportedHostApis": [
     "app.info", "app.userAgent", "...",
+    "base64.encodeUrlText", "base64.decodeUrlText", "...",
     "http.getText", "...",
     "xml.getRootAttributes", "xml.findElements", "...",
     "log.debug", "log.warn", "log.error"
@@ -206,6 +207,60 @@ var bytes = Platform.base64.decodeBytes("AQIDBA==");
 ```javascript
 var b64 = Platform.base64.encodeBytes([1, 2, 3, 4]);
 // "AQIDBA=="
+```
+
+### `base64.encodeUrlText(text)`
+
+UTF-8 文本 → Base64URL 编码，不带 padding。
+
+```javascript
+var b64url = Platform.base64.encodeUrlText("Hello World?");
+// "SGVsbG8gV29ybGQ_"
+```
+
+### `base64.decodeUrlText(base64Url)`
+
+Base64URL 解码 → UTF-8 文本。输入可以带 padding，也可以不带 padding。
+
+```javascript
+var text = Platform.base64.decodeUrlText("SGVsbG8gV29ybGQ_");
+// "Hello World?"
+```
+
+### `base64.encodeUrlBytes(bytes)`
+
+字节数组 → Base64URL 编码，不带 padding。
+
+```javascript
+var b64url = Platform.base64.encodeUrlBytes([251, 255, 254]);
+// "-__-"
+```
+
+### `base64.decodeUrlBytes(base64Url)`
+
+Base64URL 解码 → 字节数组。输入可以带 padding，也可以不带 padding。
+
+```javascript
+var bytes = Platform.base64.decodeUrlBytes("-__-");
+// 返回 [251, 255, 254]
+```
+
+### `base64.toUrl(base64)`
+
+标准 Base64 → Base64URL，并移除末尾 padding。
+
+```javascript
+var b64url = Platform.base64.toUrl("+//+");
+// "-__-"
+```
+
+### `base64.fromUrl(base64Url)`
+
+Base64URL → 标准 Base64，自动补齐 padding。
+
+```javascript
+var b64 = Platform.base64.fromUrl("SGVsbG8gV29ybGQ_");
+// "SGVsbG8gV29ybGQ/"
 ```
 
 ---
@@ -629,6 +684,12 @@ Platform.log.error("Plugin", "Fatal error: " + err);
 | `base64.dropBytes(base64, count)` | `base64: string, count: int` | `string`（Base64） |
 | `base64.decodeBytes(base64)` | `base64: string` | `int[]` |
 | `base64.encodeBytes(bytes)` | `bytes: int[]` | `string`（Base64） |
+| `base64.encodeUrlText(text)` | `text: string` | `string`（Base64URL，无 padding） |
+| `base64.decodeUrlText(base64Url)` | `base64Url: string` | `string` |
+| `base64.encodeUrlBytes(bytes)` | `bytes: int[]` | `string`（Base64URL，无 padding） |
+| `base64.decodeUrlBytes(base64Url)` | `base64Url: string` | `int[]` |
+| `base64.toUrl(base64)` | `base64: string` | `string`（Base64URL，无 padding） |
+| `base64.fromUrl(base64Url)` | `base64Url: string` | `string`（Base64，补齐 padding） |
 | `bytes.xor(bytes, key)` | `bytes, key: int[]` | `int[]` |
 | `bytes.xorBase64(base64, key)` | `base64: string, key: int[]` | `string`（Base64） |
 | `compression.inflateBytesToText(bytes)` | `bytes: int[]` | `string` |

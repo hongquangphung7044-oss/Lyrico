@@ -150,6 +150,36 @@ class QuickJsRuntime(
                     return hostCall("base64.encodeBytes", {
                       bytes: Array.from(bytes || [])
                     });
+                  },
+                  encodeUrlText: function(text) {
+                    return hostCall("base64.encodeUrlText", {
+                      text: String(text || "")
+                    });
+                  },
+                  decodeUrlText: function(base64Url) {
+                    return hostCall("base64.decodeUrlText", {
+                      base64Url: String(base64Url || "")
+                    });
+                  },
+                  encodeUrlBytes: function(bytes) {
+                    return hostCall("base64.encodeUrlBytes", {
+                      bytes: Array.from(bytes || [])
+                    });
+                  },
+                  decodeUrlBytes: function(base64Url) {
+                    return hostCall("base64.decodeUrlBytes", {
+                      base64Url: String(base64Url || "")
+                    });
+                  },
+                  toUrl: function(base64) {
+                    return hostCall("base64.toUrl", {
+                      base64: String(base64 || "")
+                    });
+                  },
+                  fromUrl: function(base64Url) {
+                    return hostCall("base64.fromUrl", {
+                      base64Url: String(base64Url || "")
+                    });
                   }
                 },
 

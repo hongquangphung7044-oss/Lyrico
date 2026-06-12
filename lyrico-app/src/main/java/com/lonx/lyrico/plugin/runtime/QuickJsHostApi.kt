@@ -103,6 +103,39 @@ class QuickJsHostApi(
                 Base64.encodeToString(payload.bytes("bytes"), Base64.NO_WRAP)
             )
 
+            "base64.encodeUrlText" -> text(
+                Base64.encodeToString(
+                    payload.string("text").toByteArray(Charsets.UTF_8),
+                    Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+                )
+            )
+
+            "base64.decodeUrlText" -> text(
+                String(
+                    Base64.decode(fromBase64Url(payload.string("base64Url")), Base64.DEFAULT),
+                    Charsets.UTF_8
+                )
+            )
+
+            "base64.encodeUrlBytes" -> text(
+                Base64.encodeToString(
+                    payload.bytes("bytes"),
+                    Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+                )
+            )
+
+            "base64.decodeUrlBytes" -> bytes(
+                Base64.decode(fromBase64Url(payload.string("base64Url")), Base64.DEFAULT)
+            )
+
+            "base64.toUrl" -> text(
+                toBase64Url(payload.string("base64"))
+            )
+
+            "base64.fromUrl" -> text(
+                fromBase64Url(payload.string("base64Url"))
+            )
+
             "bytes.xor" -> bytes(
                 xor(
                     bytes = payload.bytes("bytes"),
@@ -374,6 +407,30 @@ class QuickJsHostApi(
             cipher.doFinal(Base64.decode(base64, Base64.DEFAULT)),
             Charsets.UTF_8
         )
+    }
+
+    private fun toBase64Url(base64: String): String {
+        return base64
+            .trim()
+            .replace('+', '-')
+            .replace('/', '_')
+            .trimEnd('=')
+    }
+
+    private fun fromBase64Url(base64Url: String): String {
+        val normalized = base64Url
+            .trim()
+            .replace('-', '+')
+            .replace('_', '/')
+
+        val padding = when (normalized.length % 4) {
+            0 -> ""
+            2 -> "=="
+            3 -> "="
+            else -> ""
+        }
+
+        return normalized + padding
     }
 
     private fun xor(bytes: ByteArray, key: ByteArray): ByteArray {
