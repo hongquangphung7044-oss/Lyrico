@@ -72,13 +72,15 @@ object EnhancedLrcWriter : LyricsFormatWriter {
                     .append(LyricFormatter.formatTimestamp(start))
                     .append("]")
                 line.words.forEach { word ->
-                    val wordStart = word.startMs ?: start
-                    builder.append("<")
-                        .append(LyricFormatter.formatTimestamp(wordStart))
-                        .append(">")
-                        .append(word.text)
+                    val wordStart = word.startMs
+                    if (wordStart != null) {
+                        builder.append("<")
+                            .append(LyricFormatter.formatTimestamp(wordStart))
+                            .append(">")
+                    }
+                    builder.append(word.text)
                 }
-                val lineEnd = line.words.lastOrNull()?.endMs ?: line.endMs
+                val lineEnd = line.words.asReversed().firstOrNull { it.endMs != null }?.endMs ?: line.endMs
                 if (lineEnd != null) {
                     builder.append("<")
                         .append(LyricFormatter.formatTimestamp(lineEnd))
@@ -112,20 +114,20 @@ object VerbatimLrcWriter : LyricsFormatWriter {
         original.lines.forEach { line ->
             var needsLineBreak = false
             if (isWordLevel && line.words.isNotEmpty()) {
-                line.words.forEachIndexed { index, word ->
-                    val wordStart = word.startMs ?: line.startMs ?: return@forEachIndexed
-                    builder.append("[")
-                        .append(LyricFormatter.formatTimestamp(wordStart))
-                        .append("]")
-                        .append(word.text)
-                    if (index == line.words.lastIndex) {
-                        val wordEnd = word.endMs ?: line.endMs
-                        if (wordEnd != null) {
-                            builder.append("[")
-                                .append(LyricFormatter.formatTimestamp(wordEnd))
-                                .append("]")
-                        }
+                line.words.forEach { word ->
+                    val wordStart = word.startMs
+                    if (wordStart != null) {
+                        builder.append("[")
+                            .append(LyricFormatter.formatTimestamp(wordStart))
+                            .append("]")
                     }
+                    builder.append(word.text)
+                }
+                val lineEnd = line.words.asReversed().firstOrNull { it.endMs != null }?.endMs ?: line.endMs
+                if (lineEnd != null) {
+                    builder.append("[")
+                        .append(LyricFormatter.formatTimestamp(lineEnd))
+                        .append("]")
                 }
                 needsLineBreak = true
             } else {

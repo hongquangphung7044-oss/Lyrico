@@ -238,21 +238,39 @@ object LyricsDocumentPipeline {
             ?: fallback?.words?.lastOrNull()?.endMs
             ?: start
         val lineText = visibleText()
-        val resultWords = words
-            .mapNotNull { word ->
-                val wordStart = word.startMs ?: startMs ?: fallback?.startMs
-                val wordEnd = word.endMs ?: fallback?.endMs ?: end
-                if (wordStart == null) {
-                    null
+        val convertedWords = mutableListOf<LyricsWord>()
+        var pendingUntimedText = ""
+        words.forEach { word ->
+            val wordStart = word.startMs
+            if (wordStart == null) {
+                if (convertedWords.isNotEmpty()) {
+                    val lastIndex = convertedWords.lastIndex
+                    val lastWord = convertedWords[lastIndex]
+                    convertedWords[lastIndex] = lastWord.copy(text = lastWord.text + word.text)
                 } else {
-                    LyricsWord(
-                        start = wordStart,
-                        end = wordEnd,
-                        text = word.text
-                    )
+                    pendingUntimedText += word.text
                 }
+                return@forEach
             }
-            .ifEmpty {
+
+            val wordEnd = word.endMs ?: fallback?.endMs ?: end
+            convertedWords.add(
+                LyricsWord(
+                    start = wordStart,
+                    end = wordEnd,
+                    text = pendingUntimedText + word.text
+                )
+            )
+            pendingUntimedText = ""
+        }
+
+        if (pendingUntimedText.isNotEmpty() && convertedWords.isNotEmpty()) {
+            val lastIndex = convertedWords.lastIndex
+            val lastWord = convertedWords[lastIndex]
+            convertedWords[lastIndex] = lastWord.copy(text = lastWord.text + pendingUntimedText)
+        }
+
+        val resultWords = convertedWords.ifEmpty {
                 if (lineText.isBlank()) {
                     emptyList()
                 } else {

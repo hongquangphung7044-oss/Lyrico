@@ -83,6 +83,38 @@ class LyricsDocumentPipelineTest {
     }
 
     @Test
+    fun lrcCanUpgradeToTtmlWithLinkedTranslation() {
+        val output = LyricsDocumentPipeline.process(
+            raw = """
+                [00:01.000]Original line
+                [00:01.000]翻译行
+            """.trimIndent(),
+            sourceFormat = LyricFormat.PLAIN_LRC,
+            targetFormat = LyricFormat.TTML
+        ).orEmpty()
+
+        assertTrue(output.contains("""itunes:key="L1""""))
+        assertTrue(output.contains("""<text for="L1">翻译行</text>"""))
+    }
+
+    @Test
+    fun lrcCanUpgradeToTtmlWithRomanizationAndTranslation() {
+        val output = LyricsDocumentPipeline.process(
+            raw = """
+                [00:01.000]Original line
+                [00:01.000]Romanized line
+                [00:01.000]翻译行
+            """.trimIndent(),
+            sourceFormat = LyricFormat.PLAIN_LRC,
+            targetFormat = LyricFormat.TTML
+        ).orEmpty()
+
+        assertTrue(output.contains("""<span ttm:role="x-romanization">Romanized line</span>"""))
+        assertTrue(output.contains("""<text for="L1">翻译行</text>"""))
+        assertFalse(output.contains("""<text for="L1">Romanized line</text>"""))
+    }
+
+    @Test
     fun ttmlCanDowngradeToEnhancedLrcWithFinalWordEndTime() {
         val output = LyricsDocumentPipeline.process(
             raw = sampleWordLevelTtml(),
@@ -112,6 +144,64 @@ class LyricsDocumentPipelineTest {
 
         assertEquals("I had", line.visibleText())
         assertEquals(listOf("I", " ", "had"), line.words.map { it.text })
+    }
+
+    @Test
+    fun ttmlParserPreservesTextNodeSpacesBetweenTimedSpans() {
+        val document = TtmlParser.parse(sampleWordLevelTtmlWithTextNodeSpaces())
+        val line = document.tracks.first { it.type == LyricsTrackType.Original }.lines.first()
+
+        assertEquals("Wait and pretend", line.visibleText())
+        assertEquals(listOf("Wait", " ", "and", " ", "pretend"), line.words.map { it.text })
+        assertEquals(listOf(124818L, null, 129158L, null, 129517L), line.words.map { it.startMs })
+    }
+
+    @Test
+    fun ttmlWriterKeepsTextNodeSpacesOutsideTimedSpans() {
+        val output = LyricsDocumentPipeline.process(
+            raw = sampleWordLevelTtmlWithTextNodeSpaces(),
+            sourceFormat = LyricFormat.TTML,
+            targetFormat = LyricFormat.TTML
+        ).orEmpty()
+
+        assertTrue(output.contains(""">Wait</span> <span begin=""""))
+        assertTrue(output.contains(""">and</span> <span begin=""""))
+        assertFalse(output.contains(">Wait </span>"))
+        assertFalse(output.contains(">and </span>"))
+    }
+
+    @Test
+    fun ttmlTextNodeSpacesDoNotGetSyntheticTimestampsInEnhancedLrc() {
+        val output = LyricsDocumentPipeline.process(
+            raw = sampleWordLevelTtmlWithTextNodeSpaces(),
+            sourceFormat = LyricFormat.TTML,
+            targetFormat = LyricFormat.ENHANCED_LRC
+        ).orEmpty()
+
+        assertTrue(output.contains("[02:04.818]<02:04.818>Wait <02:09.158>and <02:09.517>pretend<02:11.436>"))
+        assertFalse(output.contains("<02:04.818> "))
+    }
+
+    @Test
+    fun ttmlTextNodeSpacesDoNotGetSyntheticTimestampsInVerbatimLrc() {
+        val output = LyricsDocumentPipeline.process(
+            raw = sampleWordLevelTtmlWithTextNodeSpaces(),
+            sourceFormat = LyricFormat.TTML,
+            targetFormat = LyricFormat.VERBATIM_LRC
+        ).orEmpty()
+
+        assertTrue(output.contains("[02:04.818]Wait [02:09.158]and [02:09.517]pretend[02:11.436]"))
+        assertFalse(output.contains("[02:04.818] "))
+    }
+
+    @Test
+    fun ttmlTextNodeSpacesDoNotGetSyntheticTimestampsWhenConvertedToLyricsResult() {
+        val document = TtmlParser.parse(sampleWordLevelTtmlWithTextNodeSpaces())
+        val result = with(LyricsDocumentPipeline) { document.toLyricsResult() }
+        val line = result.original.first()
+
+        assertEquals(listOf("Wait ", "and ", "pretend"), line.words.map { it.text })
+        assertEquals(listOf(124818L, 129158L, 129517L), line.words.map { it.start })
     }
 
     @Test
@@ -241,6 +331,21 @@ class LyricsDocumentPipelineTest {
                   <p begin="1.000" end="2.000" itunes:key="L1" ttm:agent="v1">
                     <span begin="1.000" end="1.200">I</span><span begin="1.200" end="1.300"> </span><span begin="1.300" end="2.000">had</span>
                   </p>
+                </div>
+              </body>
+            </tt>
+        """.trimIndent()
+    }
+
+    private fun sampleWordLevelTtmlWithTextNodeSpaces(): String {
+        return """
+            <?xml version="1.0" encoding="utf-8"?>
+            <tt xmlns="http://www.w3.org/ns/ttml"
+                xmlns:itunes="http://music.apple.com/lyric-ttml-internal"
+                xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+              <body>
+                <div>
+                  <p begin="2:04.818" end="2:13.827" itunes:key="L11" ttm:agent="v1"><span begin="2:04.818" end="2:05.784">Wait</span> <span begin="2:09.158" end="2:09.517">and</span> <span begin="2:09.517" end="2:11.436">pretend</span></p>
                 </div>
               </body>
             </tt>

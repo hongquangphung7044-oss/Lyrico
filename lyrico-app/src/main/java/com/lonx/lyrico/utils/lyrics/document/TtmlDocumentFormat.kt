@@ -192,12 +192,11 @@ object TtmlParser : LyricsFormatParser {
 
         fun appendOriginalText(text: String) {
             val normalized = normalizeTtmlText(text)
-            if (words.isNotEmpty()) {
-                if (normalized.isBlank() && (text.contains('\n') || text.contains('\r'))) return
+            val isFormattingWhitespace = normalized.isBlank() && (text.contains('\n') || text.contains('\r'))
+            if (normalized.isEmpty() || isFormattingWhitespace) return
 
-                val lastIndex = words.lastIndex
-                val lastWord = words[lastIndex]
-                words[lastIndex] = lastWord.copy(text = lastWord.text + normalized)
+            if (words.isNotEmpty()) {
+                words.add(LyricsDocumentWord(text = normalized))
             } else {
                 original.append(normalized)
             }
@@ -334,16 +333,32 @@ object TtmlWriter : LyricsFormatWriter {
         document.metadata.language?.let { builder.append(" xml:lang=\"").append(escapeXml(it)).append("\"") }
         builder.append(">\n")
 
-        appendHead(builder, document)
+        val originalLines = document.tracks.firstOrNull { it.type == LyricsTrackType.Original }?.lines.orEmpty()
+        val translationLines = document.tracks
+            .filter { it.type == LyricsTrackType.Translation }
+            .flatMap { it.lines }
+        val usedKeys = originalLines.mapNotNull { it.linkKey }.toMutableSet()
+        var nextGeneratedKeyIndex = 1
+        val originalLineKeys = originalLines.map { line ->
+            line.linkKey ?: if (translationLines.any { it.startMs != null && it.startMs == line.startMs }) {
+                generateLineKey(usedKeys) { nextGeneratedKeyIndex++ }
+            } else null
+        }
+
+        appendHead(builder, document, originalLines, originalLineKeys)
         builder.append("  <body>\n")
         builder.append("    <div>\n")
         val backgroundByKey = document.linesByKey(LyricsTrackType.Background)
         val backgroundByStart = document.linesByStart(LyricsTrackType.Background)
-        document.tracks.firstOrNull { it.type == LyricsTrackType.Original }?.lines.orEmpty().forEach { line ->
+        val romanizationByKey = document.linesByKey(LyricsTrackType.Romanization)
+        val romanizationByStart = document.linesByStart(LyricsTrackType.Romanization)
+        originalLines.forEachIndexed { index, line ->
             val backgroundLines = line.linkKey?.let { backgroundByKey[it] }
                 ?: line.startMs?.let { backgroundByStart[it] }
                 ?: emptyList()
-            appendOriginalLine(builder, line, backgroundLines)
+            val romanizationLine = line.linkKey?.let { romanizationByKey[it]?.firstOrNull() }
+                ?: line.startMs?.let { romanizationByStart[it]?.firstOrNull() }
+            appendOriginalLine(builder, line, originalLineKeys[index], romanizationLine, backgroundLines)
         }
         builder.append("    </div>\n")
         builder.append("  </body>\n")
@@ -351,7 +366,12 @@ object TtmlWriter : LyricsFormatWriter {
         return builder.toString()
     }
 
-    private fun appendHead(builder: StringBuilder, document: LyricsDocument) {
+    private fun appendHead(
+        builder: StringBuilder,
+        document: LyricsDocument,
+        originalLines: List<LyricsDocumentLine>,
+        originalLineKeys: List<String?>
+    ) {
         val translations = document.tracks.filter { it.type == LyricsTrackType.Translation }
         if (document.agents.isEmpty() && translations.isEmpty()) return
 
@@ -380,7 +400,7 @@ object TtmlWriter : LyricsFormatWriter {
                 track.language?.let { builder.append(" xml:lang=\"").append(escapeXml(it)).append("\"") }
                 builder.append(">\n")
                 track.lines.forEach { line ->
-                    val key = line.linkKey ?: return@forEach
+                    val key = line.linkKey ?: originalKeyForLinkedLine(line, originalLines, originalLineKeys) ?: return@forEach
                     builder.append("            <text for=\"").append(escapeXml(key)).append("\">")
                         .append(escapeXml(line.visibleText()))
                         .append("</text>\n")
@@ -397,6 +417,8 @@ object TtmlWriter : LyricsFormatWriter {
     private fun appendOriginalLine(
         builder: StringBuilder,
         line: LyricsDocumentLine,
+        lineKey: String?,
+        romanizationLine: LyricsDocumentLine? = null,
         backgroundLines: List<LyricsDocumentLine> = emptyList()
     ) {
         val start = line.startMs ?: return
@@ -406,7 +428,7 @@ object TtmlWriter : LyricsFormatWriter {
             .append("\" end=\"")
             .append(LyricFormatter.formatTtmlTimestamp(end))
             .append("\"")
-        line.linkKey?.let { builder.append(" itunes:key=\"").append(escapeXml(it)).append("\"") }
+        lineKey?.let { builder.append(" itunes:key=\"").append(escapeXml(it)).append("\"") }
         line.agentId?.let { builder.append(" ttm:agent=\"").append(escapeXml(it)).append("\"") }
         builder.append(">")
 
@@ -416,6 +438,11 @@ object TtmlWriter : LyricsFormatWriter {
             }
         } else {
             builder.append(escapeXml(line.visibleText()))
+        }
+        if (romanizationLine != null && romanizationLine.visibleText().isNotBlank()) {
+            builder.append("<span ttm:role=\"x-romanization\">")
+                .append(escapeXml(romanizationLine.visibleText()))
+                .append("</span>")
         }
         backgroundLines.forEach { backgroundLine ->
             if (backgroundLine.visibleText().isNotBlank()) {
@@ -444,6 +471,25 @@ object TtmlWriter : LyricsFormatWriter {
                 .append("</span>")
         } else {
             builder.append(escapeXml(word.text))
+        }
+    }
+
+    private fun originalKeyForLinkedLine(
+        line: LyricsDocumentLine,
+        originalLines: List<LyricsDocumentLine>,
+        originalLineKeys: List<String?>
+    ): String? {
+        line.startMs?.let { start ->
+            val index = originalLines.indexOfFirst { it.startMs == start }
+            if (index >= 0) return originalLineKeys[index]
+        }
+        return null
+    }
+
+    private fun generateLineKey(usedKeys: MutableSet<String>, nextIndex: () -> Int): String {
+        while (true) {
+            val key = "L${nextIndex()}"
+            if (usedKeys.add(key)) return key
         }
     }
 

@@ -102,11 +102,7 @@ class PluginFieldPostProcessor(
         val processed = lines.map { line ->
             line.copy(
                 words = line.words.map { word ->
-                    val text = processTextField(
-                        value = word.text,
-                        valueType = PluginFieldValueType.LYRICS,
-                        rule = if (convertScript) rule else rule.copy(scriptConversion = ConversionMode.NONE)
-                    )
+                    val text = processLyricWordText(word.text, rule, convertScript)
                     word.copy(text = text)
                 }
             )
@@ -116,6 +112,18 @@ class PluginFieldPostProcessor(
             processed.filterNot { it.words.joinToString("") { word -> word.text }.isBlank() }
         } else {
             processed
+        }
+    }
+
+    private fun processLyricWordText(
+        value: String,
+        rule: ResolvedFieldProcessRule,
+        convertScript: Boolean
+    ): String {
+        return if (convertScript) {
+            LyricEncoder.convertLyricsText(value, rule.scriptConversion)
+        } else {
+            value
         }
     }
 
