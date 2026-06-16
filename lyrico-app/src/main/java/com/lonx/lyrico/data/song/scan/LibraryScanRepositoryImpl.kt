@@ -92,23 +92,26 @@ class LibraryScanRepositoryImpl(
             for ((index, scannedSong) in deviceSongs.withIndex()) {
                 val deviceSong = scannedSong.songFile
                 try {
-                    if (
-                        request.ignoreShortAudio &&
-                        deviceSong.duration > 0L &&
-                        deviceSong.duration <= minDuration
-                    ) {
-                        continue
-                    }
-
                     val deviceUriString = deviceSong.uri.toString()
-                    deviceUris.add(deviceUriString)
-
                     val dbInfo = dbSongMap[deviceUriString]
                     val needsUpdate = request.fullRescan ||
                         dbInfo == null ||
                         dbInfo.fileLastModified != deviceSong.lastModified ||
                         dbInfo.fileSize != deviceSong.fileSize ||
                         dbInfo.filePath != deviceSong.filePath
+                    val knownDuration = when {
+                        deviceSong.duration > 0L -> deviceSong.duration
+                        !needsUpdate -> dbInfo.durationMilliseconds.toLong()
+                        else -> 0L
+                    }
+
+                    if (
+                        request.ignoreShortAudio &&
+                        knownDuration > 0L &&
+                        knownDuration <= minDuration
+                    ) {
+                        continue
+                    }
 
                     if (needsUpdate) {
                         val rootFolder = safFolderById[scannedSong.rootFolderId]
@@ -119,13 +122,26 @@ class LibraryScanRepositoryImpl(
                         )
                         impactedFolderIds.add(folderId)
 
-                        extractSongMetadata(
+                        val metadata = extractSongMetadata(
                             songFile = deviceSong,
                             folderId = folderId,
                             existingId = dbInfo?.id ?: 0L,
                             source = "SAF"
-                        )?.let(songsToUpsert::add)
+                        )
+
+                        if (
+                            request.ignoreShortAudio &&
+                            metadata != null &&
+                            metadata.entity.durationMilliseconds > 0 &&
+                            metadata.entity.durationMilliseconds <= minDuration
+                        ) {
+                            continue
+                        }
+
+                        metadata?.let(songsToUpsert::add)
                     }
+
+                    deviceUris.add(deviceUriString)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to process song: ${deviceSong.fileName}", e)
                     failures.add(
