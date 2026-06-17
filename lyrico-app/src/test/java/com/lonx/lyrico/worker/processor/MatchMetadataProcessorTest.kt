@@ -62,4 +62,30 @@ class MatchMetadataProcessorTest {
 
         assertEquals(null, patch.comment)
     }
+
+    @Test
+    fun applierDoesNotPatchCoverWhenCoverTargetIsDisabled() {
+        val patch = SearchResultApplier.buildPatch(
+            current = AudioTagData(),
+            fields = mapOf("cover_url" to "https://example.com/cover.jpg"),
+            policy = MetadataApplyPolicy(
+                fieldModes = mapOf(MetadataFieldTarget.COVER to MetadataWriteMode.DISABLED)
+            )
+        )
+
+        assertEquals(null, patch.picUrl)
+    }
+
+    @Test
+    fun applierSupplementsDefaultSelectedFieldWhenCurrentValueIsBlank() {
+        val patch = SearchResultApplier.buildPatch(
+            current = AudioTagData(title = ""),
+            fields = mapOf("title" to "candidate title"),
+            policy = MetadataApplyPolicy(
+                fieldModes = mapOf(MetadataFieldTarget.TITLE to MetadataWriteMode.SUPPLEMENT)
+            )
+        )
+
+        assertEquals("candidate title", patch.title)
+    }
 }

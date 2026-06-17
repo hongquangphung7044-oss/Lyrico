@@ -959,10 +959,16 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 ?.toMap()
 
             val defaultConfig = BatchMatchConfigDefaults.DEFAULT_CONFIG
+            val decodedTargetModes = newTargetModes ?: legacyTargetModes
 
             BatchMatchConfig(
-                targetModes = defaultConfig.targetModes +
-                        (newTargetModes ?: legacyTargetModes).orEmpty(),
+                targetModes = if (decodedTargetModes == null) {
+                    defaultConfig.targetModes
+                } else {
+                    BatchMatchConfigDefaults.BATCH_MATCH_TARGETS.associateWith { target ->
+                        decodedTargetModes[target] ?: MetadataWriteMode.DISABLED
+                    }
+                },
                 concurrency = root["concurrency"]
                     ?.jsonPrimitive
                     ?.contentOrNull

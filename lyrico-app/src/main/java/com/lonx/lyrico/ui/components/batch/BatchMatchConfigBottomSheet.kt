@@ -52,7 +52,7 @@ fun BatchMatchConfigBottomSheet(
     onDismissRequest: (BatchMatchConfig) -> Unit,
     onConfirm: (BatchMatchConfig) -> Unit
 ) {
-    var config by remember { mutableStateOf(initialConfig) }
+    var config by remember(show, initialConfig) { mutableStateOf(initialConfig) }
 
     val targetGroups = remember { BatchMatchConfigDefaults.TARGET_GROUPS }
 
