@@ -60,7 +60,7 @@ The Lyrico plugin system is a source-plugin framework based on the **QuickJS emb
 | Validation item | Rule |
 |-----------------|------|
 | ID format | Must match `^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$` reverse-domain format |
-| API version | Must exactly match host `PLUGIN_API_VERSION`, currently **1** |
+| API version | Must exactly match host `PLUGIN_API_VERSION`, currently **3** |
 | Capabilities | If `capabilities` is declared, it must include `searchSongs` |
 | Entry file | Must exist, use `.js`, stay inside the plugin root, and be ≤ 1 MB |
 | Include directories | Directories in `includeDirs` must exist and stay inside the plugin root |
@@ -175,12 +175,13 @@ After installation, plugin metadata is written to the Room `source_plugins` tabl
 
 ## Host Capability Overview
 
-Plugins access host capabilities through `globalThis.Platform`. There are **37 APIs**:
+Plugins access host capabilities through `globalThis.Platform`. There are **41 APIs**:
 
 | Category | API count | Purpose |
 |----------|-----------|---------|
 | `app` | 2 | Host app information and User-Agent |
 | `runtime` | 1 | Runtime information |
+| `cache` | 4 | Plugin-private string cache with expiry and deletion |
 | `crypto` | 4 | MD5 and AES-ECB encryption/decryption |
 | `base64` | 11 | Base64/Base64URL encode, decode, truncate, and byte conversion |
 | `bytes` | 2 | XOR byte operations |

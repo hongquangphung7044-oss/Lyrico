@@ -1,13 +1,17 @@
 package com.lonx.lyrico.plugin.runtime
 
 object HostApiRegistry {
-    const val PLUGIN_API_VERSION = 1
-    const val HOST_API_VERSION = 2
+    const val PLUGIN_API_VERSION = 3
+    const val HOST_API_VERSION = 3
 
     val SUPPORTED_HOST_APIS = setOf(
         "app.info",
         "app.userAgent",
         "runtime.info",
+        "cache.get",
+        "cache.set",
+        "cache.remove",
+        "cache.clear",
         "crypto.md5",
         "crypto.aesEcbPkcs5EncryptBase64",
         "crypto.aesEcbPkcs5EncryptHex",

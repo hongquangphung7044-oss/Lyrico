@@ -46,7 +46,7 @@ Minimal `manifest.json`:
   "name": "Example Plugin",
   "versionCode": 1,
   "versionName": "1.0.0",
-  "apiVersion": 1
+  "apiVersion": 3
 }
 ```
 

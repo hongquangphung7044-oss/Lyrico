@@ -34,7 +34,7 @@ Fields used by older protocols to declare host APIs, returned fields, or write p
   "versionName": "1.0.0",
   "author": "Plugin Author",
   "description": "Example source plugin",
-  "apiVersion": 1,
+  "apiVersion": 3,
   "minHostApiVersion": 1,
   "entry": "source.js",
   "includeDirs": ["lib"],

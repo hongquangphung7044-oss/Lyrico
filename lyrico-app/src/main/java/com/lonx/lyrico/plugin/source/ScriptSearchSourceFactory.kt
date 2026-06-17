@@ -14,7 +14,7 @@ import java.io.File
 class ScriptSearchSourceFactory(
     private val json: Json,
     private val appLogRepository: AppLogRepository? = null,
-    private val runtimeFactory: () -> PluginJsRuntime = { QuickJsRuntime() }
+    private val runtimeFactory: (SourcePluginEntity) -> PluginJsRuntime = { QuickJsRuntime() }
 ) {
     suspend fun create(plugin: SourcePluginEntity): ScriptSearchSource =
         withContext(Dispatchers.IO) {
@@ -31,7 +31,7 @@ class ScriptSearchSourceFactory(
                 iconPath = plugin.iconPath,
                 appLogRepository = appLogRepository,
                 json = json,
-                runtimeFactory = runtimeFactory
+                runtimeFactory = { runtimeFactory(plugin) }
             )
         }
 

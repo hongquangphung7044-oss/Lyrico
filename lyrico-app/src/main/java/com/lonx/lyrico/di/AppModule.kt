@@ -149,7 +149,7 @@ val appModule = module {
         ScriptSearchSourceFactory(
             json = get(),
             appLogRepository = get(),
-            runtimeFactory = {
+            runtimeFactory = { plugin ->
                 QuickJsRuntime(
                     hostApi = QuickJsHostApi(
                         appInfo = HostAppInfo(
@@ -160,7 +160,9 @@ val appModule = module {
                             buildType = BuildConfig.BUILD_TYPE,
                             debug = BuildConfig.DEBUG
                         ),
-                        okHttpClient = okHttpClient
+                        okHttpClient = okHttpClient,
+                        pluginId = plugin.id,
+                        cacheRootDir = File(context.cacheDir, "plugin_cache")
                     )
                 )
             }

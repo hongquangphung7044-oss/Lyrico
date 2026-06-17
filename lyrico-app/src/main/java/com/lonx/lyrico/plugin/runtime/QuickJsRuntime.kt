@@ -98,6 +98,29 @@ class QuickJsRuntime(
                 app: globalThis.app,
                 runtime: globalThis.runtime,
 
+                cache: {
+                  get: function(key) {
+                    return hostCall("cache.get", {
+                      key: String(key || "")
+                    });
+                  },
+                  set: function(key, value, ttlMs) {
+                    return hostCall("cache.set", {
+                      key: String(key || ""),
+                      value: value == null ? "" : String(value),
+                      ttlMs: Number(ttlMs || 0)
+                    });
+                  },
+                  remove: function(key) {
+                    return hostCall("cache.remove", {
+                      key: String(key || "")
+                    });
+                  },
+                  clear: function() {
+                    return hostCall("cache.clear", {});
+                  }
+                },
+
                 crypto: {
                   md5: function(text) {
                     return hostCall("crypto.md5", {

@@ -81,8 +81,8 @@ var ua = Platform.app.getUserAgent();  // "Lyrico/0.0.0"
 
 ```json
 {
-  "pluginApiVersion": 1,
-  "hostApiVersion": 2,
+  "pluginApiVersion": 3,
+  "hostApiVersion": 3,
   "engine": "quickjs",
   "engineVersion": null,
   "supportedHostApis": [
@@ -99,9 +99,47 @@ var ua = Platform.app.getUserAgent();  // "Lyrico/0.0.0"
 
 ```javascript
 var rt = Platform.runtime.getInfo();
-if (rt.pluginApiVersion !== 1) {
+if (rt.pluginApiVersion !== 3) {
   throw new Error("Unsupported API version");
 }
+```
+
+---
+
+## Platform.cache — 插件缓存
+
+缓存按插件隔离，适合保存有有效期的 cookie、匿名登录态、临时 token 等字符串数据。缓存项过期后 `get()` 返回空字符串。
+
+### `cache.get(key)`
+
+读取缓存字符串。
+
+```javascript
+var token = Platform.cache.get("apple.webplay.developer_token");
+```
+
+### `cache.set(key, value, ttlMs)`
+
+写入缓存字符串。`ttlMs` 为有效期毫秒数；传 `0` 或省略表示不过期。
+
+```javascript
+Platform.cache.set("session.cookies", JSON.stringify(cookies), 12 * 60 * 60 * 1000);
+```
+
+### `cache.remove(key)`
+
+删除单个缓存项。
+
+```javascript
+Platform.cache.remove("session.cookies");
+```
+
+### `cache.clear()`
+
+清空当前插件的全部缓存。
+
+```javascript
+Platform.cache.clear();
 ```
 
 ---

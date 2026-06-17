@@ -81,8 +81,8 @@ Returns JS runtime environment information.
 
 ```json
 {
-  "pluginApiVersion": 1,
-  "hostApiVersion": 2,
+  "pluginApiVersion": 3,
+  "hostApiVersion": 3,
   "engine": "quickjs",
   "engineVersion": null,
   "supportedHostApis": [
@@ -99,9 +99,47 @@ Returns JS runtime environment information.
 
 ```javascript
 var rt = Platform.runtime.getInfo();
-if (rt.pluginApiVersion !== 1) {
+if (rt.pluginApiVersion !== 3) {
   throw new Error("Unsupported API version");
 }
+```
+
+---
+
+## Platform.cache — Plugin Cache
+
+Cache entries are isolated per plugin. Use them for strings with a known lifetime, such as cookies, anonymous login state, and temporary tokens. Expired entries make `get()` return an empty string.
+
+### `cache.get(key)`
+
+Reads a cached string.
+
+```javascript
+var token = Platform.cache.get("apple.webplay.developer_token");
+```
+
+### `cache.set(key, value, ttlMs)`
+
+Writes a cached string. `ttlMs` is the lifetime in milliseconds; pass `0` or omit it for no expiry.
+
+```javascript
+Platform.cache.set("session.cookies", JSON.stringify(cookies), 12 * 60 * 60 * 1000);
+```
+
+### `cache.remove(key)`
+
+Deletes one cache entry.
+
+```javascript
+Platform.cache.remove("session.cookies");
+```
+
+### `cache.clear()`
+
+Clears all cache entries for the current plugin.
+
+```javascript
+Platform.cache.clear();
 ```
 
 ---

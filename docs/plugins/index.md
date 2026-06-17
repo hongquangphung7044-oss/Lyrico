@@ -52,7 +52,7 @@ com.example.source/
   "name": "示例插件",
   "versionCode": 1,
   "versionName": "1.0.0",
-  "apiVersion": 1
+  "apiVersion": 3
 }
 ```
 

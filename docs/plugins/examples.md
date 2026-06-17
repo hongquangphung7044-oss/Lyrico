@@ -37,7 +37,7 @@ com.musiclib.source/
   "versionName": "1.0.0",
   "author": "Your Name",
   "description": "MusicLib 音乐 API 搜索源",
-  "apiVersion": 1,
+  "apiVersion": 3,
   "entry": "source.js",
   "includeDirs": ["lib"],
   "icon": "icon.png",

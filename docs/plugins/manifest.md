@@ -34,7 +34,7 @@
   "versionName": "1.0.0",
   "author": "Plugin Author",
   "description": "Example source plugin",
-  "apiVersion": 1,
+  "apiVersion": 3,
   "minHostApiVersion": 1,
   "entry": "source.js",
   "includeDirs": [
