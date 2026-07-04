@@ -77,10 +77,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          # 在 fork 中 gh 默认会去查上游仓库，必须用 --repo 显式指向本 fork
           echo "触发 build-builtin-v7.yml ..."
-          gh workflow run build-builtin-v7.yml --ref master
+          gh workflow run build-builtin-v7.yml --ref master --repo "$GITHUB_REPOSITORY"
           # 等几秒让 run 出现，然后打印最新 run 链接
           sleep 5
-          LATEST=$(gh run list --workflow=build-builtin-v7.yml --limit 1 --json databaseId,url --jq '.[0]')
+          LATEST=$(gh run list --workflow=build-builtin-v7.yml --repo "$GITHUB_REPOSITORY" --limit 1 --json databaseId,url --jq '.[0]')
           echo "最新构建：$LATEST"
           echo "::notice::已触发构建，可在 Actions 页查看"
