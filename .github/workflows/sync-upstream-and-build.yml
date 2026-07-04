@@ -1,0 +1,86 @@
+name: 🔄 自动同步上游并构建
+
+# 每天定时检查 Replica0110/Lyrico 是否有更新：
+#   - 有更新：合并到本 fork 的 master，然后自动触发「构建内置插件版 APK (v7)」
+#   - 无更新：什么都不做（节省 Actions 额度）
+# 也支持手动触发，可强制即使无更新也构建一次。
+#
+# 触发的 build-builtin-v7.yml 会重新检出 Lyrico-Plugins main 分支，
+# 因此插件层面的更新（搜索逻辑、新平台对接等）每次构建都会自动跟进。
+#
+# 注意：默认 GITHUB_TOKEN 即可，无需额外 secret。
+#       如需推送带 workflow 改动的 commit，需 PAT；本 workflow 仅同步上游代码，GITHUB_TOKEN 够用。
+
+on:
+  schedule:
+    # 每天 UTC 06:00 = 北京时间 14:00 运行
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: '即使上游无更新也强制触发一次构建'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync-and-build:
+    name: 同步上游并按需触发构建
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 检出 fork
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: 🔧 配置 git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: ⬆️ 同步上游 master
+        id: sync
+        run: |
+          set -e
+          git remote add upstream https://github.com/Replica0110/Lyrico.git
+          git fetch upstream master --tags
+          LOCAL=$(git rev-parse HEAD)
+          UPSTREAM=$(git rev-parse upstream/master)
+          echo "local  = $LOCAL"
+          echo "upstream= $UPSTREAM"
+          if [ "$LOCAL" = "$UPSTREAM" ]; then
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::上游无更新，跳过"
+          else
+            # 尝试快进合并；冲突时用上游版本（fork 仅做打包，不保留自定义改动）
+            if ! git merge upstream/master --ff-only; then
+              echo "::warning::无法快进合并，使用 reset --hard 到上游版本（fork 自定义改动会被覆盖）"
+              git reset --hard upstream/master
+            fi
+            git push origin master
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::已同步上游到 $(git rev-parse --short HEAD)"
+          fi
+
+      - name: 🚀 触发 v7 构建
+        if: steps.sync.outputs.updated == 'true' || github.event.inputs.force_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "触发 build-builtin-v7.yml ..."
+          gh workflow run build-builtin-v7.yml --ref master
+          # 等几秒让 run 出现，然后打印最新 run 链接
+          sleep 5
+          LATEST=$(gh run list --workflow=build-builtin-v7.yml --limit 1 --json databaseId,url --jq '.[0]')
+          echo "最新构建：$LATEST"
+          echo "::notice::已触发构建，可在 Actions 页查看"
