@@ -1,17 +1,23 @@
 name: 🔄 自动同步上游并构建
 
-# 每天定时检查 Replica0110/Lyrico 是否有更新：
-#   - 有更新：将本 fork 的自定义提交 rebase 到上游最新之上（保留所有自定义改动），
-#             然后自动触发「构建内置插件版 APK (v7)」
-#   - 无更新：什么都不做（节省 Actions 额度）
-#   - rebase 冲突：工作流失败，需手动解决冲突后重新推送
-# 也支持手动触发，可强制即使无更新也构建一次。
+# ============================================================================
+# 工作流作用：
+#   每天定时检查上游 Replica0110/Lyrico 是否有新提交：
+#     1. 有更新 → 把本 fork 的自定义提交 rebase 到上游最新之上 → force push → 触发构建
+#     2. 无更新 → 跳过（节省 Actions 额度）
+#     3. rebase 冲突 → 工作流失败，需手动解决（不会丢掉自定义改动）
 #
-# 触发的 build-builtin-v7.yml 会重新检出 Lyrico-Plugins main 分支，
-# 因此插件层面的更新（搜索逻辑、新平台对接等）每次构建都会自动跟进。
+# 本 fork 的自定义改动（rebase 后会保留）：
+#   - 内置插件自动安装（BuiltinPluginSeeder）
+#   - MANAGE_EXTERNAL_STORAGE 权限 + 按路径添加文件夹（适配无 DocumentsUI 的手表）
+#   - 文件系统扫描（querySongsFromFilesystemFolders）
+#   - CI 工作流本身
 #
-# 注意：默认 GITHUB_TOKEN 即可，无需额外 secret。
-#       rebase 会重写历史，需要 force push；使用 --force-with-lease 保证安全。
+# 查错指引：
+#   - 工作流失败 + 日志出现 "rebase 冲突" → 看本文件底部「手动解决冲突」步骤
+#   - 同步成功但没有触发构建 → 检查 GITHUB_TOKEN 是否有 actions: write 权限
+#   - 构建触发但 APK 产出失败 → 看 build-builtin-v7.yml 的运行日志
+# ============================================================================
 
 on:
   schedule:
@@ -24,10 +30,13 @@ on:
         required: false
         default: 'false'
 
+# contents: write  → rebase 后需要 push 到 master
+# actions: write   → 需要用 gh workflow run 触发构建工作流
 permissions:
   contents: write
   actions: write
 
+# 同一时间只允许一个 sync 任务运行，避免并发 push 冲突
 concurrency:
   group: sync-upstream
   cancel-in-progress: false
@@ -38,17 +47,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── 1. 检出本 fork 的完整历史（rebase 需要所有提交）─────────────────────
       - name: 📥 检出 fork
         uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          fetch-depth: 0  # 必须为 0：rebase 需要完整提交历史
 
+      # ── 2. 配置 git 提交者身份（rebase 产生的提交需要 author）─────────────────
       - name: 🔧 配置 git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # ── 3. 核心步骤：同步上游 + rebase 保留自定义改动 ─────────────────────────
+      # 逻辑说明：
+      #   - 如果 LOCAL == UPSTREAM：上游无更新，跳过
+      #   - 如果 fork 没有自定义提交（CUSTOM_COUNT=0）：直接快进合并
+      #   - 如果 fork 有自定义提交：rebase 到上游最新之上
+      #     · rebase 成功 → force push → 触发构建
+      #     · rebase 冲突 → 打印冲突文件 → 中止 rebase → 工作流失败（不会丢代码）
+      #
+      # 为什么不用 merge 而用 rebase？
+      #   merge 会产生 merge commit，历史会很乱；rebase 保持线性历史，
+      #   fork 的自定义提交始终在上游提交之上，方便查看和管理。
       - name: ⬆️ 同步上游 master（rebase 保留自定义改动）
         id: sync
         run: |
@@ -57,52 +79,90 @@ jobs:
           git fetch upstream master --tags
           LOCAL=$(git rev-parse HEAD)
           UPSTREAM=$(git rev-parse upstream/master)
-          echo "local  = $LOCAL"
-          echo "upstream= $UPSTREAM"
+          echo "─── 同步信息 ───"
+          echo "本 fork HEAD  = $LOCAL"
+          echo "上游 master   = $UPSTREAM"
+
           if [ "$LOCAL" = "$UPSTREAM" ]; then
+            # 上游和本地完全一致，无需操作
             echo "updated=false" >> "$GITHUB_OUTPUT"
             echo "::notice::上游无更新，跳过"
           else
-            # 找出 fork 相对上游基线的自定义提交数量
+            # 计算 fork 相对共同祖先有多少自定义提交
             MERGE_BASE=$(git merge-base HEAD upstream/master)
             CUSTOM_COUNT=$(git rev-list --count "${MERGE_BASE}..HEAD")
-            echo "fork 自定义提交数: $CUSTOM_COUNT（基线 $MERGE_BASE）"
+            echo "共同祖先       = $MERGE_BASE"
+            echo "fork 自定义提交数 = $CUSTOM_COUNT"
+
             if [ "$CUSTOM_COUNT" -eq 0 ]; then
-              # 没有自定义提交，直接快进
+              # 没有自定义提交，直接快进到上游
+              echo "::notice::无自定义提交，快进合并"
               git merge upstream/master --ff-only
             else
               # 有自定义提交：rebase 到上游最新之上
-              # 冲突时中止 rebase，工作流失败，避免丢失自定义改动
+              # 如果冲突，git rebase 会返回非零退出码
               if ! git rebase upstream/master; then
-                echo "::error::rebase 冲突！请手动解决："
-                echo "  1. 本地 git fetch upstream master"
-                echo "  2. git rebase upstream/master"
-                echo "  3. 解决冲突后 git rebase --continue"
-                echo "  4. git push --force-with-lease"
+                echo "::error::rebase 冲突！自定义改动与上游改动冲突。"
+                echo "::error::请手动解决冲突，步骤如下："
+                echo "::error::  1. 克隆本 fork：git clone <fork-url> && cd Lyrico"
+                echo "::error::  2. 添加上游：git remote add upstream https://github.com/Replica0110/Lyrico.git"
+                echo "::error::  3. 拉取上游：git fetch upstream master"
+                echo "::error::  4. 变基：git rebase upstream/master"
+                echo "::error::  5. 解决冲突文件后：git add <文件> && git rebase --continue"
+                echo "::error::  6. 推送：git push --force-with-lease origin master"
                 echo ""
-                echo "冲突文件："
-                git diff --name-only --diff-filter=U
+                echo "═══ 冲突文件列表 ═══"
+                git diff --name-only --diff-filter=U || true
+                echo "═══════════════════"
+                # 中止 rebase，恢复仓库状态
                 git rebase --abort
                 exit 1
               fi
+              echo "::notice::rebase 成功，自定义提交已重放到上游最新之上"
             fi
-            # rebase 重写了历史，需要 force push
+
+            # rebase 重写了历史，必须 force push
+            # --force-with-lease 比 --force 安全：如果远程有意外的新提交会拒绝推送
             git push --force-with-lease origin master
             echo "updated=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::已同步上游到 $(git rev-parse --short HEAD)（rebase 保留自定义改动）"
+            echo "::notice::已同步上游到 $(git rev-parse --short HEAD)"
           fi
 
+      # ── 4. 触发 APK 构建 ──────────────────────────────────────────────────
+      # 注意：rebase 后的 push 也会触发 build-builtin-v7.yml 的 push 事件，
+      #       但那个工作流有 concurrency + cancel-in-progress，不会重复构建。
+      #       这里用 gh workflow run 作为保底，确保即使 push 事件漏触发也能构建。
       - name: 🚀 触发 v7 构建
         if: steps.sync.outputs.updated == 'true' || github.event.inputs.force_build == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          # 在 fork 中 gh 默认会去查上游仓库，必须用 --repo 显式指向本 fork
+          # ⚠️ gh 默认会查上游仓库（因为 fork 保留了 upstream remote 信息），
+          #    必须用 --repo 显式指向本 fork
           echo "触发 build-builtin-v7.yml ..."
           gh workflow run build-builtin-v7.yml --ref master --repo "$GITHUB_REPOSITORY"
-          # 等几秒让 run 出现，然后打印最新 run 链接
+          # 等 5 秒让 run 出现在 API 中，然后打印链接方便查看
           sleep 5
           LATEST=$(gh run list --workflow=build-builtin-v7.yml --repo "$GITHUB_REPOSITORY" --limit 1 --json databaseId,url --jq '.[0]')
-          echo "最新构建：$LATEST"
+          echo "最新构建 run：$LATEST"
           echo "::notice::已触发构建，可在 Actions 页查看"
+
+# ============================================================================
+# 【手动解决 rebase 冲突】（当本工作流失败时按以下步骤操作）
+#
+#   git clone https://github.com/<你的用户名>/Lyrico.git
+#   cd Lyrico
+#   git remote add upstream https://github.com/Replica0110/Lyrico.git
+#   git fetch upstream master
+#   git rebase upstream/master
+#   # ← 此时报冲突，打开冲突文件手动合并（保留你的自定义改动 + 接受上游的新改动）
+#   git add .
+#   git rebase --continue
+#   git push --force-with-lease origin master
+#
+# 冲突常见场景：
+#   - 上游改了 FolderManagerScreen.kt（你也改了）→ 合并双方的改动
+#   - 上游改了 MediaScanner.kt（你也改了）→ 合并双方的改动
+#   - 上游改了 strings.xml（你也加了新字符串）→ 合并双方的字符串
+# ============================================================================

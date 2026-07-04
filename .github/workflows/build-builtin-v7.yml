@@ -1,14 +1,26 @@
 name: 📦 构建内置插件版 APK (v7)
 
-# 产出已内置全部官方插件（网易云/QQ/酷狗/汽水/Apple Music）的 Lyrico APK，
-# 适配手表等无法通过文件选择器导入 ZIP 的设备。
-# ABI splits 已在 build.gradle.kts 中开启，本工作流会上传 armeabi-v7a (v7)
-# 与 arm64-v8a 两个产物，v7 为主。
+# ============================================================================
+# 工作流作用：
+#   构建一个已内置全部官方插件（网易云/QQ/酷狗/汽水/Apple Music）的 Lyrico APK。
+#   适配手表等无法通过文件选择器导入 ZIP 的设备。
+#
+# 产出：
+#   - Lyrico-builtin-v7-armeabi-v7a.apk  ← 手表用（主产物）
+#   - Lyrico-builtin-arm64-v8a.apk       ← 64 位设备用
+#   产物保留 30 天，过期自动删除
 #
 # 触发方式：
-#   - workflow_dispatch：手动在 Actions 页面运行
-#   - push 到 master 且改动涉及 App/插件构建逻辑时自动运行
-#   - 可通过 plugin_ref 输入指定 Lyrico-Plugins 的分支/tag
+#   1. workflow_dispatch：手动在 Actions 页面运行（可指定插件版本）
+#   2. push 到 master：改了 App 代码时自动构建
+#   3. 被 sync-upstream-and-build.yml 调用：上游同步后自动构建
+#
+# 查错指引：
+#   - 构建失败 + "插件目录缺失" → Lyrico-Plugins 仓库结构变了，检查插件名
+#   - 构建失败 + Gradle 报错 → 上游代码有编译错误，看 --stacktrace 输出
+#   - 构建成功但 APK 下载后没有插件 → 检查 BuiltinPluginSeeder 逻辑
+#   - 构建成功但 "+" 按钮没了 → 检查 FolderManagerScreen.kt 是否被上游覆盖
+# ============================================================================
 
 on:
   workflow_dispatch:
@@ -29,6 +41,7 @@ on:
       - 'gradlew'
       - '.github/workflows/build-builtin-v7.yml'
 
+# 同一分支多次触发时，取消旧的构建，只保留最新的
 concurrency:
   group: builtin-v7-${{ github.ref }}
   cancel-in-progress: true
@@ -39,25 +52,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── 1. 检出 Lyrico 源码（含子模块）──────────────────────────────────────
       - name: 📥 检出 Lyrico
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
-          submodules: recursive
+          fetch-depth: 0       # 完整历史，方便查错
+          submodules: recursive # 拉取 git 子模块（如 taglib 等）
 
+      # ── 2. 检出 Lyrico-Plugins（每次构建都拉最新版）──────────────────────────
+      # 这保证了插件层面的更新（搜索逻辑修复、新平台对接等）无需改本仓库就能自动跟进。
       - name: 📥 检出 Lyrico-Plugins
         uses: actions/checkout@v6
         with:
           repository: Replica0110/Lyrico-Plugins
-          ref: ${{ inputs.plugin_ref || 'main' }}
+          ref: ${{ inputs.plugin_ref || 'main' }}  # 手动触发时可指定版本，否则用 main
           path: Lyrico-Plugins
           fetch-depth: 1
 
+      # ── 3. 设置时区（日志时间戳为北京时间，方便查错）──────────────────────────
       - name: 🌏 设置时区
         uses: szenius/set-timezone@v2.0
         with:
           timezoneLinux: "Asia/Shanghai"
 
+      # ── 4. 把插件复制到 assets/builtin_plugins/ ──────────────────────────────
+      # 这样插件会被打包进 APK，App 首次启动时由 BuiltinPluginSeeder 自动安装。
+      # 如果某个插件目录缺失，构建会立即失败（fail fast）。
       - name: 🧩 暂存内置插件到 assets
         shell: bash
         run: |
@@ -69,19 +89,21 @@ jobs:
             src="Lyrico-Plugins/$p"
             if [ ! -d "$src" ]; then
               echo "::error::插件目录缺失: $src"
+              echo "::error::请检查 Lyrico-Plugins 仓库结构是否变化"
               exit 1
             fi
             cp -r "$src" "$ASSET_DIR/$p"
           done
-          echo "已暂存内置插件："
+          echo "─── 已暂存内置插件 ───"
           ls -1 "$ASSET_DIR"
-          echo "--- manifest 摘要 ---"
+          echo "─── 插件 manifest 摘要 ───"
           for d in "$ASSET_DIR"/*/; do
             id=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$d/manifest.json','utf8')).id)")
             ver=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$d/manifest.json','utf8')).versionName)")
-            echo "$d -> $id @ $ver"
+            echo "  $d -> $id @ v$ver"
           done
 
+      # ── 5. 设置 JDK 21（Lyrico 需要 JDK 21+）─────────────────────────────────
       - name: ☕ 设置 JDK 21
         uses: actions/setup-java@v5
         with:
@@ -89,27 +111,57 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      # ── 6. 赋予 gradlew 执行权限 ─────────────────────────────────────────────
       - name: 🔐 赋予 gradlew 执行权限
         run: chmod +x gradlew
 
+      # ── 7. 配置 Gradle（缓存加速）────────────────────────────────────────────
       - name: 🐘 配置 Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      # ── 8. 构建 Debug APK ────────────────────────────────────────────────────
+      # 用 Debug 版本因为手表上不需要签名验证，且 Debug 版可日志调试。
+      # --stacktrace 出错时打印完整调用栈，方便定位问题。
       - name: 🛠️ 构建 Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      # ── 9. 上传 v7 APK（手表主产物，必须成功）─────────────────────────────────
       - name: 📤 上传 v7 APK (armeabi-v7a)
         uses: actions/upload-artifact@v4
         with:
           name: Lyrico-builtin-v7-armeabi-v7a
           path: lyrico-app/build/outputs/apk/debug/*armeabi-v7a*.apk
-          retention-days: 30
-          if-no-files-found: error
+          retention-days: 30  # 30 天后自动删除，避免仓库存储爆满
+          if-no-files-found: error  # v7 APK 必须存在，否则构建失败
 
+      # ── 10. 上传 v8 APK（64 位设备用，可选）───────────────────────────────────
       - name: 📤 上传 v8 APK (arm64-v8a)
         uses: actions/upload-artifact@v4
         with:
           name: Lyrico-builtin-arm64-v8a
           path: lyrico-app/build/outputs/apk/debug/*arm64-v8a*.apk
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: warn  # v8 可能不存在（如果上游改了 ABI 配置），只警告不失败
+
+# ============================================================================
+# 【构建失败排查】
+#
+# 1. "插件目录缺失" 错误：
+#    → Lyrico-Plugins 仓库可能改了插件目录名
+#    → 检查 https://github.com/Replica0110/Lyrico-Plugins 的目录结构
+#    → 更新本工作流第 68 行的 for 循环里的插件名
+#
+# 2. Gradle 编译错误：
+#    → 上游代码可能有 breaking change
+#    → 看 --stacktrace 输出定位具体文件
+#    → 可能需要手动修改 fork 的自定义代码适配上游变更
+#
+# 3. APK 安装后没有插件 / 没有 "+" 按钮：
+#    → 确认安装的是最新构建的 APK（看 run 编号）
+#    → 检查 git log 确认自定义提交还在：git log --oneline -10
+#    → 自定义提交应包含："feat: manual path mode"、"feat: builtin plugins"
+#
+# 4. 构建产物找不到：
+#    → artifact 保留 30 天后自动删除
+#    → 过期后需手动重新触发构建
+# ============================================================================
