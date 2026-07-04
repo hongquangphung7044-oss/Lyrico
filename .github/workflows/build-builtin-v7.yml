@@ -20,6 +20,8 @@ name: 📦 构建内置插件版 APK (v7)
 #   - 构建失败 + Gradle 报错 → 上游代码有编译错误，看 --stacktrace 输出
 #   - 构建成功但 APK 下载后没有插件 → 检查 BuiltinPluginSeeder 逻辑
 #   - 构建成功但 "+" 按钮没了 → 检查 FolderManagerScreen.kt 是否被上游覆盖
+#   - 构建成功但覆盖安装提示签名冲突 → 检查 LYRICO_KEYSTORE_BASE64 secret 是否配置
+#   - 构建日志出现 "未配置 LYRICO_KEYSTORE_BASE64" → 需要去仓库 Settings → Secrets 添加
 # ============================================================================
 
 on:
@@ -119,9 +121,31 @@ jobs:
       - name: 🐘 配置 Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      # ── 7.5 解码固定签名 keystore ────────────────────────────────────────────
+      # 用固定 keystore 签名，保证每次 CI 构建的 APK 签名一致，
+      # 覆盖安装时不会因签名冲突而要求卸载（避免数据丢失）。
+      # keystore 以 base64 存在 GitHub Secrets 中，解码到临时文件后通过
+      # 环境变量传给 Gradle（见 build.gradle.kts 的 signingConfigs.ci）。
+      - name: 🔑 解码签名 keystore
+        env:
+          LYRICO_KEYSTORE_BASE64: ${{ secrets.LYRICO_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$LYRICO_KEYSTORE_BASE64" ]; then
+            echo "::warning::未配置 LYRICO_KEYSTORE_BASE64 secret，使用默认 debug 签名（覆盖安装可能失败）"
+            exit 0
+          fi
+          echo "$LYRICO_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/lyrico-debug.keystore"
+          echo "LYRICO_KEYSTORE_PATH=$RUNNER_TEMP/lyrico-debug.keystore" >> "$GITHUB_ENV"
+          echo "LYRICO_KEYSTORE_PASSWORD=lyrico-debug-storepass" >> "$GITHUB_ENV"
+          echo "LYRICO_KEY_ALIAS=lyrico-debug" >> "$GITHUB_ENV"
+          echo "LYRICO_KEY_PASSWORD=lyrico-debug-storepass" >> "$GITHUB_ENV"
+          echo "✅ 已解码固定 keystore"
+
       # ── 8. 构建 Debug APK ────────────────────────────────────────────────────
       # 用 Debug 版本因为手表上不需要签名验证，且 Debug 版可日志调试。
       # --stacktrace 出错时打印完整调用栈，方便定位问题。
+      # 注意：如果第 7.5 步解码了 keystore，环境变量会被 Gradle 自动读取，
+      # build.gradle.kts 中的 signingConfigs.ci 会用固定签名替代默认 debug 签名。
       - name: 🛠️ 构建 Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
@@ -164,4 +188,11 @@ jobs:
 # 4. 构建产物找不到：
 #    → artifact 保留 30 天后自动删除
 #    → 过期后需手动重新触发构建
+#
+# 5. 覆盖安装提示"签名冲突"：
+#    → 未配置固定 keystore secret
+#    → 去 fork 仓库 Settings → Secrets and variables → Actions → New secret
+#    → Name: LYRICO_KEYSTORE_BASE64
+#    → Value: keystore 文件的 base64 编码（参考 README 或文档生成方法）
+#    → 保存后重新触发构建
 # ============================================================================

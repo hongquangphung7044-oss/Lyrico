@@ -37,6 +37,27 @@ android {
         }
     }
 
+    // ============================================================================
+    // 签名配置：使用固定 keystore（通过环境变量传入，CI 构建时设置）
+    // 这样每次 CI 构建产出的 APK 签名一致，覆盖安装不会丢数据。
+    // 本地开发无环境变量时，回退到默认 debug 签名。
+    // ============================================================================
+    signingConfigs {
+        create("ci") {
+            val storeFilePath = System.getenv("LYRICO_KEYSTORE_PATH")
+            val storePass = System.getenv("LYRICO_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("LYRICO_KEY_ALIAS")
+            val keyPass = System.getenv("LYRICO_KEY_PASSWORD")
+            if (storeFilePath != null && storePass != null && keyAlias != null && keyPass != null) {
+                storeFile = file(storeFilePath)
+                storePassword = storePass
+                this.keyAlias = keyAlias
+                keyPassword = keyPass
+                // PKCS12 keystore 的 storePassword 和 keyPassword 必须相同
+            }
+        }
+    }
+
     buildTypes {
         release {
             isShrinkResources = true
@@ -45,6 +66,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // CI 构建时用固定签名，否则用默认 release 签名
+            System.getenv("LYRICO_KEYSTORE_PATH")?.let {
+                signingConfig = signingConfigs.getByName("ci")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -53,6 +78,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // CI 构建时用固定签名，否则用默认 debug 签名
+            System.getenv("LYRICO_KEYSTORE_PATH")?.let {
+                signingConfig = signingConfigs.getByName("ci")
+            }
         }
     }
     compileOptions {
