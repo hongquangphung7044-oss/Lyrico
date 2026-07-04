@@ -355,13 +355,23 @@ class MatchMetadataProcessor(
         onProgress(0.9f)
 
         val result = patchSongTagsUseCase(song.uri, tagDataToWrite)
-        if (result !is SaveAudioTagsResult.Success) {
-            throw Exception("Write failed")
+        when (result) {
+            is SaveAudioTagsResult.Success -> {
+                onProgress(1f)
+                return BatchTaskProcessResult()
+            }
+            is SaveAudioTagsResult.PermissionRequired -> {
+                // 手表上 file:// URI 无法走 MediaStore 申请权限，直接报具体错误
+                throw Exception("Write failed: permission denied (uri=${song.uri})")
+            }
+            is SaveAudioTagsResult.Failed -> {
+                val cause = result.error
+                throw Exception(
+                    "Write failed: ${cause.javaClass.simpleName}: ${cause.message} (uri=${song.uri})",
+                    cause
+                )
+            }
         }
-
-        onProgress(1f)
-
-        return BatchTaskProcessResult()
     }
 
     private suspend fun logPluginBatch(
