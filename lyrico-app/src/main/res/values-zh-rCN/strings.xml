@@ -319,6 +319,16 @@
     <string name="folder_action_show">显示文件夹</string>
     <string name="folder_action_remove_sub">从 Lyrico 中移除此文件夹，并清除音乐库里的对应歌曲。本地文件不会被删除</string>
 
+    <!-- 手动输入路径模式（用于手表等无 SAF 文件选择器的设备） -->
+    <string name="folder_add_path_title">按路径添加文件夹</string>
+    <string name="folder_add_path_message">适用于没有系统文件选择器的设备（例如部分手表）。请输入音乐文件夹的绝对路径。</string>
+    <string name="folder_add_path_hint">例如 /sdcard/Music</string>
+    <string name="folder_add_path_empty">路径不能为空</string>
+    <string name="folder_add_path_invalid">路径不存在或不是文件夹</string>
+    <string name="folder_add_path_no_permission">尚未授予"所有文件访问"权限。请点击下方按钮授权后重试。</string>
+    <string name="folder_add_path_grant_permission">授予所有文件访问权限</string>
+    <string name="folder_saf_picker_unavailable">本设备没有系统文件选择器，请改用"按路径添加"。</string>
+
     <!-- 通用操作 -->
     <string name="action_save">保存</string>
     <string name="action_write">写入</string>

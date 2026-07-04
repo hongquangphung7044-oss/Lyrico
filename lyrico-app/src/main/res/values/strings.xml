@@ -314,6 +314,16 @@
     <string name="folder_action_show">Show Folder</string>
     <string name="folder_action_remove_sub">Remove this folder from Lyrico and clear its songs from the library. Local files will not be deleted.</string>
 
+    <!-- Manual Path Mode (for watches without SAF DocumentsUI) -->
+    <string name="folder_add_path_title">Add folder by path</string>
+    <string name="folder_add_path_message">For devices without a system file picker (e.g. some watches). Enter the absolute path to your music folder.</string>
+    <string name="folder_add_path_hint">e.g. /sdcard/Music</string>
+    <string name="folder_add_path_empty">Path cannot be empty</string>
+    <string name="folder_add_path_invalid">Path does not exist or is not a directory</string>
+    <string name="folder_add_path_no_permission">"All files access" permission not granted. Tap below to grant it, then try again.</string>
+    <string name="folder_add_path_grant_permission">Grant all files access</string>
+    <string name="folder_saf_picker_unavailable">No system file picker available on this device. Use "Add by path" instead.</string>
+
     <!-- General Actions -->
     <string name="action_save">Save</string>
     <string name="action_write">Write</string>

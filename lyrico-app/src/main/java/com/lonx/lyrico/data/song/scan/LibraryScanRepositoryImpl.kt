@@ -76,10 +76,26 @@ class LibraryScanRepositoryImpl(
                 folderDao.getSafFolders()
             } else {
                 folderDao.getScanRootFoldersFor(request.folderIds)
+                    .filter { it.addedBySaf && !it.treeUri.isNullOrBlank() }
             }
+            val nonSafFolders = if (request.folderIds == null) {
+                folderDao.getNonSafFolders()
+            } else {
+                folderDao.getScanRootFoldersFor(request.folderIds)
+                    .filter { !it.addedBySaf && it.treeUri.isNullOrBlank() }
+            }
+
             val safFolderById = safFolders.associateBy { it.id }
+            val nonSafFolderById = nonSafFolders.associateBy { it.id }
+
             val safScanResult = mediaScanner.querySongsFromSafFolders(safFolders)
-            val deviceSongs = safScanResult.songs
+            val nonSafScanResult = mediaScanner.querySongsFromFilesystemFolders(nonSafFolders)
+            val deviceSongs = safScanResult.songs + nonSafScanResult.songs
+            val allSuccessfulFolderIds =
+                safScanResult.successfulFolderIds + nonSafScanResult.successfulFolderIds
+            val allMissingFolderIds =
+                safScanResult.missingFolderIds + nonSafScanResult.missingFolderIds
+            val rootFolderById = safFolderById + nonSafFolderById
 
             onProgress(
                 LibraryScanProgress(
@@ -114,7 +130,7 @@ class LibraryScanRepositoryImpl(
                     }
 
                     if (needsUpdate) {
-                        val rootFolder = safFolderById[scannedSong.rootFolderId]
+                        val rootFolder = rootFolderById[scannedSong.rootFolderId]
                         val folderId = folderDao.upsertScannedFolderTreeAndGetLeafId(
                             rootPath = rootFolder?.path ?: scannedSong.folderPath,
                             folderPath = scannedSong.folderPath,
@@ -126,7 +142,7 @@ class LibraryScanRepositoryImpl(
                             songFile = deviceSong,
                             folderId = folderId,
                             existingId = dbInfo?.id ?: 0L,
-                            source = "SAF"
+                            source = if (rootFolder?.addedBySaf == true) "SAF" else "FILE"
                         )
 
                         if (
@@ -165,14 +181,15 @@ class LibraryScanRepositoryImpl(
                 }
             }
 
-            val missingSafFolderIds = safScanResult.missingFolderIds
+            val missingSafFolderIds = allMissingFolderIds
             val successfulScannedFolderIds = folderDao
-                .getFolderTreeIds(safScanResult.successfulFolderIds)
+                .getFolderTreeIds(allSuccessfulFolderIds)
                 .toSet()
 
+            // 同时清理 SAF 和 FILE 两种来源中扫描成功但已不存在的歌曲
             val deletedUris = dbSyncInfos
                 .filter { info ->
-                    info.source == "SAF" &&
+                    (info.source == "SAF" || info.source == "FILE") &&
                         info.folderId in successfulScannedFolderIds &&
                         info.uri !in deviceUris
                 }
@@ -180,7 +197,10 @@ class LibraryScanRepositoryImpl(
                 .toSet()
 
             val missingFolderSongUris = dbSyncInfos
-                .filter { info -> info.source == "SAF" && info.folderId in missingSafFolderIds }
+                .filter { info ->
+                    (info.source == "SAF" || info.source == "FILE") &&
+                        info.folderId in missingSafFolderIds
+                }
                 .map { it.uri }
                 .toSet()
 

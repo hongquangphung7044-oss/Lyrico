@@ -34,6 +34,13 @@ interface LibraryScanManager {
     )
     fun scanFolders(folderIds: Set<Long>, fullRescan: Boolean = false)
     fun addFolderAndScan(path: String, treeUri: String)
+
+    /**
+     * 手动输入路径添加文件夹（不依赖 SAF DocumentsUI）。
+     * 用于手表等没有文件选择器的设备：用户直接输入 /sdcard/Music 之类路径，
+     * 配合 MANAGE_EXTERNAL_STORAGE 权限即可访问。
+     */
+    fun addFolderByPathAndScan(path: String)
 }
 
 class LibraryScanManagerImpl(
@@ -76,6 +83,18 @@ class LibraryScanManagerImpl(
                 path = path,
                 treeUri = treeUri,
                 addedBySaf = true
+            )
+            folderDao.setIgnored(id, false)
+            enqueueScan(ScanRequest(fullRescan = false, folderIds = setOf(id)))
+        }
+    }
+
+    override fun addFolderByPathAndScan(path: String) {
+        appScope.launch {
+            val id = folderDao.upsertAndGetId(
+                path = path,
+                treeUri = null,
+                addedBySaf = false
             )
             folderDao.setIgnored(id, false)
             enqueueScan(ScanRequest(fullRescan = false, folderIds = setOf(id)))

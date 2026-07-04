@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.net.toUri
 import com.lonx.lyrico.data.model.SongFile
 import com.lonx.lyrico.data.model.entity.FolderEntity
+import java.io.File
 import java.util.Locale
 import kotlin.math.abs
 
@@ -325,5 +326,137 @@ class MediaScanner(
     private fun createVirtualMediaId(uriString: String): Long {
         val hash = uriString.hashCode().toLong()
         return -abs(hash).coerceAtLeast(1L)
+    }
+
+    /**
+     * 扫描手动输入路径的文件夹（非 SAF）。
+     * 直接用 java.io.File 递归遍历，uri 用 file:// scheme，
+     * 下游 AudioFileAccess 已完全兼容 file://。
+     *
+     * 触发条件：folder.addedBySaf=false 且 treeUri 为空。
+     * 失败/缺失语义与 [querySongsFromSafFolders] 对齐：
+     *   - 文件夹不存在/不可读 → missingFolderIds
+     *   - 扫描抛异常 → failedFolderIds
+     */
+    fun querySongsFromFilesystemFolders(folders: List<FolderEntity>): SafScanResult {
+        val results = mutableListOf<SafScannedSongFile>()
+        val successfulFolderIds = mutableSetOf<Long>()
+        val failedFolderIds = mutableSetOf<Long>()
+        val missingFolderIds = mutableSetOf<Long>()
+        val visitedCanonicalPaths = mutableSetOf<String>()
+
+        for (folder in folders) {
+            try {
+                val root = File(folder.path)
+                val canonicalRoot = try {
+                    root.canonicalFile
+                } catch (e: Exception) {
+                    root
+                }
+                if (!canonicalRoot.exists() || !canonicalRoot.isDirectory) {
+                    Log.w(tag, "Filesystem 根目录不存在或不可访问: ${folder.path}")
+                    missingFolderIds.add(folder.id)
+                    continue
+                }
+                if (!canonicalRoot.canRead()) {
+                    Log.w(tag, "Filesystem 根目录无读权限: ${folder.path}")
+                    failedFolderIds.add(folder.id)
+                    continue
+                }
+
+                scanFilesystemTree(
+                    root = canonicalRoot,
+                    displayRootPath = canonicalRoot.absolutePath,
+                    rootFolderId = folder.id,
+                    output = results,
+                    visitedCanonicalPaths = visitedCanonicalPaths
+                )
+                successfulFolderIds.add(folder.id)
+            } catch (e: SecurityException) {
+                Log.e(tag, "扫描 Filesystem 文件夹权限不足: ${folder.path}", e)
+                failedFolderIds.add(folder.id)
+            } catch (e: Exception) {
+                Log.e(tag, "扫描 Filesystem 文件夹失败: ${folder.path}", e)
+                failedFolderIds.add(folder.id)
+            }
+        }
+
+        return SafScanResult(
+            songs = results,
+            successfulFolderIds = successfulFolderIds,
+            failedFolderIds = failedFolderIds,
+            missingFolderIds = missingFolderIds
+        )
+    }
+
+    private fun scanFilesystemTree(
+        root: File,
+        displayRootPath: String,
+        rootFolderId: Long,
+        output: MutableList<SafScannedSongFile>,
+        visitedCanonicalPaths: MutableSet<String>
+    ) {
+        val stack = ArrayDeque<Pair<File, String>>()
+        stack.add(root to "")
+
+        while (stack.isNotEmpty()) {
+            val (currentDir, relativePath) = stack.removeLast()
+            val children = try {
+                currentDir.listFiles() ?: continue
+            } catch (e: SecurityException) {
+                Log.w(tag, "无权限读取目录: ${currentDir.absolutePath}", e)
+                continue
+            }
+
+            for (child in children) {
+                val name = child.name
+                if (name.isBlank()) continue
+
+                if (child.isDirectory) {
+                    if (shouldSkipDirectory(name)) continue
+                    val nextRelativePath = if (relativePath.isBlank()) name else "$relativePath/$name"
+                    stack.add(child to nextRelativePath)
+                    continue
+                }
+
+                if (!child.isFile) continue
+                if (!isSupportedAudioFile(name, null)) continue
+
+                val canonicalPath = try {
+                    child.canonicalPath
+                } catch (e: Exception) {
+                    child.absolutePath
+                }
+                if (!visitedCanonicalPaths.add(canonicalPath)) continue
+
+                val fileUri = Uri.fromFile(child)
+                val folderPath = buildDisplayFolderPath(
+                    rootPath = displayRootPath,
+                    relativePath = relativePath
+                )
+                val filePath = buildDisplayPath(
+                    rootPath = displayRootPath,
+                    relativePath = relativePath,
+                    fileName = name
+                )
+
+                output.add(
+                    SafScannedSongFile(
+                        rootFolderId = rootFolderId,
+                        folderPath = folderPath,
+                        songFile = SongFile(
+                            mediaId = createVirtualMediaId(fileUri.toString()),
+                            uri = fileUri,
+                            filePath = filePath,
+                            fileName = name,
+                            lastModified = child.lastModified(),
+                            dateAdded = child.lastModified(),
+                            duration = 0L,
+                            fileSize = child.length()
+                        )
+                    )
+                )
+            }
+        }
     }
 }

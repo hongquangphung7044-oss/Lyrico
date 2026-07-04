@@ -99,6 +99,30 @@ class FolderManagerViewModel(
         libraryScanManager.addFolderAndScan(path, treeUri)
     }
 
+    /**
+     * 手动输入路径添加文件夹（手表无 SAF DocumentsUI 时使用）。
+     * 注意：调用方应先校验 [hasManageExternalStoragePermission]，否则扫描会失败。
+     */
+    fun addFolderByPath(path: String) {
+        libraryScanManager.addFolderByPathAndScan(path)
+    }
+
+    /** 是否已授予"所有文件访问"权限（MANAGE_EXTERNAL_STORAGE） */
+    fun hasManageExternalStoragePermission(): Boolean {
+        return android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R &&
+            android.os.Environment.isExternalStorageManager()
+    }
+
+    /** 跳转到系统"所有文件访问"权限设置页 */
+    fun openManageExternalStorageSettings() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        val intent = android.content.Intent(
+            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            android.net.Uri.parse("package:${application.packageName}")
+        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        application.startActivity(intent)
+    }
+
     fun deleteFolder(folder: FolderEntity) {
         appScope.launch {
             val released = UriUtils.releasePersistedPermission(contentResolver, folder.treeUri)

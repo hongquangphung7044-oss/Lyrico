@@ -31,6 +31,17 @@ interface FolderDao {
     @Query("SELECT * FROM folders WHERE addedBySaf = 1")
     suspend fun getSafFoldersForPermissionCheck(): List<FolderEntity>
 
+    /**
+     * 用户手动输入路径添加的文件夹（不依赖 SAF DocumentsUI）。
+     * 扫描时走 java.io.File 而非 DocumentsContract。
+     */
+    @Query("""
+        SELECT * FROM folders
+        WHERE addedBySaf = 0
+          AND (treeUri IS NULL OR treeUri = '')
+    """)
+    suspend fun getNonSafFolders(): List<FolderEntity>
+
     @Insert(onConflict = OnConflictStrategy.Companion.IGNORE)
     suspend fun insert(folder: FolderEntity): Long
 
@@ -164,8 +175,12 @@ interface FolderDao {
         val selected = folders.filter { it.id in folderIds }
         if (selected.isEmpty()) return emptyList()
 
+        // 同时支持 SAF 文件夹和手动输入的非 SAF 文件夹
         return folders
-            .filter { it.addedBySaf && !it.treeUri.isNullOrBlank() }
+            .filter { root ->
+                (root.addedBySaf && !root.treeUri.isNullOrBlank()) ||
+                    (!root.addedBySaf && root.treeUri.isNullOrBlank())
+            }
             .filter { root ->
                 selected.any { folder ->
                     val rootPath = normalizeFolderPath(root.path)
