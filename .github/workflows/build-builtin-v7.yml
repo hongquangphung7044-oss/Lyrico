@@ -1,0 +1,115 @@
+name: 📦 构建内置插件版 APK (v7)
+
+# 产出已内置全部官方插件（网易云/QQ/酷狗/汽水/Apple Music）的 Lyrico APK，
+# 适配手表等无法通过文件选择器导入 ZIP 的设备。
+# ABI splits 已在 build.gradle.kts 中开启，本工作流会上传 armeabi-v7a (v7)
+# 与 arm64-v8a 两个产物，v7 为主。
+#
+# 触发方式：
+#   - workflow_dispatch：手动在 Actions 页面运行
+#   - push 到 master 且改动涉及 App/插件构建逻辑时自动运行
+#   - 可通过 plugin_ref 输入指定 Lyrico-Plugins 的分支/tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_ref:
+        description: 'Lyrico-Plugins 仓库的 git ref（分支/tag/commit）'
+        required: false
+        default: 'main'
+  push:
+    branches: [ master ]
+    paths:
+      - 'lyrico-app/**'
+      - 'lyrico-audiotag/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/build-builtin-v7.yml'
+
+concurrency:
+  group: builtin-v7-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 🏗️ 构建 Debug APK (内置插件)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 检出 Lyrico
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: 📥 检出 Lyrico-Plugins
+        uses: actions/checkout@v6
+        with:
+          repository: Replica0110/Lyrico-Plugins
+          ref: ${{ inputs.plugin_ref || 'main' }}
+          path: Lyrico-Plugins
+          fetch-depth: 1
+
+      - name: 🌏 设置时区
+        uses: szenius/set-timezone@v2.0
+        with:
+          timezoneLinux: "Asia/Shanghai"
+
+      - name: 🧩 暂存内置插件到 assets
+        shell: bash
+        run: |
+          set -e
+          ASSET_DIR="lyrico-app/src/main/assets/builtin_plugins"
+          rm -rf "$ASSET_DIR"
+          mkdir -p "$ASSET_DIR"
+          for p in netease qq kugou soda apple; do
+            src="Lyrico-Plugins/$p"
+            if [ ! -d "$src" ]; then
+              echo "::error::插件目录缺失: $src"
+              exit 1
+            fi
+            cp -r "$src" "$ASSET_DIR/$p"
+          done
+          echo "已暂存内置插件："
+          ls -1 "$ASSET_DIR"
+          echo "--- manifest 摘要 ---"
+          for d in "$ASSET_DIR"/*/; do
+            id=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$d/manifest.json','utf8')).id)")
+            ver=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$d/manifest.json','utf8')).versionName)")
+            echo "$d -> $id @ $ver"
+          done
+
+      - name: ☕ 设置 JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: 🔐 赋予 gradlew 执行权限
+        run: chmod +x gradlew
+
+      - name: 🐘 配置 Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: 🛠️ 构建 Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: 📤 上传 v7 APK (armeabi-v7a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lyrico-builtin-v7-armeabi-v7a
+          path: lyrico-app/build/outputs/apk/debug/*armeabi-v7a*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: 📤 上传 v8 APK (arm64-v8a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lyrico-builtin-arm64-v8a
+          path: lyrico-app/build/outputs/apk/debug/*arm64-v8a*.apk
+          retention-days: 30
+          if-no-files-found: warn

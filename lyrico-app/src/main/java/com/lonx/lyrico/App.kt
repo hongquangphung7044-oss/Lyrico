@@ -15,6 +15,7 @@ import com.lonx.lyrico.data.model.log.AppLogLevel
 import com.lonx.lyrico.data.model.log.AppLogType
 import com.lonx.lyrico.data.repository.AppLogRepository
 import com.lonx.lyrico.di.appModule
+import com.lonx.lyrico.plugin.source.BuiltinPluginSeeder
 import com.lonx.lyrico.utils.coil.AudioCoverFetcher
 import com.lonx.lyrico.utils.coil.AudioCoverKeyer
 import org.koin.android.ext.koin.androidContext
@@ -51,6 +52,10 @@ class App : Application(), SingletonImageLoader.Factory {
 //            )
             val repo = org.koin.core.context.GlobalContext.get().get<BatchTaskRepository>()
             repo.markOrphanedTasksFailed()
+            // 种入内置插件（assets/builtin_plugins），手表等无 ZIP 处理器的设备可直接使用
+            runCatching {
+                org.koin.core.context.GlobalContext.get().get<BuiltinPluginSeeder>().seedIfNeeded()
+            }.onFailure { Log.w(TAG, "Builtin plugin seeding failed", it) }
         }
     }
 

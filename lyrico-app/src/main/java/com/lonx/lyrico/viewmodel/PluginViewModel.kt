@@ -11,6 +11,7 @@ import com.lonx.lyrico.data.model.entity.SourcePluginEntity
 import com.lonx.lyrico.data.repository.AppLogRepository
 import com.lonx.lyrico.data.repository.SettingsRepository
 import com.lonx.lyrico.data.repository.SourcePluginRepository
+import com.lonx.lyrico.plugin.source.BuiltinPluginSeeder
 import com.lonx.lyrico.plugin.source.PluginSearchSourceManager
 import com.lonx.lyrico.plugin.source.PluginImportSession
 import com.lonx.lyrico.plugin.source.PluginVersionConflict
@@ -44,7 +45,8 @@ class PluginViewModel(
     private val settingsRepository: SettingsRepository,
     private val installer: SourcePluginInstaller,
     private val pluginManager: PluginSearchSourceManager,
-    private val appLogRepository: AppLogRepository
+    private val appLogRepository: AppLogRepository,
+    private val builtinPluginSeeder: BuiltinPluginSeeder
 ) : ViewModel() {
     val plugins: StateFlow<List<SourcePluginEntity>> =
         repository.observePlugins()
@@ -261,6 +263,8 @@ class PluginViewModel(
                     }
                 }
                 repository.uninstallPlugin(id)
+                // 记录内置插件被用户卸载，避免下次升级 App 时自动装回
+                builtinPluginSeeder.markUserUninstalled(id)
             }
         }
     }

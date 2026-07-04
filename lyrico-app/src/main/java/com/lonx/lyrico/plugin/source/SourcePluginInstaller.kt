@@ -266,6 +266,39 @@ class SourcePluginInstaller(
         }
     }
 
+    /**
+     * 从一个已解压到磁盘的插件目录安装（用于内置插件种入）。
+     * sourceRoot 必须直接包含 manifest.json 及插件文件。
+     * 复用与 ZIP 导入相同的校验、原子拷贝与 upsert 逻辑。
+     * 已存在同 id 插件时：保留 enabled/customName/sortOrder/installedAt，
+     * 仅更新文件与版本；若为降级则抛出异常（除非 allowDowngrade=true）。
+     */
+    suspend fun installFromDirectory(
+        sourceRoot: File,
+        installRoot: File,
+        enabled: Boolean = true,
+        allowDowngrade: Boolean = false
+    ): SourcePluginEntity = withContext(Dispatchers.IO) {
+        val manifestFile = File(sourceRoot, MANIFEST_FILE)
+        val candidate = buildCandidate(
+            manifestFile = manifestFile,
+            packageRoot = sourceRoot
+        ).getOrThrow()
+        val existing = repository.getPlugin(candidate.manifest.id)
+        val conflict = candidate.versionConflict(existing)
+        if (conflict == PluginVersionConflict.DOWNGRADE && !allowDowngrade) {
+            throw IllegalArgumentException(
+                "Plugin version is lower than installed version: ${candidate.manifest.id}"
+            )
+        }
+        installCandidate(
+            candidate = candidate,
+            allCandidates = listOf(candidate),
+            installRoot = installRoot,
+            enabled = enabled
+        )
+    }
+
     fun discardImport(session: PluginImportSession) {
         session.tempDir.deleteRecursively()
     }

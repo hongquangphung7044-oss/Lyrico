@@ -53,6 +53,7 @@ import com.lonx.lyrico.domain.song.usecase.ReadAudioTagsUseCase
 import com.lonx.lyrico.domain.song.usecase.RenameSongUseCase
 import com.lonx.lyrico.domain.song.usecase.SaveAudioTagsUseCase
 import com.lonx.lyrico.domain.song.usecase.SynchronizeLibraryUseCase
+import com.lonx.lyrico.plugin.source.BuiltinPluginSeeder
 import com.lonx.lyrico.plugin.source.PluginSearchSourceManager
 import com.lonx.lyrico.plugin.source.SearchSourceProvider
 import com.lonx.lyrico.plugin.source.ScriptSearchSourceFactory
@@ -170,6 +171,7 @@ val appModule = module {
     }
     single { PluginSearchSourceManager(repository = get(), factory = get(), appLogRepository = get()) }
     single { SourcePluginInstaller(repository = get(), json = get(), appLogRepository = get()) }
+    single { BuiltinPluginSeeder(androidContext(), get(), get()) }
     single { SearchSourceProvider(pluginManager = get()) }
 
     single { SearchSourceConfigApplier(get(), get()) }
@@ -297,7 +299,7 @@ val appModule = module {
     viewModel { CustomTagManagementViewModel(get(), get()) }
     viewModel { BatchMatchViewModel(get(), get(), get(), get(), get()) }
     viewModel { AppLogViewModel(get(),get()) }
-    viewModel { PluginViewModel(get(), get(), get(), get(), get()) }
+    viewModel { PluginViewModel(get(), get(), get(), get(), get(), get()) }
 
     viewModel { FolderManagerViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { BatchRenameViewModel(get(), get(), get(), get(), get()) }
