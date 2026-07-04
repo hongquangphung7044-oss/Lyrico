@@ -1,15 +1,17 @@
 name: 🔄 自动同步上游并构建
 
 # 每天定时检查 Replica0110/Lyrico 是否有更新：
-#   - 有更新：合并到本 fork 的 master，然后自动触发「构建内置插件版 APK (v7)」
+#   - 有更新：将本 fork 的自定义提交 rebase 到上游最新之上（保留所有自定义改动），
+#             然后自动触发「构建内置插件版 APK (v7)」
 #   - 无更新：什么都不做（节省 Actions 额度）
+#   - rebase 冲突：工作流失败，需手动解决冲突后重新推送
 # 也支持手动触发，可强制即使无更新也构建一次。
 #
 # 触发的 build-builtin-v7.yml 会重新检出 Lyrico-Plugins main 分支，
 # 因此插件层面的更新（搜索逻辑、新平台对接等）每次构建都会自动跟进。
 #
 # 注意：默认 GITHUB_TOKEN 即可，无需额外 secret。
-#       如需推送带 workflow 改动的 commit，需 PAT；本 workflow 仅同步上游代码，GITHUB_TOKEN 够用。
+#       rebase 会重写历史，需要 force push；使用 --force-with-lease 保证安全。
 
 on:
   schedule:
@@ -47,7 +49,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: ⬆️ 同步上游 master
+      - name: ⬆️ 同步上游 master（rebase 保留自定义改动）
         id: sync
         run: |
           set -e
@@ -61,14 +63,33 @@ jobs:
             echo "updated=false" >> "$GITHUB_OUTPUT"
             echo "::notice::上游无更新，跳过"
           else
-            # 尝试快进合并；冲突时用上游版本（fork 仅做打包，不保留自定义改动）
-            if ! git merge upstream/master --ff-only; then
-              echo "::warning::无法快进合并，使用 reset --hard 到上游版本（fork 自定义改动会被覆盖）"
-              git reset --hard upstream/master
+            # 找出 fork 相对上游基线的自定义提交数量
+            MERGE_BASE=$(git merge-base HEAD upstream/master)
+            CUSTOM_COUNT=$(git rev-list --count "${MERGE_BASE}..HEAD")
+            echo "fork 自定义提交数: $CUSTOM_COUNT（基线 $MERGE_BASE）"
+            if [ "$CUSTOM_COUNT" -eq 0 ]; then
+              # 没有自定义提交，直接快进
+              git merge upstream/master --ff-only
+            else
+              # 有自定义提交：rebase 到上游最新之上
+              # 冲突时中止 rebase，工作流失败，避免丢失自定义改动
+              if ! git rebase upstream/master; then
+                echo "::error::rebase 冲突！请手动解决："
+                echo "  1. 本地 git fetch upstream master"
+                echo "  2. git rebase upstream/master"
+                echo "  3. 解决冲突后 git rebase --continue"
+                echo "  4. git push --force-with-lease"
+                echo ""
+                echo "冲突文件："
+                git diff --name-only --diff-filter=U
+                git rebase --abort
+                exit 1
+              fi
             fi
-            git push origin master
+            # rebase 重写了历史，需要 force push
+            git push --force-with-lease origin master
             echo "updated=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::已同步上游到 $(git rev-parse --short HEAD)"
+            echo "::notice::已同步上游到 $(git rev-parse --short HEAD)（rebase 保留自定义改动）"
           fi
 
       - name: 🚀 触发 v7 构建
