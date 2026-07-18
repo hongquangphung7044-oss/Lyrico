@@ -62,11 +62,17 @@ jobs:
 
       # ── 3. 核心步骤：同步上游 + rebase 保留自定义改动 ─────────────────────────
       # 逻辑说明：
-      #   - 如果 LOCAL == UPSTREAM：上游无更新，跳过
-      #   - 如果 fork 没有自定义提交（CUSTOM_COUNT=0）：直接快进合并
-      #   - 如果 fork 有自定义提交：rebase 到上游最新之上
-      #     · rebase 成功 → force push → 触发构建
-      #     · rebase 冲突 → 打印冲突文件 → 中止 rebase → 工作流失败（不会丢代码）
+      #   - 先计算 merge-base（fork 与上游的共同祖先）
+      #   - 如果 merge-base == upstream/master：上游无新提交，跳过（省 Actions 额度）
+      #   - 如果 merge-base != upstream/master：上游有新提交，需要 rebase
+      #     · fork 没有自定义提交（CUSTOM_COUNT=0）→ 直接快进合并
+      #     · fork 有自定义提交 → rebase 到上游最新之上
+      #       - rebase 成功 → force push → 触发构建
+      #       - rebase 冲突 → 打印冲突文件 → 中止 rebase → 工作流失败（不会丢代码）
+      #
+      # ⚠️ 不能用 LOCAL == UPSTREAM 判断是否有更新！
+      #   fork 有自定义提交，LOCAL 永远不等于 UPSTREAM，会导致每天都触发构建。
+      #   正确做法是比较 merge-base 和 upstream/master。
       #
       # 为什么不用 merge 而用 rebase？
       #   merge 会产生 merge commit，历史会很乱；rebase 保持线性历史，
@@ -79,19 +85,20 @@ jobs:
           git fetch upstream master --tags
           LOCAL=$(git rev-parse HEAD)
           UPSTREAM=$(git rev-parse upstream/master)
+          MERGE_BASE=$(git merge-base HEAD upstream/master)
           echo "─── 同步信息 ───"
           echo "本 fork HEAD  = $LOCAL"
           echo "上游 master   = $UPSTREAM"
+          echo "共同祖先       = $MERGE_BASE"
 
-          if [ "$LOCAL" = "$UPSTREAM" ]; then
-            # 上游和本地完全一致，无需操作
+          # 判断上游是否有新提交：看 merge-base 是否等于 upstream/master
+          # 如果相等，说明 fork 已经包含了上游所有提交，无需操作
+          if [ "$MERGE_BASE" = "$UPSTREAM" ]; then
             echo "updated=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::上游无更新，跳过"
+            echo "::notice::上游无新提交，跳过（共同祖先 == 上游 HEAD）"
           else
-            # 计算 fork 相对共同祖先有多少自定义提交
-            MERGE_BASE=$(git merge-base HEAD upstream/master)
+            # 上游有新提交，需要 rebase
             CUSTOM_COUNT=$(git rev-list --count "${MERGE_BASE}..HEAD")
-            echo "共同祖先       = $MERGE_BASE"
             echo "fork 自定义提交数 = $CUSTOM_COUNT"
 
             if [ "$CUSTOM_COUNT" -eq 0 ]; then
