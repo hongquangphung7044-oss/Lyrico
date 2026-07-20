@@ -368,6 +368,7 @@ fun SearchResultsScreen(
         show = showApplyBottomSheet,
         song = pendingApplySong,
         lyricsState = uiState.lyricsState,
+        showAllFields = uiState.showAllSearchResultFields,
         onLoadLyrics = viewModel::loadLyrics,
         onOpenLyricsConfig = { showLyricRenderConfigBottomSheet.value = true },
         onDismissRequest = { showApplyBottomSheet = false },
@@ -743,6 +744,7 @@ private fun SearchResultApplyBottomSheet(
     show: Boolean,
     song: SongSearchResult?,
     lyricsState: LyricsUiState,
+    showAllFields: Boolean,
     onLoadLyrics: (SongSearchResult) -> Unit,
     onOpenLyricsConfig: () -> Unit,
     onDismissRequest: () -> Unit,
@@ -796,6 +798,7 @@ private fun SearchResultApplyBottomSheet(
     val lyricsLoadingText = stringResource(R.string.lyrics_loading)
     val lyricsLoadFailedText = stringResource(R.string.fetch_lyrics_failed)
     val lyricsEmptyText = stringResource(R.string.lyrics_empty)
+    val emptyFieldText = stringResource(R.string.search_result_empty_value)
     val lyricsStatusText = when {
         lyricsState.isLoading -> lyricsLoadingText
         lyricsState.error != null -> lyricsState.error.asString()?.ifBlank { lyricsLoadFailedText }
@@ -810,30 +813,56 @@ private fun SearchResultApplyBottomSheet(
         lyricsState.isLoading,
         lyricsState.error,
         lyricsStatusText,
-        imageSize
+        imageSize,
+        showAllFields,
+        emptyFieldText
     ) {
         val targetSong = song ?: return@remember emptyList()
         val fields = targetSong.normalizedFields().toMutableMap()
         lyricsText?.let { fields["lyrics"] = it }
 
-        val fieldOptions = StandardPluginField.entries.sortedBy { field ->
-            if (field.target == MetadataFieldTarget.COVER) 0 else 1
-        }.mapNotNull { field ->
-            val value = fields[field.key]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            SearchResultApplyOption(
-                target = field.target,
-                value = value,
-                imageSize = if (field.target == MetadataFieldTarget.COVER) imageSize else null
-            )
-        }.distinctBy { it.target }.toMutableList()
+        val fieldOptions = StandardPluginField.entries
+            .asSequence()
+            .filter { it.target != MetadataFieldTarget.LYRICS }
+            .sortedBy { field -> if (field.target == MetadataFieldTarget.COVER) 0 else 1 }
+            .mapNotNull { field ->
+                val value = fields[field.key].orEmpty()
+                when {
+                    value.isNotBlank() -> SearchResultApplyOption(
+                        target = field.target,
+                        value = value,
+                        imageSize = if (field.target == MetadataFieldTarget.COVER) imageSize else null
+                    )
 
-        if (fieldOptions.none { it.target == MetadataFieldTarget.LYRICS } &&
-            (lyricsState.isLoading || lyricsState.error != null || lyricsState.song != null)
+                    showAllFields -> SearchResultApplyOption(
+                        target = field.target,
+                        value = emptyFieldText
+                    )
+
+                    else -> null
+                }
+            }
+            .distinctBy { it.target }
+            .toMutableList()
+
+        if (lyricsText != null) {
+            fieldOptions += SearchResultApplyOption(
+                target = MetadataFieldTarget.LYRICS,
+                value = lyricsText
+            )
+        } else if (
+            showAllFields ||
+            lyricsState.isLoading ||
+            lyricsState.error != null ||
+            lyricsState.song != null
         ) {
             fieldOptions += SearchResultApplyOption(
                 target = MetadataFieldTarget.LYRICS,
-                value = lyricsStatusText,
-                enabled = false
+                value = if (showAllFields && lyricsState.song == null) {
+                    emptyFieldText
+                } else {
+                    lyricsStatusText
+                }
             )
         }
 

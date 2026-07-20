@@ -87,6 +87,7 @@ object SettingsDefaults {
     val DEFAULT_ENABLED_SEARCH_SOURCES = emptySet<String>()
     const val SEARCH_PAGE_SIZE = 10
     val SEARCH_SOURCE_TAB_STYLE = SearchSourceTabStyle.ICON_AND_TEXT
+    const val SHOW_ALL_SEARCH_RESULT_FIELDS = false
 
     val THEME_MODE = ThemeMode.AUTO
 }
@@ -122,6 +123,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val ENABLED_SEARCH_SOURCES = stringPreferencesKey("enabled_search_sources")
         val SEARCH_PAGE_SIZE = intPreferencesKey("search_page_size")
         val SEARCH_SOURCE_TAB_STYLE = stringPreferencesKey("search_source_tab_style")
+        val SHOW_ALL_SEARCH_RESULT_FIELDS = booleanPreferencesKey("show_all_search_result_fields")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val MONET_ENABLE = booleanPreferencesKey("monet_enable")
         val KEY_THEME_COLOR = intPreferencesKey("theme_color_argb")
@@ -268,6 +270,12 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 ?: SettingsDefaults.SEARCH_SOURCE_TAB_STYLE
         }
 
+    override val showAllSearchResultFields: Flow<Boolean>
+        get() = context.settingsDataStore.data.map { preferences ->
+            preferences[PreferencesKeys.SHOW_ALL_SEARCH_RESULT_FIELDS]
+                ?: SettingsDefaults.SHOW_ALL_SEARCH_RESULT_FIELDS
+        }
+
     override val themeMode: Flow<ThemeMode>
         get() = context.settingsDataStore.data.map { preferences ->
             val modeName = preferences[PreferencesKeys.THEME_MODE]
@@ -387,20 +395,28 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             )
         }
 
+    private val searchDisplayConfigFlow = combine(
+        searchPageSize,
+        searchSourceTabStyle,
+        showAllSearchResultFields
+    ) { pageSize, tabStyle, showAllFields ->
+        Triple(pageSize, tabStyle, showAllFields)
+    }
+
     override val searchConfigFlow: Flow<SearchConfig> =
         combine(
             separator,
             searchSourceOrder,
             enabledSearchSources,
-            searchPageSize,
-            searchSourceTabStyle
-        ) { sep, order, enabled, size, tabStyle ->
+            searchDisplayConfigFlow
+        ) { sep, order, enabled, displayConfig ->
             SearchConfig(
                 separator = sep,
                 searchSourceOrder = order,
                 enabledSearchSources = enabled,
-                searchPageSize = size,
-                searchSourceTabStyle = tabStyle
+                searchPageSize = displayConfig.first,
+                searchSourceTabStyle = displayConfig.second,
+                showAllSearchResultFields = displayConfig.third
             )
         }
 
@@ -525,6 +541,12 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
     override suspend fun saveSearchSourceTabStyle(style: SearchSourceTabStyle) {
         context.settingsDataStore.edit { preferences ->
             preferences[PreferencesKeys.SEARCH_SOURCE_TAB_STYLE] = style.name
+        }
+    }
+
+    override suspend fun saveShowAllSearchResultFields(enabled: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_ALL_SEARCH_RESULT_FIELDS] = enabled
         }
     }
 
@@ -674,6 +696,8 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                 ?: SettingsDefaults.SEARCH_PAGE_SIZE,
             searchSourceTabStyle = prefs[PreferencesKeys.SEARCH_SOURCE_TAB_STYLE]
                 ?: SettingsDefaults.SEARCH_SOURCE_TAB_STYLE.name,
+            showAllSearchResultFields = prefs[PreferencesKeys.SHOW_ALL_SEARCH_RESULT_FIELDS]
+                ?: SettingsDefaults.SHOW_ALL_SEARCH_RESULT_FIELDS,
 
             themeMode = prefs[PreferencesKeys.THEME_MODE]
                 ?: SettingsDefaults.THEME_MODE.name,
@@ -760,6 +784,9 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
                     runCatching { SearchSourceTabStyle.valueOf(styleName) }
                         .getOrNull()
                         ?.let { prefs[PreferencesKeys.SEARCH_SOURCE_TAB_STYLE] = it.name }
+                }
+                backup.showAllSearchResultFields?.let {
+                    prefs[PreferencesKeys.SHOW_ALL_SEARCH_RESULT_FIELDS] = it
                 }
                 backup.themeMode?.let { prefs[PreferencesKeys.THEME_MODE] = it }
                 backup.monetEnable?.let { prefs[PreferencesKeys.MONET_ENABLE] = it }

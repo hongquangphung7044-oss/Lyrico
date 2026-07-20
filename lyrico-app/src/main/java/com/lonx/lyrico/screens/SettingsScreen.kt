@@ -120,6 +120,7 @@ fun SettingsScreen(
     val totalFolders = folders.filter { it.addedBySaf }.size
     val conversionMode = settingsUiState.conversionMode
     val searchSourceTabStyle = settingsUiState.searchSourceTabStyle
+    val showAllSearchResultFields = settingsUiState.showAllSearchResultFields
 
     val ignoredFolders = folders.count { it.isIgnored && it.addedBySaf }
     val searchPageSize = settingsUiState.searchPageSize
@@ -422,6 +423,12 @@ fun SettingsScreen(
                         onValueChangeFinished = {
                             settingsViewModel.setSearchPageSize(tempSearchPageSize.intValue)
                         }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.show_all_search_result_fields),
+                        summary = stringResource(R.string.show_all_search_result_fields_summary),
+                        checked = showAllSearchResultFields,
+                        onCheckedChange = settingsViewModel::setShowAllSearchResultFields
                     )
                 }
             }

@@ -20,5 +20,6 @@ data class SearchConfig(
     val searchSourceOrder: List<String> = SettingsDefaults.SEARCH_SOURCE_ORDER,
     val enabledSearchSources: Set<String> = SettingsDefaults.DEFAULT_ENABLED_SEARCH_SOURCES,
     val searchPageSize: Int = SettingsDefaults.SEARCH_PAGE_SIZE,
-    val searchSourceTabStyle: SearchSourceTabStyle = SettingsDefaults.SEARCH_SOURCE_TAB_STYLE
+    val searchSourceTabStyle: SearchSourceTabStyle = SettingsDefaults.SEARCH_SOURCE_TAB_STYLE,
+    val showAllSearchResultFields: Boolean = SettingsDefaults.SHOW_ALL_SEARCH_RESULT_FIELDS
 )

@@ -47,6 +47,7 @@ data class SettingsUiState(
     val enabledSearchSources: Set<String> = emptySet(),
     val searchPageSize: Int = 20,
     val searchSourceTabStyle: SearchSourceTabStyle = SearchSourceTabStyle.ICON_AND_TEXT,
+    val showAllSearchResultFields: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.AUTO,
     val monetEnable: Boolean = false,
     val keyColor: KeyColor = KeyColors[1],
@@ -115,6 +116,7 @@ class SettingsViewModel(
             enabledSearchSources = base.search.enabledSearchSources,
             searchPageSize = base.search.searchPageSize,
             searchSourceTabStyle = base.search.searchSourceTabStyle,
+            showAllSearchResultFields = base.search.showAllSearchResultFields,
             themeMode = base.theme.themeMode,
             ignoreShortAudio = base.ignoreShortAudio,
             monetEnable = base.theme.monetEnable,
@@ -267,6 +269,12 @@ class SettingsViewModel(
     fun setSearchSourceTabStyle(style: SearchSourceTabStyle) {
         viewModelScope.launch {
             settingsRepository.saveSearchSourceTabStyle(style)
+        }
+    }
+
+    fun setShowAllSearchResultFields(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.saveShowAllSearchResultFields(enabled)
         }
     }
 

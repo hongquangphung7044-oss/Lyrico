@@ -47,6 +47,7 @@ interface SettingsRepository {
     val enabledSearchSources: Flow<Set<String>>
     val searchPageSize: Flow<Int>
     val searchSourceTabStyle: Flow<SearchSourceTabStyle>
+    val showAllSearchResultFields: Flow<Boolean>
     val themeMode: Flow<ThemeMode>
     val keyColor: Flow<KeyColor>
     val monetEnable: Flow<Boolean>
@@ -83,6 +84,7 @@ interface SettingsRepository {
     suspend fun saveEnabledSearchSources(sources: Set<String>)
     suspend fun saveSearchPageSize(size: Int)
     suspend fun saveSearchSourceTabStyle(style: SearchSourceTabStyle)
+    suspend fun saveShowAllSearchResultFields(enabled: Boolean)
     suspend fun saveThemeMode(mode: ThemeMode)
     suspend fun saveKeyColor(selectedKeyColor: KeyColor)
     suspend fun saveMonetEnable(enabled: Boolean)

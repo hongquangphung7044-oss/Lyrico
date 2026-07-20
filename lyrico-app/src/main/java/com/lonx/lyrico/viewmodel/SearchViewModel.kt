@@ -61,6 +61,7 @@ data class SearchUiState(
     val searchErrors: Map<String, UiMessage> = emptyMap(),
     val lyricsState: LyricsUiState = LyricsUiState(),
     val searchSourceTabStyle: SearchSourceTabStyle = SearchSourceTabStyle.ICON_AND_TEXT,
+    val showAllSearchResultFields: Boolean = false,
     val isInitializing: Boolean = true
 )
 
@@ -165,6 +166,7 @@ class SearchViewModel(
                 lyricsState = renderedLyrics,
                 searchSourceTabStyle = searchConfig?.searchSourceTabStyle
                     ?: SearchSourceTabStyle.ICON_AND_TEXT,
+                showAllSearchResultFields = searchConfig?.showAllSearchResultFields ?: false,
                 isInitializing = searchConfig == null
             )
         }.stateIn(

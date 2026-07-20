@@ -25,6 +25,9 @@
     <string name="cd_no_results">No Result</string>
     <string name="search_limit">Search limit</string>
     <string name="search_limit_tip">Limits results per source. Higher values use more data and cache more images.</string>
+    <string name="show_all_search_result_fields">Show All Fields</string>
+    <string name="show_all_search_result_fields_summary">Show empty fields in search result details.</string>
+    <string name="search_result_empty_value">(empty)</string>
     <string name="search_source_tab_style">Search source tab style</string>
     <string name="search_source_tab_style_icon_only">Icon only</string>
     <string name="search_source_tab_style_text_only">Text only</string>

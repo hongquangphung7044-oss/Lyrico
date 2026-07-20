@@ -61,6 +61,9 @@
     <!-- 搜索 -->
     <string name="search_limit">搜索限制数</string>
     <string name="search_limit_tip">限制每个源的搜索结果数量，设置更大的值会消耗更多流量，同时产生更多图片缓存</string>
+    <string name="show_all_search_result_fields">显示全部字段</string>
+    <string name="show_all_search_result_fields_summary">在搜索结果详情中显示字段值为空的字段</string>
+    <string name="search_result_empty_value">（空）</string>
     <string name="search_source_tab_style">搜索源标签样式</string>
     <string name="search_source_tab_style_icon_only">仅图标</string>
     <string name="search_source_tab_style_text_only">仅文本</string>
