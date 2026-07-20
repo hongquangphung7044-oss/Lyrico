@@ -145,6 +145,7 @@ import top.yukonga.miuix.kmp.icon.extended.Image
 import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Play
+import top.yukonga.miuix.kmp.icon.extended.Reset
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Undo
@@ -198,7 +199,15 @@ fun EditMetadataScreen(
     var bitmapToCrop by remember { mutableStateOf<Bitmap?>(null) }
     var isFabMenuExpanded by remember { mutableStateOf(false) }
     var photoPickerTarget by remember { mutableStateOf(AudioPictureType.FrontCover) }
-    val currentShiftOffset by viewModel.currentShiftOffset.collectAsState()
+    val lyricsOffsetState = rememberTextFieldState(initialText = "0")
+
+    LaunchedEffect(lyricsOffsetState) {
+        snapshotFlow { lyricsOffsetState.text.toString() }
+            .distinctUntilChanged()
+            .collectLatest { text ->
+                text.toLongOrNull()?.let(viewModel::applyLyricsOffset)
+            }
+    }
 
     val clipboardManager = LocalClipboard.current
 
@@ -529,7 +538,8 @@ fun EditMetadataScreen(
                                 artist = editingTagData?.artist ?: "",
                                 rating = editingTagData?.rating ?: 0,
                                 showCover = visibleFieldCodes.contains("cover.picture"),
-                                supportsTypedPictures = originalTagData?.supportsTypedPictures ?: false,
+                                supportsTypedPictures = originalTagData?.supportsTypedPictures
+                                    ?: false,
                                 showRating = visibleFieldCodes.contains("cover.rating"),
                                 isCoverModified = uiState.coverUri != uiState.originalCover,
                                 isArtistImageModified = uiState.artistImageUri != uiState.originalArtistImage,
@@ -893,8 +903,10 @@ fun EditMetadataScreen(
                                     onRevert = {
                                         revertField(
                                             fieldLabel = context.getString(R.string.label_replaygain_track_gain),
-                                            currentValue = editingTagData?.replayGainTrackGain ?: "",
-                                            originalValue = originalTagData?.replayGainTrackGain ?: ""
+                                            currentValue = editingTagData?.replayGainTrackGain
+                                                ?: "",
+                                            originalValue = originalTagData?.replayGainTrackGain
+                                                ?: ""
                                         ) { copy(replayGainTrackGain = it) }
                                     }
                                 )
@@ -910,8 +922,10 @@ fun EditMetadataScreen(
                                     onRevert = {
                                         revertField(
                                             fieldLabel = context.getString(R.string.label_replaygain_track_peak),
-                                            currentValue = editingTagData?.replayGainTrackPeak ?: "",
-                                            originalValue = originalTagData?.replayGainTrackPeak ?: ""
+                                            currentValue = editingTagData?.replayGainTrackPeak
+                                                ?: "",
+                                            originalValue = originalTagData?.replayGainTrackPeak
+                                                ?: ""
                                         ) { copy(replayGainTrackPeak = it) }
                                     }
                                 )
@@ -927,8 +941,10 @@ fun EditMetadataScreen(
                                     onRevert = {
                                         revertField(
                                             fieldLabel = context.getString(R.string.label_replaygain_album_gain),
-                                            currentValue = editingTagData?.replayGainAlbumGain ?: "",
-                                            originalValue = originalTagData?.replayGainAlbumGain ?: ""
+                                            currentValue = editingTagData?.replayGainAlbumGain
+                                                ?: "",
+                                            originalValue = originalTagData?.replayGainAlbumGain
+                                                ?: ""
                                         ) { copy(replayGainAlbumGain = it) }
                                     }
                                 )
@@ -944,8 +960,10 @@ fun EditMetadataScreen(
                                     onRevert = {
                                         revertField(
                                             fieldLabel = context.getString(R.string.label_replaygain_album_peak),
-                                            currentValue = editingTagData?.replayGainAlbumPeak ?: "",
-                                            originalValue = originalTagData?.replayGainAlbumPeak ?: ""
+                                            currentValue = editingTagData?.replayGainAlbumPeak
+                                                ?: "",
+                                            originalValue = originalTagData?.replayGainAlbumPeak
+                                                ?: ""
                                         ) { copy(replayGainAlbumPeak = it) }
                                     }
                                 )
@@ -961,8 +979,10 @@ fun EditMetadataScreen(
                                     onRevert = {
                                         revertField(
                                             fieldLabel = context.getString(R.string.label_replaygain_reference_loudness),
-                                            currentValue = editingTagData?.replayGainReferenceLoudness ?: "",
-                                            originalValue = originalTagData?.replayGainReferenceLoudness ?: ""
+                                            currentValue = editingTagData?.replayGainReferenceLoudness
+                                                ?: "",
+                                            originalValue = originalTagData?.replayGainReferenceLoudness
+                                                ?: ""
                                         ) { copy(replayGainReferenceLoudness = it) }
                                     }
                                 )
@@ -1228,6 +1248,9 @@ fun EditMetadataScreen(
                         onClick = {
                             showLyricsActionBottomSheet = false
                             viewModel.prepareLyricsOffset()
+                            lyricsOffsetState.edit {
+                                replace(0, length, "0")
+                            }
                             showOffsetSheet = true
                         }
                     )
@@ -1540,6 +1563,7 @@ fun EditMetadataScreen(
             modifier = Modifier
                 .padding(bottom = 32.dp)
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
         ) {
             Card(
                 colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.secondaryContainer)
@@ -1547,20 +1571,38 @@ fun EditMetadataScreen(
                 Box(
                     modifier = Modifier
                         .heightIn(max = 300.dp)
-                        .padding(8.dp)
+                        .padding(horizontal = 8.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = editingTagData?.lyrics ?: "",
                         style = MiuixTheme.textStyles.footnote1
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
 
-            OffsetAdjustPanel(
-                currentOffset = currentShiftOffset,
-                onOffsetChange = { viewModel.applyLyricsOffset(it) },
-                onReset = { viewModel.resetLyricsOffset() }
+            TextField(
+                state = lyricsOffsetState,
+                label = stringResource(R.string.label_lyrics_offset),
+                modifier = Modifier.padding(top = 12.dp),
+                lineLimits = TextFieldLineLimits.SingleLine,
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            viewModel.resetLyricsOffset()
+                            lyricsOffsetState.edit {
+                                replace(0, length, "0")
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = MiuixIcons.Reset,
+                            contentDescription = stringResource(R.string.action_reset)
+                        )
+                    }
+                }
             )
         }
     }

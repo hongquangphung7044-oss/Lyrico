@@ -3,7 +3,6 @@ package com.lonx.lyrico.screens
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.graphics.BitmapFactory
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,7 +53,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
@@ -1411,88 +1409,3 @@ private fun SourcePillTabIcon(
 }
 
 private const val ALL_SOURCE_RESULT_LIMIT = 3
-
-/**
- * 专为 Miuix 重新设计的偏移面板组件
- */
-@Composable
-fun OffsetAdjustPanel(
-    currentOffset: Long,
-    onOffsetChange: (Long) -> Unit,
-    onReset: () -> Unit
-) {
-    val view = LocalView.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MiuixTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        // 减少侧
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OffsetStepButton("-500") { onOffsetChange(currentOffset - 500) }
-            OffsetStepButton("-100") { onOffsetChange(currentOffset - 100) }
-        }
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable {
-                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                    onReset()
-                }
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Text(
-                text = "${if (currentOffset > 0) "+" else ""}${currentOffset}ms",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = MiuixTheme.colorScheme.primary
-            )
-            Text(
-                text = stringResource(R.string.action_reset),
-                fontSize = 9.sp,
-                color = MiuixTheme.colorScheme.onSurfaceContainerVariant
-            )
-        }
-
-        // 增加侧
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OffsetStepButton("+100") { onOffsetChange(currentOffset + 100) }
-            OffsetStepButton("+500") { onOffsetChange(currentOffset + 500) }
-        }
-    }
-}
-
-/**
- * Miuix 风格的微小功能按钮
- */
-@Composable
-fun OffsetStepButton(text: String, onClick: () -> Unit) {
-    val view = LocalView.current
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MiuixTheme.colorScheme.surface)
-            .clickable {
-                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                onClick()
-            }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            color = MiuixTheme.colorScheme.onSurface
-        )
-    }
-}

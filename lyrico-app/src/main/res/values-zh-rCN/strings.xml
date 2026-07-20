@@ -406,7 +406,7 @@
 
 
 
-    <string name="action_reset">点击重置</string>
+    <string name="action_reset">重置</string>
     <string name="action_batch_rename">重命名</string>
     <string name="no_tag_data">音频标签加载失败</string>
     <string name="batch_rename_title">批量重命名</string>
