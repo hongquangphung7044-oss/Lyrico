@@ -23,8 +23,11 @@
     <string name="apply_lyrics_only_action">Lyrics Only</string>
     <string name="preview_action">Preview</string>
     <string name="cd_no_results">No Result</string>
-    <string name="search_limit">Search limit</string>
-    <string name="search_limit_tip">Limits results per source. Higher values use more data and cache more images.</string>
+    <string name="search_limit">Results per load</string>
+    <string name="search_limit_tip">Results loaded from each source at a time. Higher values use more data and cache more images.</string>
+    <string name="search_loading_more">Loading more…</string>
+    <string name="search_load_more">Load more</string>
+    <string name="search_load_more_failed">Load failed. Tap to retry</string>
     <string name="show_all_search_result_fields">Show All Fields</string>
     <string name="show_all_search_result_fields_summary">Show empty fields in search result details.</string>
     <string name="search_result_empty_value">(empty)</string>

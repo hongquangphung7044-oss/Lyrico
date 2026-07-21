@@ -59,8 +59,11 @@
     <string name="ignore_short_audio">不扫描 60 秒以下音频</string>
 
     <!-- 搜索 -->
-    <string name="search_limit">搜索限制数</string>
-    <string name="search_limit_tip">限制每个源的搜索结果数量，设置更大的值会消耗更多流量，同时产生更多图片缓存</string>
+    <string name="search_limit">单次加载数量</string>
+    <string name="search_limit_tip">每个搜索源每次加载的结果数量，设置更大的值会消耗更多流量，同时产生更多图片缓存</string>
+    <string name="search_loading_more">正在加载更多…</string>
+    <string name="search_load_more">加载更多</string>
+    <string name="search_load_more_failed">加载失败，点击重试</string>
     <string name="show_all_search_result_fields">显示全部字段</string>
     <string name="show_all_search_result_fields_summary">在搜索结果详情中显示字段值为空的字段</string>
     <string name="search_result_empty_value">（空）</string>

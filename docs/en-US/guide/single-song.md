@@ -51,6 +51,7 @@ Use plugins to search online song metadata to fill in title, artist, lyrics, and
 1. Open the editor. The search bar is pre-filled with the current song's **title + artist** as keywords. If the song has no title or artist tags, the filename is used instead.
 2. Tap the search button (or press Enter). Lyrico queries enabled plugins for matching songs.
 3. Search results are shown under "All" and per-plugin-source tabs.
+   - Tap **Load more** at the bottom of the results to load the next page. The “All” tab continues loading every source that still has more results.
 4. Tap a search result to view its metadata and lyrics.
    - By default, only fields containing values are shown. Enable **Show All Search Result Fields** under `Settings` → `Search Settings` to display missing fields as “(empty)”.
 5. Choose an action:

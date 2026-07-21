@@ -8,9 +8,9 @@ Go to: `Settings` → `Search Settings` → `Plugin Management`.
 
 Manage installed search source plugins: import, enable/disable, reorder, configure, and uninstall. See [Using Plugins](../plugins.md) for full details.
 
-## Search Limit
+## Results per Load
 
-Limits the number of search results returned per plugin source. Higher numbers mean more candidates but may consume more bandwidth and increase image cache size.
+Sets the number of search results loaded from each plugin source at a time. Use the **Load more** button at the bottom of the results to continue. Higher values load more candidates at once but may consume more bandwidth and increase image cache size.
 
 ## Prioritize Filename Matching
 
